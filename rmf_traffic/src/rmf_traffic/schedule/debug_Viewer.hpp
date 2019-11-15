@@ -15,26 +15,23 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE_HPP
-#define RMF_TRAFFIC__SCHEDULE_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_VIEWER_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_VIEWER_HPP
 
-#include <rmf_utils/impl_ptr.hpp>
+#include <rmf_traffic/schedule/Database.hpp>
 
 namespace rmf_traffic {
+namespace schedule {
 
-class Schedule
+class Viewer::Debug
 {
 public:
 
-
-
-private:
-
-  class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  static std::size_t get_num_entries(const Viewer& viewer);
 
 };
 
+} // namespace schedule
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_VIEWER_HPP
