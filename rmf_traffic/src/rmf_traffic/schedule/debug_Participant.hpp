@@ -15,27 +15,24 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_PARTICIPANT_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_PARTICIPANT_HPP
 
-#include <rmf_traffic/schedule/Rectifier.hpp>
-#include "ParticipantInternal.hpp"
+#include <rmf_traffic/schedule/Participant.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-class Rectifier::Implementation
+class Participant::Debug
 {
 public:
 
-  Participant::Implementation& participant;
-
-  static Rectifier make(Participant::Implementation& participant);
+  static ItineraryVersion get_itinerary_version(const Participant& p);
 
 };
 
 } // namespace schedule
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_PARTICIPANT_HPP
