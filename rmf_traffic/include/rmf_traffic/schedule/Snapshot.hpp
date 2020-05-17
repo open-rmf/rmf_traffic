@@ -15,34 +15,40 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#ifndef RMF_TRAFFIC__SCHEDULE__SNAPSHOT_HPP
+#define RMF_TRAFFIC__SCHEDULE__SNAPSHOT_HPP
 
-#include <rmf_traffic/Route.hpp>
+#include <rmf_traffic/schedule/Viewer.hpp>
 
 namespace rmf_traffic {
+namespace schedule {
 
 //==============================================================================
-class Route::Implementation
+class Snapshot : public Viewer
 {
 public:
 
-  std::string map;
-  Trajectory trajectory;
+  // The Snapshot class is just a more specific name for Viewer.
 
-  static Route make(Implementation data)
-  {
-    return Route(std::move(data.map), std::move(data.trajectory));
-  }
-
-  static const Route::Implementation& get(const Route& route)
-  {
-    return *route._pimpl;
-  }
 };
 
-using RouteData = Route::Implementation;
+//==============================================================================
+/// This is a pure abstract interface class that can be inherited by any
+/// schedule Viewer that wants to be able to provide a frozen snapshot of its
+/// schedule.
+class Snappable
+{
+public:
 
+  /// Get a snapshot of the schedule
+  virtual std::shared_ptr<const Snapshot> snapshot() const = 0;
+
+  // Virtual destructor
+  virtual ~Snappable() = default;
+
+};
+
+} // namespace schedule
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#endif // RMF_TRAFFIC__SCHEDULE__SNAPSHOT_HPP
