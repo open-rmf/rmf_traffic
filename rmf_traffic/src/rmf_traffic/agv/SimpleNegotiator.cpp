@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 #include <rmf_traffic/agv/Rollout.hpp>
 #include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 
@@ -26,39 +26,97 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+// This line tells the linker to take care of defining the value of this field
+// inside of this translation unit.
+const double SimpleNegotiator::Options::DefaultMaxCostLeeway;
+
+//==============================================================================
 class SimpleNegotiator::Options::Implementation
 {
 public:
 
   ApprovalCallback approval_cb;
+  std::shared_ptr<const bool> interrupt_flag;
+  rmf_utils::optional<double> maximum_cost_leeway;
+  rmf_utils::optional<std::size_t> maximum_alts;
   Duration minimum_holding_time;
 
-  static ApprovalCallback&& move_approval_cb(Options&& options)
+  static ApprovalCallback& get_approval_cb(Options& options)
   {
-    return std::move(options._pimpl->approval_cb);
+    return options._pimpl->approval_cb;
   }
 
 };
 
 //==============================================================================
-SimpleNegotiator::Options::Options(
-  ApprovalCallback approval_cb,
-  Duration min_hold_time)
+SimpleNegotiator::Options::Options(ApprovalCallback approval_cb,
+    std::shared_ptr<const bool> interrupt_flag,
+    rmf_utils::optional<double> maximum_cost_leeway,
+    rmf_utils::optional<std::size_t> maximum_alts,
+    Duration min_hold_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        std::move(approval_cb),
-        min_hold_time
-      }))
+           Implementation{
+             std::move(approval_cb),
+             std::move(interrupt_flag),
+             maximum_cost_leeway,
+             maximum_alts,
+             min_hold_time
+           }))
 {
   // Do nothing
 }
 
 //==============================================================================
 auto SimpleNegotiator::Options::approval_callback(
-  ApprovalCallback approval_cb) -> Options&
+    ApprovalCallback approval_cb) -> Options&
 {
   _pimpl->approval_cb = std::move(approval_cb);
   return *this;
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::interrupt_flag(
+    std::shared_ptr<const bool> flag) -> Options&
+{
+  _pimpl->interrupt_flag = std::move(flag);
+  return *this;
+}
+
+//==============================================================================
+const std::shared_ptr<const bool>&
+SimpleNegotiator::Options::interrupt_flag() const
+{
+  return _pimpl->interrupt_flag;
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::maximum_cost_leeway(
+    rmf_utils::optional<double> leeway) -> Options&
+{
+  _pimpl->maximum_cost_leeway = leeway;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<double>
+SimpleNegotiator::Options::maximum_cost_leeway() const
+{
+  return _pimpl->maximum_cost_leeway;
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::maximum_alternatives(
+    rmf_utils::optional<std::size_t> num) -> Options&
+{
+  _pimpl->maximum_alts = num;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<std::size_t>
+SimpleNegotiator::Options::maximum_alternatives() const
+{
+  return _pimpl->maximum_alts;
 }
 
 //==============================================================================
@@ -81,9 +139,9 @@ public:
 
   std::vector<Planner::Start> starts;
   Planner::Goal goal;
-  Planner::Options options;
+  Planner::Options planner_options;
   Planner planner;
-  Options::ApprovalCallback approval_cb;
+  Options negotiator_options;
 
   bool debug_print = false;
 
@@ -91,13 +149,12 @@ public:
     std::vector<Planner::Start> starts_,
     Planner::Goal goal_,
     Planner::Configuration configuration_,
-    Planner::Options options_,
-    Options::ApprovalCallback approval_cb_)
+    Options options_)
   : starts(std::move(starts_)),
     goal(std::move(goal_)),
-    options(std::move(options_)),
-    planner(std::move(configuration_), options),
-    approval_cb(std::move(approval_cb_))
+    planner_options(nullptr, options_.minimum_holding_time()),
+    planner(std::move(configuration_), planner_options),
+    negotiator_options(std::move(options_))
   {
     // Do nothing
   }
@@ -111,12 +168,11 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Configuration planner_configuration,
   Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation(
-        {std::move(start)},
-        std::move(goal),
-        std::move(planner_configuration),
-        Planner::Options(nullptr, options.minimum_holding_time()),
-        Options::Implementation::move_approval_cb(std::move(options)))))
+    Implementation(
+      {std::move(start)},
+      std::move(goal),
+      std::move(planner_configuration),
+      std::move(options))))
 {
   // Do nothing
 }
@@ -128,11 +184,10 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Configuration planner_configuration,
   Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      std::move(starts),
-      std::move(goal),
-      std::move(planner_configuration),
-      Planner::Options(nullptr, options.minimum_holding_time()),
-      Options::Implementation::move_approval_cb(std::move(options))))
+           std::move(starts),
+           std::move(goal),
+           std::move(planner_configuration),
+           std::move(options)))
 {
   // Do nothing
 }
@@ -140,8 +195,8 @@ SimpleNegotiator::SimpleNegotiator(
 namespace {
 //==============================================================================
 bool contains(
-  const std::vector<schedule::ParticipantId>& ids,
-  schedule::ParticipantId id)
+    const std::vector<schedule::ParticipantId>& ids,
+    schedule::ParticipantId id)
 {
   return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
@@ -160,12 +215,12 @@ inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 
 //==============================================================================
 inline void print_route(
-  const rmf_traffic::Route& route,
-  const rmf_traffic::Time start_time)
+    const rmf_traffic::Route& route,
+    const rmf_traffic::Time start_time)
 {
   assert(route.trajectory().size() > 0);
   for (auto it = ++route.trajectory().begin(); it
-    != route.trajectory().end(); ++it)
+       != route.trajectory().end(); ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -179,7 +234,7 @@ inline void print_route(
 
 //==============================================================================
 inline void print_itinerary(
-  const rmf_traffic::schedule::Itinerary& itinerary)
+    const rmf_traffic::schedule::Itinerary& itinerary)
 {
   if (itinerary.empty())
   {
@@ -191,7 +246,7 @@ inline void print_itinerary(
     for (const auto& r : itinerary)
       print_route(*r, start_time);
 
-    std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)" << std::endl;
   }
 }
 
@@ -208,23 +263,23 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
     for (const auto& r : itinerary)
       print_route(r, start_time);
 
-    std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)" << std::endl;
   }
 }
 
 
-//==============================================================================
+////==============================================================================
 class AlternativesTracker
 {
 public:
 
   AlternativesTracker(std::vector<schedule::ParticipantId> participants)
-  : _ordered_participants(std::move(participants))
+    : _ordered_participants(std::move(participants))
   {
     std::sort(_ordered_participants.begin(), _ordered_participants.end());
   }
 
-  bool skip(schedule::Negotiation::VersionedKeySequence sequence)
+  bool skip(const schedule::Negotiation::VersionedKeySequence& sequence)
   {
     if (_ordered_participants.empty())
       return false;
@@ -267,13 +322,13 @@ private:
   Element _root;
 
 };
+
 } // anonymous namespace
 
 //==============================================================================
 void SimpleNegotiator::respond(
   const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-  const Responder& responder,
-  const bool* interrupt_flag)
+  const ResponderPtr& responder)
 {
   const auto& profile =
     _pimpl->planner.get_configuration().vehicle_traits().profile();
@@ -281,18 +336,30 @@ void SimpleNegotiator::respond(
 
   const auto& alternative_sets = rv_generator.alternative_sets();
 
-  auto options = _pimpl->options;
-  options.interrupt_flag(interrupt_flag);
+  auto options = _pimpl->planner_options;
+
+  const auto maximum_cost_leeway =
+      _pimpl->negotiator_options.maximum_cost_leeway();
+  const auto max_alts = _pimpl->negotiator_options.maximum_alternatives();
 
   std::deque<rmf_utils::clone_ptr<NegotiatingRouteValidator>> validators;
   validators.push_back(
-    rmf_utils::make_clone<NegotiatingRouteValidator>(rv_generator.begin()));
+        rmf_utils::make_clone<NegotiatingRouteValidator>(rv_generator.begin()));
 
   rmf_utils::optional<schedule::Negotiation::Alternatives> alternatives;
   rmf_utils::optional<std::vector<schedule::ParticipantId>> best_blockers;
 
+  if (_pimpl->debug_print)
+  {
+    std::cout << "Responding to [";
+    for (const auto& p : table_viewer->sequence())
+      std::cout << " " << p.participant << ":" << p.version;
+    std::cout << " ]" << std::endl;
+  }
+
   AlternativesTracker tracker(rv_generator.alternative_sets());
 
+  const auto interrupt_flag = _pimpl->planner_options.interrupt_flag();
   while (!validators.empty() && !(interrupt_flag && *interrupt_flag))
   {
     const auto validator = std::move(validators.front());
@@ -315,47 +382,71 @@ void SimpleNegotiator::respond(
         std::cout << "Negotiating with rollouts:";
         for (const auto& r : validator->alternatives())
         {
-          std::cout << " [" << r.participant << ":" << r.version << "|"
-                    << table_viewer->alternatives().at(r.participant)->size()
-                    << "]";
+          std::cout << " (" << r.participant << ":" << r.version
+                    << "/" << table_viewer->alternatives().at(r.participant)->size()
+                    << ")";
         }
         std::cout << std::endl;
       }
     }
 
     options.validator(validator);
-    const auto plan = _pimpl->planner.plan(
-      _pimpl->starts, _pimpl->goal, options);
+    auto plan = _pimpl->planner.setup(_pimpl->starts, _pimpl->goal, options);
+    const double initial_cost_estimate = *plan.cost_estimate();
+    if (maximum_cost_leeway)
+    {
+      plan.options().maximum_cost_estimate(
+            maximum_cost_leeway.value() * initial_cost_estimate);
+    }
+    else
+    {
+      plan.options().maximum_cost_estimate(rmf_utils::nullopt);
+    }
+
+    plan.resume();
 
     if (plan)
     {
       if (_pimpl->debug_print)
       {
+        const double cost = plan->get_cost();
+        std::cout << "Maximum cost leeway factor: " << cost/initial_cost_estimate
+                  << std::endl;
+
         std::cout << "Submitting:\n";
         print_itinerary(plan->get_itinerary());
       }
 
       Responder::ApprovalCallback responder_approval_cb;
-      if (_pimpl->approval_cb)
+      auto options_approval_callback =
+          Options::Implementation::get_approval_cb(_pimpl->negotiator_options);
+      if (options_approval_callback)
       {
         responder_approval_cb = [
-          approval_cb = _pimpl->approval_cb,
-          approved_plan = *plan
-          ]() -> Responder::UpdateVersion
-          {
-            return approval_cb(std::move(approved_plan));
-          };
+              approval_cb = options_approval_callback,
+              approved_plan = *plan
+            ]() -> Responder::UpdateVersion
+        {
+          return approval_cb(std::move(approved_plan));
+        };
       }
 
       if (_pimpl->debug_print)
       {
         std::cout << " >>>>> Submitting" << std::endl;
       }
-      return responder.submit(plan->get_itinerary(), responder_approval_cb);
+      return responder->submit(plan->get_itinerary(), responder_approval_cb);
     }
 
     if (_pimpl->debug_print)
     {
+      if (plan.cost_estimate())
+      {
+        std::cout << " ======= Failed ratio: "
+                  << (*plan.cost_estimate())/initial_cost_estimate
+                  << std::endl;
+      }
+
       std::cout << "Failed to find a plan. Blocked by:";
       for (const auto p : plan.blockers())
         std::cout << " " << p;
@@ -371,8 +462,8 @@ void SimpleNegotiator::respond(
       if (contains(blockers, r))
       {
         validators.push_back(
-          rmf_utils::make_clone<NegotiatingRouteValidator>(
-            validator->next(r)));
+              rmf_utils::make_clone<NegotiatingRouteValidator>(
+                validator->next(r)));
       }
     }
 
@@ -408,7 +499,9 @@ void SimpleNegotiator::respond(
 
     Rollout rollout(plan);
     // TODO(MXG): Make the span configurable
-    alternatives = rollout.expand(parent_id, std::chrono::seconds(15), options);
+    alternatives = rollout.expand(
+          parent_id, std::chrono::seconds(15), options, max_alts);
+
     if (alternatives->empty())
     {
       alternatives = rmf_utils::nullopt;
@@ -421,17 +514,17 @@ void SimpleNegotiator::respond(
     {
       if (_pimpl->debug_print)
       {
-        std::cout << "Rolled out [" << alternatives->size() << "] alternatives"
+        std::cout << "Rolled out [" << alternatives->size() << "] alternatives:"
                   << std::endl;
-      }
 
-      if (alternatives->size() > 10)
-        alternatives->resize(10);
-
-      if (_pimpl->debug_print)
-      {
+        std::size_t count = 0;
         for (const auto& itinerary : *alternatives)
+        {
+          if (++count > 5)
+            break;
+
           print_itinerary(itinerary);
+        }
       }
     }
 
@@ -445,7 +538,7 @@ void SimpleNegotiator::respond(
     {
       std::cout << " >>>>> Rejecting" << std::endl;
     }
-    return responder.reject(*alternatives);
+    return responder->reject(*alternatives);
   }
 
   if (best_blockers)
@@ -454,7 +547,7 @@ void SimpleNegotiator::respond(
     {
       std::cout << " >>>>> Forfeiting with blockers" << std::endl;
     }
-    return responder.forfeit(*best_blockers);
+    return responder->forfeit(*best_blockers);
   }
 
   if (_pimpl->debug_print)
@@ -463,12 +556,12 @@ void SimpleNegotiator::respond(
   }
 
   // This would be suspicious. How could the planning fail without any blockers?
-  responder.forfeit({});
+  responder->forfeit({});
 }
 
 //==============================================================================
 SimpleNegotiator& SimpleNegotiator::Debug::enable_debug_print(
-  SimpleNegotiator& negotiator)
+    SimpleNegotiator& negotiator)
 {
   negotiator._pimpl->debug_print = true;
   return negotiator;
