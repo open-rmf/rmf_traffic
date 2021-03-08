@@ -131,5 +131,17 @@ bool operator!=(const Box& lhs, const Box& rhs)
   return !(lhs == rhs);
 }
 
+//==============================================================================
+FinalConvexShape Box::finalize_convex_with_offset(Eigen::Vector2d offset) const
+{
+  double characteristic_length = 0.5 * std::sqrt(
+    this->get_x_length() * this->get_x_length()
+    + this->get_y_length() * this->get_y_length());
+  return FinalConvexShape::Implementation::make_final_shape_with_offset(
+    rmf_utils::make_derived_impl<const Shape, const Box>(*this),
+    _get_internal()->make_fcl(), characteristic_length, offset,
+    make_equality_comparator(*this));
+}
+
 } // namespace geometry
 } // namespace rmf_traffic

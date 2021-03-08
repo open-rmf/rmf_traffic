@@ -22,6 +22,7 @@
 
 #include <rmf_utils/optional.hpp>
 #include <rmf_utils/impl_ptr.hpp>
+#include <Eigen/Dense>
 
 namespace rmf_traffic {
 
@@ -44,17 +45,44 @@ public:
     geometry::ConstFinalConvexShapePtr footprint,
     geometry::ConstFinalConvexShapePtr vicinity = nullptr);
 
+  /// Constructor for collections of shapes
+  ///
+  /// \param[in] footprint
+  ///   A collection of shapes that represent the space that this participant occupies.
+  ///
+  /// \param[in] vicinity
+  ///   A collection of shapes that represent an estimate of the vicinity around
+  ///   the participant in which the presence of other traffic would disrupt its
+  ///   operations. If a nullptr is used for this, the footprint shape will
+  ///   be used as the vicinity.
+  ///
+  Profile(
+    geometry::ConstFinalConvexShapeGroup footprint,
+    geometry::ConstFinalConvexShapeGroup vicinity = geometry::ConstFinalConvexShapeGroup());
+
   /// Set the footprint of the participant.
   Profile& footprint(geometry::ConstFinalConvexShapePtr shape);
 
-  /// Get the footprint of the participant.
-  const geometry::ConstFinalConvexShapePtr& footprint() const;
+  /// Set the footprint group of the participant.
+  Profile& footprint(geometry::ConstFinalConvexShapeGroup shape);
 
-  /// Set the vicinity of this participant.
+  /// Get the footprint of the participant.
+  const geometry::ConstFinalConvexShapeGroup& footprint() const;
+
+  /// Get the footprint characteristic length
+  double get_footprint_characteristic_length() const;
+
+  /// Set the footprint of the participant.
   Profile& vicinity(geometry::ConstFinalConvexShapePtr shape);
 
+  /// Set the vicinity group of this participant.
+  Profile& vicinity(geometry::ConstFinalConvexShapeGroup shape);
+
   /// Get the vicinity of this participant.
-  const geometry::ConstFinalConvexShapePtr& vicinity() const;
+  const geometry::ConstFinalConvexShapeGroup& vicinity() const;
+
+  /// Get the footprint characteristic length
+  double get_vicinity_characteristic_length() const;
 
   class Implementation;
 private:

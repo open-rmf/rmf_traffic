@@ -23,27 +23,6 @@ namespace rmf_traffic {
 
 namespace {
 
-const double time_tolerance = 1e-4;
-
-//==============================================================================
-Eigen::Matrix4d make_M_inv()
-{
-  Eigen::Matrix4d M;
-  M.block<1, 4>(0, 0) <<  1.0/6.0, 2.0/3.0, 1.0/6.0, 0.0;
-  M.block<1, 4>(1, 0) << -1.0/2.0, 0.0, 1.0/2.0, 0.0;
-  M.block<1, 4>(2, 0) <<  1.0/2.0, -1.0, 1.0/2.0, 0.0;
-  M.block<1, 4>(3, 0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
-
-  return M.inverse();
-}
-
-//==============================================================================
-double compute_delta_t(const Time& finish_time, const Time& start_time)
-{
-  using Sec64 = std::chrono::duration<double>;
-  return std::chrono::duration_cast<Sec64>(finish_time - start_time).count();
-}
-
 //==============================================================================
 std::array<Eigen::Vector4d, 3> compute_coefficients(
   const Eigen::Vector3d& x0,
@@ -64,6 +43,30 @@ std::array<Eigen::Vector4d, 3> compute_coefficients(
   }
 
   return coeffs;
+}
+
+//==============================================================================
+Eigen::Matrix4d make_M_inv()
+{
+  Eigen::Matrix4d M;
+  M.block<1, 4>(0, 0) <<  1.0/6.0, 2.0/3.0, 1.0/6.0, 0.0;
+  M.block<1, 4>(1, 0) << -1.0/2.0, 0.0, 1.0/2.0, 0.0;
+  M.block<1, 4>(2, 0) <<  1.0/2.0, -1.0, 1.0/2.0, 0.0;
+  M.block<1, 4>(3, 0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
+
+  return M.inverse();
+}
+
+//==============================================================================
+const Eigen::Matrix4d M_inv = make_M_inv();
+
+const double time_tolerance = 1e-4;
+
+//==============================================================================
+double compute_delta_t(const Time& finish_time, const Time& start_time)
+{
+  using Sec64 = std::chrono::duration<double>;
+  return std::chrono::duration_cast<Sec64>(finish_time - start_time).count();
 }
 
 //==============================================================================
@@ -201,9 +204,6 @@ Eigen::Vector3d compute_acceleration(
 } // anonymous namespace
 
 //==============================================================================
-const Eigen::Matrix4d M_inv = make_M_inv();
-
-//==============================================================================
 Spline::Spline(const Trajectory::const_iterator& it)
 : params(compute_parameters(it))
 {
@@ -258,7 +258,13 @@ fcl::SplineMotion<double> Spline::to_fcl(
   const Time start_time, const Time finish_time) const
 {
   std::array<Eigen::Vector3d, 4> knots = compute_knots(start_time, finish_time);
+  return to_fcl(knots);
+}
 
+//==============================================================================
+fcl::SplineMotion<double> Spline::to_fcl(
+  const std::array<Eigen::Vector3d, 4>& knots) const
+{
   std::array<fcl::Vector3d, 4> Td;
   std::array<fcl::Vector3d, 4> Rd;
 

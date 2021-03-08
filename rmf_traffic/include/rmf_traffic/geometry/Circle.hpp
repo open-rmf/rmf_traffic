@@ -46,7 +46,8 @@ public:
 
   // Docuemntation inherited
   FinalConvexShape finalize_convex() const final;
-
+  
+  FinalConvexShape finalize_convex_with_offset(Eigen::Vector2d offset) const final;
 };
 
 //==============================================================================

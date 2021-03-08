@@ -27,13 +27,34 @@ class Profile::Implementation
 {
 public:
 
-  geometry::ConstFinalConvexShapePtr footprint;
-  geometry::ConstFinalConvexShapePtr vicinity;
+  geometry::ConstFinalConvexShapeGroup footprint;
+  geometry::ConstFinalConvexShapeGroup vicinity;
+
+  double footprint_characteristic_length = 0.0;
+  double vicinity_characteristic_length = 0.0;
 
   static const Implementation& get(const Profile& profile)
   {
     return *profile._pimpl;
   }
+
+  double compute_shapegroup_characteristic_length(geometry::ConstFinalConvexShapeGroup group) const
+  {
+     double l = 0.0;
+     for (const auto shape : group)
+     {
+       if (!shape) // scenario "Identify a failed negotiation" has null footprints
+        continue;
+       Eigen::Vector2d offset = shape->get_offset();
+       
+       double shape_length = shape->get_characteristic_length();
+       double dist = offset.norm() + shape_length;
+       if (l < dist)
+        l = dist;
+     }
+     return l;
+  }
+
 };
 
 } // namespace rmf_traffic
