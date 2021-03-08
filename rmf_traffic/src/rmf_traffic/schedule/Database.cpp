@@ -691,13 +691,13 @@ void Database::update_description(
       + std::to_string(id) + "]");
     // *INDENT-ON*
   }
-  auto version = ++_pimpl->schedule_version;
 
   const auto description_ptr =
     std::make_shared<ParticipantDescription>(std::move(desc));
 
-  p_it->second.description = description_ptr;
+  auto version = ++_pimpl->schedule_version;
   p_it->second.last_updated = version;
+  p_it->second.description = description_ptr;
 
   _pimpl->descriptions[id] = description_ptr;
   _pimpl->update_participant_version.insert({version, 
