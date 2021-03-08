@@ -84,7 +84,7 @@ public:
   Registration register_participant(
     ParticipantDescription participant_info) final;
 
-    // Documentation inherited
+  // Documentation inherited
   void update_description(
     ParticipantId participant,
     ParticipantDescription desc) final;
