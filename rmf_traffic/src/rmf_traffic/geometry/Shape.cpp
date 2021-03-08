@@ -66,5 +66,17 @@ FinalShape::FinalShape()
   // Implementation::make_final_shape
 }
 
+//==============================================================================
+bool FinalShape::operator==(const FinalShape& other) const
+{
+  return _pimpl->_compare_equality(*(other._pimpl->_shape));
+}
+
+//==============================================================================
+bool FinalShape::operator!=(const FinalShape& other) const
+{
+  return !(*this == other);
+}
+
 } // namespace geometry
 } // namespace rmf_traffic

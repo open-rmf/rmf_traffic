@@ -66,6 +66,29 @@ public:
 
 };
 
+//==============================================================================
+/// Equality operator for Box objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator==(
+  const Box& lhs,
+  const Box& rhs);
+
+//==============================================================================
+/// Non-equality operator for Box objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator!=(
+  const Box& lhs,
+  const Box& rhs);
 
 } // namespace geometry
 } // namespace rmf_traffic

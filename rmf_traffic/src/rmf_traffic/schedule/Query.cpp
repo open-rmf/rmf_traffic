@@ -57,6 +57,14 @@ public:
 };
 
 //==============================================================================
+bool operator==(
+  const Query::Spacetime::Regions::Implementation& lhs,
+  const Query::Spacetime::Regions::Implementation& rhs)
+{
+  return lhs.regions == rhs.regions;
+}
+
+//==============================================================================
 class Query::Spacetime::Timespan::Implementation
 {
 public:
@@ -259,6 +267,31 @@ Query::Spacetime::Regions::Regions()
 }
 
 //==============================================================================
+bool operator==(
+  const Query::Spacetime::Regions& lhs,
+  const Query::Spacetime::Regions& rhs)
+{
+  if (lhs.size() != rhs.size())
+  {
+    return false;
+  }
+
+  auto lhs_it = lhs.begin();
+  auto rhs_it = rhs.begin();
+  while (lhs_it != lhs.end() && rhs_it != rhs.end())
+  {
+    if (*lhs_it != *rhs_it)
+    {
+      return false;
+    }
+    ++lhs_it;
+    ++rhs_it;
+  }
+
+  return true;
+}
+
+//==============================================================================
 const std::unordered_set<std::string>&
 Query::Spacetime::Timespan::maps() const
 {
@@ -452,6 +485,40 @@ auto Query::Spacetime::timespan() const -> const Timespan*
 }
 
 //==============================================================================
+bool operator==(
+  const Query::Spacetime::Timespan& lhs,
+  const Query::Spacetime::Timespan& rhs)
+{
+  return lhs.maps() == rhs.maps() &&
+    *lhs.get_lower_time_bound() == *rhs.get_lower_time_bound() &&
+    *lhs.get_upper_time_bound() == *rhs.get_upper_time_bound();
+}
+
+//==============================================================================
+bool operator==(
+  const Query::Spacetime& lhs,
+  const Query::Spacetime& rhs)
+{
+  if (lhs.get_mode() != rhs.get_mode())
+  {
+    return false;
+  }
+
+  switch (lhs.get_mode())
+  {
+    case Query::Spacetime::Mode::All:
+      return true;
+    case Query::Spacetime::Mode::Regions:
+      return *lhs.regions() == *rhs.regions();
+    case Query::Spacetime::Mode::Timespan:
+      return *lhs.timespan() == *rhs.timespan();
+    case Query::Spacetime::Mode::Invalid:
+    default:
+      return false;
+  }
+}
+
+//==============================================================================
 class Query::Participants::Implementation
 {
 public:
@@ -476,6 +543,14 @@ public:
 Query::Participants::All::All()
 {
   // Do nothing
+}
+
+//==============================================================================
+bool operator==(
+  [[maybe_unused]] const Query::Participants::All& lhs,
+  [[maybe_unused]] const Query::Participants::All& rhs)
+{
+  return true;
 }
 
 namespace {
@@ -529,6 +604,14 @@ Query::Participants::Include::Include()
 }
 
 //==============================================================================
+bool operator==(
+  const Query::Participants::Include& lhs,
+  const Query::Participants::Include& rhs)
+{
+  return lhs.get_ids() == rhs.get_ids();
+}
+
+//==============================================================================
 class Query::Participants::Exclude::Implementation
 {
 public:
@@ -563,6 +646,14 @@ auto Query::Participants::Exclude::set_ids(std::vector<ParticipantId> ids)
 Query::Participants::Exclude::Exclude()
 {
   // Do nothing
+}
+
+//==============================================================================
+bool operator==(
+  const Query::Participants::Exclude& lhs,
+  const Query::Participants::Exclude& rhs)
+{
+  return lhs.get_ids() == rhs.get_ids();
 }
 
 //==============================================================================
@@ -673,6 +764,30 @@ auto Query::Participants::exclude(std::vector<ParticipantId> ids)
 }
 
 //==============================================================================
+bool operator==(
+  const Query::Participants& lhs,
+  const Query::Participants& rhs)
+{
+  if (lhs.get_mode() != rhs.get_mode())
+  {
+    return false;
+  }
+
+  switch(lhs.get_mode())
+  {
+    case Query::Participants::Mode::All:
+      return *lhs.all() == *rhs.all();
+    case Query::Participants::Mode::Include:
+      return *lhs.include() == *rhs.include();
+    case Query::Participants::Mode::Exclude:
+      return *lhs.exclude() == *rhs.exclude();
+    case Query::Participants::Mode::Invalid:
+    default:
+      return false;
+  }
+}
+
+//==============================================================================
 class Query::Implementation
 {
 public:
@@ -762,6 +877,23 @@ Query make_query(
 {
   return Query::Implementation::make_query(
     std::move(maps), start_time, finish_time);
+}
+
+//==============================================================================
+bool operator==(
+  const Query& lhs,
+  const Query& rhs)
+{
+  return lhs.spacetime() == rhs.spacetime() &&
+    lhs.participants() == rhs.participants();
+}
+
+//==============================================================================
+bool operator!=(
+  const Query& lhs,
+  const Query& rhs)
+{
+  return !(lhs == rhs);
 }
 
 } // namespace schedule
