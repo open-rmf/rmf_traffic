@@ -341,6 +341,16 @@ Version Mirror::update(const Patch& patch)
       updates.description());
 
     const ParticipantId id = updates.id();
+
+    if(_pimpl->participant_ids.count(id) == 0)
+    {
+      std::cerr << "[Mirror::update] Requested updating of participant ID ["
+                << id << "] but participant hasn't yet registered"
+                << "or has been deleted."
+                << std::endl;
+      continue;
+    }
+
     _pimpl->states[id] = Implementation::ParticipantState{
       {},
       description
