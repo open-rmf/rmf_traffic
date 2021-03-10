@@ -35,6 +35,7 @@ jobs:
               "mixin": ["coverage-gcc"]
             }
           }
+        colcon-mixin-name: coverage-gcc
         colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
