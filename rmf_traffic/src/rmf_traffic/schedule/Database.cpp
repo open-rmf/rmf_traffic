@@ -143,12 +143,14 @@ public:
   ParticipantRegistrationTime remove_participant_time;
 
 
+  // Keeps track of when the latest update was applied to each participant
   struct UpdateParticipantDescriptionInfo
   {
-    ParticipantId id;
+    Version latest_update;
     Version original_version;
   };
-  using UpdateParticipantDescription = std::map<Version, UpdateParticipantDescriptionInfo>;
+  using UpdateParticipantDescription = 
+    std::unordered_map<ParticipantId, UpdateParticipantDescriptionInfo>;
   UpdateParticipantDescription update_participant_version;
 
   // NOTE(MXG): We store this record of inconsistency ranges here as a single
@@ -700,9 +702,9 @@ void Database::update_description(
   p_it->second.description = description_ptr;
 
   _pimpl->descriptions[id] = description_ptr;
-  _pimpl->update_participant_version.insert({version, 
+  _pimpl->update_participant_version.insert({id, 
     Implementation::UpdateParticipantDescriptionInfo {
-      id,
+      version,
       p_it->second.initial_schedule_version
     }});
 }
@@ -1186,15 +1188,21 @@ auto Database::changes(
         unregistered.emplace_back(remove_it->second.id);
     }
 
-    auto update_it = _pimpl->update_participant_version.upper_bound(after_v);
-    for (; update_it != _pimpl->update_participant_version.end(); ++update_it)
+   
+    for (auto& update_it : _pimpl->update_participant_version)
     {
-      if (update_it->second.original_version <= *after)
+       // Check which participants have been updated
+      auto id = update_it.first;
+      if (update_it.second.original_version <= after_v 
+        && update_it.second.latest_update > after_v)
       {
-        const auto p_it = _pimpl->states.find(add_it->second);
+        // Only send the update if it is not a newly registered
+        // participant and if there has been an update since
+        // the mirror was last updated.
+        const auto p_it = _pimpl->states.find(id);
         if (p_it == _pimpl->states.end()) continue;
 
-        info_updates.emplace_back(update_it->second.id,
+        info_updates.emplace_back(id,
                                   *p_it->second.description);        
       }
     }
