@@ -3,17 +3,14 @@ on: [push, pull_request]
 jobs:
   build_and_test:
     runs-on: ubuntu-20.04
-    container:
-      image: docker://ros:foxy-ros-base-focal
-      
+
     steps:
     - name: pwd
       run: pwd
     - name: deps
-      run: |
-        sudo apt update
-        sudo apt install -y g++-8 lcov python3-pip curl python3-vcstool gcovr
-        pip3 install colcon-lcov-result colcon-coveragepy-result colcon-mixin 
+      - uses: ros-tooling/setup-ros@v0.1
+        with:
+          required-ros-distributions: foxy
     - name: setup directories
       run: |
         mkdir ros_ws
