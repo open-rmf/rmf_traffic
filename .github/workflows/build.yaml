@@ -3,35 +3,34 @@ on: [push, pull_request]
 jobs:
   build_and_test:
     runs-on: ubuntu-20.04
-
-  steps:
-    - name: pwd
-      run: pwd
-    - name: deps
-      - uses: ros-tooling/setup-ros@v0.1
+    steps:
+      - name: pwd
+        run: pwd
+      - name: deps
+        - uses: ros-tooling/setup-ros@v0.1
+          with:
+            required-ros-distributions: foxy
+      - name: setup directories
+        run: |
+          mkdir ros_ws
+          mkdir ros_ws/src
+          ls ros_ws/
+          cd ros_ws/
+      - name: build
+        uses: ros-tooling/action-ros-ci@v0.1
         with:
-          required-ros-distributions: foxy
-    - name: setup directories
-      run: |
-        mkdir ros_ws
-        mkdir ros_ws/src
-        ls ros_ws/
-        cd ros_ws/
-    - name: build
-      uses: ros-tooling/action-ros-ci@v0.1
-      with:
-        target-ros2-distro: foxy
-        # build all packages listed in the meta package
-        package-name: |
-          rmf_traffic
-        vcs-repo-file-url: |
-          https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
-        colcon-mixin-name: coverage-gcc
-        colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
-      with:
-        files: ros_ws/lcov/total_coverage.info
-        flags: tests
-        name: lean_and_mean_codecov_bot
+          target-ros2-distro: foxy
+          # build all packages listed in the meta package
+          package-name: |
+            rmf_traffic
+          vcs-repo-file-url: |
+            https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
+          colcon-mixin-name: coverage-gcc
+          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          files: ros_ws/lcov/total_coverage.info
+          flags: tests
+          name: lean_and_mean_codecov_bot
 
