@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <list>
+#include <iostream>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -145,7 +146,6 @@ public:
   struct UpdateParticipantDescriptionInfo
   {
     ParticipantId id;
-    ParticipantDescription desc;
     Version original_version;
   };
   using UpdateParticipantDescription = std::map<Version, UpdateParticipantDescriptionInfo>;
@@ -703,7 +703,6 @@ void Database::update_description(
   _pimpl->update_participant_version.insert({version, 
     Implementation::UpdateParticipantDescriptionInfo {
       id,
-      desc,
       p_it->second.initial_schedule_version
     }});
 }
@@ -1191,8 +1190,13 @@ auto Database::changes(
     for (; update_it != _pimpl->update_participant_version.end(); ++update_it)
     {
       if (update_it->second.original_version <= *after)
+      {
+        const auto p_it = _pimpl->states.find(add_it->second);
+        if (p_it == _pimpl->states.end()) continue;
+
         info_updates.emplace_back(update_it->second.id,
-                                  update_it->second.desc);
+                                  *p_it->second.description);        
+      }
     }
   }
   else
