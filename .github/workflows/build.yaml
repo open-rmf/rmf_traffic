@@ -11,12 +11,6 @@ jobs:
         uses: ros-tooling/setup-ros@v0.1
         with:
           required-ros-distributions: foxy
-      - name: setup directories
-        run: |
-          mkdir ros_ws
-          mkdir ros_ws/src
-          ls ros_ws/
-          cd ros_ws/
       - name: build
         uses: ros-tooling/action-ros-ci@v0.1
         with:
