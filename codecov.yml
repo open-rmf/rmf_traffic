@@ -8,7 +8,7 @@ coverage:
         informational: true
     patch: off
 fixes:
-  - "ros_ws/src/rmf_traffic/::"
+  - "ros_ws/src/*/rmf_traffic/::"
 comment:
   layout: "diff, flags, files"
   behavior: default
