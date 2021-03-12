@@ -28,20 +28,20 @@ namespace blockade {
 
 //==============================================================================
 Participant Participant::Implementation::make(
-    const ParticipantId participant_id,
-    const double radius,
-    std::shared_ptr<Writer> writer,
-    std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
+  const ParticipantId participant_id,
+  const double radius,
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
 {
   Participant participant;
   participant._pimpl = rmf_utils::make_unique_impl<Implementation>(
-        participant_id, radius, std::move(writer));
+    participant_id, radius, std::move(writer));
 
   if (rectifier_factory)
   {
     participant._pimpl->_rectification =
-        rectifier_factory->make(
-        Rectifier::Implementation::make(*participant._pimpl), participant_id);
+      rectifier_factory->make(
+      Rectifier::Implementation::make(*participant._pimpl), participant_id);
   }
 
   return participant;
@@ -108,12 +108,12 @@ void Participant::Implementation::check()
 
 //==============================================================================
 Participant::Implementation::Implementation(
-    const ParticipantId id,
-    const double radius,
-    std::shared_ptr<Writer> writer)
-  : _id(id),
-    _writer(std::move(writer)),
-    _reservation_id(std::nullopt)
+  const ParticipantId id,
+  const double radius,
+  std::shared_ptr<Writer> writer)
+: _id(id),
+  _writer(std::move(writer)),
+  _reservation_id(std::nullopt)
 {
   _current_reservation.radius = radius;
 }
@@ -269,21 +269,21 @@ Participant::Participant()
 
 //==============================================================================
 Participant make_participant(
-    const ParticipantId participant_id,
-    const double radius,
-    std::shared_ptr<Writer> writer,
-    std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
+  const ParticipantId participant_id,
+  const double radius,
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
 {
   if (!writer)
   {
     throw std::runtime_error(
-          "[rmf_traffic::blockade::make_participant] A nullptr was given for "
-          "the `writer` argument. This is illegal.");
+            "[rmf_traffic::blockade::make_participant] A nullptr was given for "
+            "the `writer` argument. This is illegal.");
   }
 
   return Participant::Implementation::make(
-        participant_id, radius, std::move(writer),
-        std::move(rectifier_factory));
+    participant_id, radius, std::move(writer),
+    std::move(rectifier_factory));
 }
 
 } // namespace blockade

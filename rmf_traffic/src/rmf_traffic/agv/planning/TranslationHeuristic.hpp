@@ -32,7 +32,7 @@ namespace planning {
 /// rotation is ignored. It accounts for the translational acceleration
 /// and deceleration of the robot.
 class TranslationHeuristic
-    : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
+  : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
 {
 public:
 

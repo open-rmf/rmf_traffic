@@ -73,14 +73,14 @@ struct BlockageEndCondition
 
 //==============================================================================
 ConstConstraintPtr blockage(
-    std::size_t blocked_by,
-    std::optional<std::size_t> blocker_hold_point,
-    std::optional<BlockageEndCondition> end_condition);
+  std::size_t blocked_by,
+  std::optional<std::size_t> blocker_hold_point,
+  std::optional<BlockageEndCondition> end_condition);
 
 //==============================================================================
 ConstConstraintPtr passed(
-    std::size_t participant,
-    std::size_t index);
+  std::size_t participant,
+  std::size_t index);
 
 //==============================================================================
 class AndConstraint : public Constraint
@@ -113,7 +113,7 @@ public:
   bool evaluate(const State& state) const final;
   const std::unordered_set<std::size_t>& dependencies() const final;
   std::optional<bool> partial_evaluate(const State& state) const final;
-  std::string detail(const State &state) const final;
+  std::string detail(const State& state) const final;
 
 private:
   std::unordered_set<ConstConstraintPtr> _constraints;

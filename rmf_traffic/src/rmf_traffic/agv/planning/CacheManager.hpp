@@ -29,7 +29,7 @@ namespace agv {
 namespace planning {
 
 //==============================================================================
-template <typename StorageArg>
+template<typename StorageArg>
 class Generator
 {
 public:
@@ -39,15 +39,15 @@ public:
   using Value = typename Storage::mapped_type;
 
   virtual Value generate(
-      const Key& key,
-      const Storage& old_items,
-      Storage& new_items) const = 0;
+    const Key& key,
+    const Storage& old_items,
+    Storage& new_items) const = 0;
 
   virtual ~Generator() = default;
 };
 
 //==============================================================================
-template <typename GeneratorArg>
+template<typename GeneratorArg>
 class Factory
 {
 public:
@@ -63,7 +63,7 @@ public:
 };
 
 //==============================================================================
-template <typename GeneratorArg>
+template<typename GeneratorArg>
 class Upstream
 {
 public:
@@ -85,10 +85,10 @@ public:
 };
 
 //==============================================================================
-template <typename> class CacheManager;
+template<typename> class CacheManager;
 
 //==============================================================================
-template <typename GeneratorArg>
+template<typename GeneratorArg>
 class Cache
 {
 public:
@@ -120,7 +120,7 @@ private:
 };
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 class CacheManager : public std::enable_shared_from_this<CacheManager<CacheArg>>
 {
 public:
@@ -130,8 +130,8 @@ public:
   using Upstream_type = Upstream<Generator>;
   using Self = CacheManager<CacheArg>;
 
-  template <typename... Args>
-  static std::shared_ptr<const Self> make(Args&&... args)
+  template<typename... Args>
+  static std::shared_ptr<const Self> make(Args&& ... args)
   {
     return std::shared_ptr<Self>(new Self(std::forward<Args>(args)...));
   }
@@ -142,13 +142,13 @@ private:
 
   CacheManager(
     std::shared_ptr<const Generator> generator,
-    std::function<Storage()> storage_initializer = [](){ return Storage(); });
+    std::function<Storage()> storage_initializer = []() { return Storage(); });
 
   void _update(Storage new_items) const;
 
   std::unique_lock<std::mutex> _lock() const;
 
-  template <typename G> friend class Cache;
+  template<typename G> friend class Cache;
   std::shared_ptr<Upstream_type> _upstream;
   const std::function<Storage()> _storage_initializer;
   mutable std::mutex _update_mutex;
@@ -159,7 +159,7 @@ template<typename T>
 using CacheManagerPtr = std::shared_ptr<const CacheManager<Cache<T>>>;
 
 //==============================================================================
-template <typename GeneratorFactoryArg>
+template<typename GeneratorFactoryArg>
 class CacheManagerMap
 {
 public:
@@ -173,7 +173,7 @@ public:
 
   CacheManagerMap(
     std::shared_ptr<const GeneratorFactory> factory,
-    std::function<Storage()> storage_initializer = [](){ return Storage() ; });
+    std::function<Storage()> storage_initializer = []() { return Storage(); });
 
   CacheManagerPtr get(std::size_t goal_index) const;
 
@@ -189,7 +189,7 @@ private:
 };
 
 //==============================================================================
-template <typename GeneratorArg>
+template<typename GeneratorArg>
 Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream_type> upstream,
   std::shared_ptr<const CacheManager<Self>> manager,
   std::function<Storage()> storage_initializer)
@@ -203,7 +203,7 @@ Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream_type> upstream,
 }
 
 //==============================================================================
-template <typename GeneratorArg>
+template<typename GeneratorArg>
 auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 {
   const auto it = _all_items.find(key);
@@ -223,7 +223,7 @@ auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 }
 
 //==============================================================================
-template <typename GeneratorArg>
+template<typename GeneratorArg>
 Cache<GeneratorArg>::~Cache()
 {
   if (!_new_items.empty())
@@ -231,7 +231,7 @@ Cache<GeneratorArg>::~Cache()
 }
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 CacheManager<CacheArg>::CacheManager(
   std::shared_ptr<const Generator> generator,
   std::function<Storage()> storage_initializer)
@@ -243,7 +243,7 @@ CacheManager<CacheArg>::CacheManager(
 }
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 CacheArg CacheManager<CacheArg>::get() const
 {
   auto lock = _lock();
@@ -251,7 +251,7 @@ CacheArg CacheManager<CacheArg>::get() const
 }
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 void CacheManager<CacheArg>::_update(Storage new_items) const
 {
   auto lock = _lock();
@@ -263,7 +263,7 @@ void CacheManager<CacheArg>::_update(Storage new_items) const
 }
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 std::unique_lock<std::mutex> CacheManager<CacheArg>::_lock() const
 {
   std::unique_lock<std::mutex> lock(_update_mutex, std::defer_lock);
@@ -277,7 +277,7 @@ std::unique_lock<std::mutex> CacheManager<CacheArg>::_lock() const
 }
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 CacheManagerMap<CacheArg>::CacheManagerMap(
   std::shared_ptr<const GeneratorFactory> factory,
   std::function<Storage()> storage_initializer)
@@ -288,7 +288,7 @@ CacheManagerMap<CacheArg>::CacheManagerMap(
 }
 
 //==============================================================================
-template <typename CacheArg>
+template<typename CacheArg>
 auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
 -> CacheManagerPtr
 {
@@ -304,8 +304,8 @@ auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
   if (manager == nullptr)
   {
     manager = CacheManager_type::make(
-          _generator_factory->make(goal_index),
-          _storage_initializer);
+      _generator_factory->make(goal_index),
+      _storage_initializer);
   }
 
   return manager;

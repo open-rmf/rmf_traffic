@@ -231,10 +231,22 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    class LiftSessionBegin : public LiftSession { public: using LiftSession::LiftSession; };
-    class LiftMove : public LiftSession { public: using LiftSession::LiftSession; };
-    class LiftDoorOpen : public LiftSession { public: using LiftSession::LiftSession; };
-    class LiftSessionEnd : public LiftSession { public: using LiftSession::LiftSession; };
+    class LiftSessionBegin : public LiftSession
+    {
+    public: using LiftSession::LiftSession;
+    };
+    class LiftMove : public LiftSession
+    {
+    public: using LiftSession::LiftSession;
+    };
+    class LiftDoorOpen : public LiftSession
+    {
+    public: using LiftSession::LiftSession;
+    };
+    class LiftSessionEnd : public LiftSession
+    {
+    public: using LiftSession::LiftSession;
+    };
 
     class Dock
     {

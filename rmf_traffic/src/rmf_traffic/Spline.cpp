@@ -136,14 +136,14 @@ double compute_scaled_time(const Time& time, const Spline::Parameters& params)
 
 //==============================================================================
 Time compute_real_time(
-    const std::array<Time, 2>& time_range,
-    const double scaled_time)
+  const std::array<Time, 2>& time_range,
+  const double scaled_time)
 {
   using SecF64 = std::chrono::duration<double>;
   const auto duration =
-      scaled_time
-      * std::chrono::duration_cast<SecF64>(
-        time_range[1] - time_range[0]);
+    scaled_time
+    * std::chrono::duration_cast<SecF64>(
+    time_range[1] - time_range[0]);
 
   using Nano = std::chrono::nanoseconds;
   return std::chrono::duration_cast<Nano>(duration) + time_range[0];
@@ -323,10 +323,10 @@ const Spline::Parameters& Spline::get_params() const
 
 //==============================================================================
 std::array<Eigen::Vector4d, 3> normalize_coefficients(
-    const Time t0,
-    const Time t1,
-    const double delta_t,
-    const Spline& spline)
+  const Time t0,
+  const Time t1,
+  const double delta_t,
+  const Spline& spline)
 {
   const Eigen::Vector3d x0 = spline.compute_position(t0);
   const Eigen::Vector3d x1 = spline.compute_position(t1);
@@ -338,8 +338,8 @@ std::array<Eigen::Vector4d, 3> normalize_coefficients(
 
 //==============================================================================
 DistanceDifferential::DistanceDifferential(
-    const Spline& spline_a,
-    const Spline& spline_b)
+  const Spline& spline_a,
+  const Spline& spline_b)
 {
   const Time t0 = std::max(spline_a.start_time(), spline_b.start_time());
   const Time t1 = std::min(spline_a.finish_time(), spline_b.finish_time());
@@ -361,40 +361,40 @@ DistanceDifferential::DistanceDifferential(
 namespace {
 //==============================================================================
 double compute_derivative(
-    const double scaled_time,
-    const Spline::Parameters& params)
+  const double scaled_time,
+  const Spline::Parameters& params)
 {
   const Eigen::Vector2d dp =
-      compute_position(params, scaled_time).block<2,1>(0,0);
+    compute_position(params, scaled_time).block<2, 1>(0, 0);
 
   const Eigen::Vector2d dv =
-      compute_velocity(params, scaled_time).block<2,1>(0,0);
+    compute_velocity(params, scaled_time).block<2, 1>(0, 0);
 
   return dp.dot(dv);
 }
 
 //==============================================================================
 bool is_negative_derivative(
-    const double scaled_time, const Spline::Parameters& params)
+  const double scaled_time, const Spline::Parameters& params)
 {
-  return (compute_derivative(scaled_time, params) < 0.0);
+  return compute_derivative(scaled_time, params) < 0.0;
 }
 
 //==============================================================================
 bool is_second_derivative_of_distance_negative(
-    const Spline::Parameters& params,
-    const double t)
+  const Spline::Parameters& params,
+  const double t)
 {
   const Eigen::Vector2d dp =
-      compute_position(params, t).block<2,1>(0,0);
+    compute_position(params, t).block<2, 1>(0, 0);
 
   const Eigen::Vector2d dv =
-      compute_velocity(params, t).block<2,1>(0,0);
+    compute_velocity(params, t).block<2, 1>(0, 0);
 
   const Eigen::Vector2d da =
-      compute_acceleration(params, t).block<2,1>(0,0);
+    compute_acceleration(params, t).block<2, 1>(0, 0);
 
-  return (dv.dot(dv) + dp.dot(da) < 0.0);
+  return dv.dot(dv) + dp.dot(da) < 0.0;
 }
 
 //==============================================================================
@@ -460,7 +460,7 @@ bool DistanceDifferential::initially_approaching() const
     return true;
 
   if (derivative < 1e-8
-      && is_second_derivative_of_distance_negative(_params, 0.0))
+    && is_second_derivative_of_distance_negative(_params, 0.0))
     return true;
 
   return false;
@@ -468,14 +468,14 @@ bool DistanceDifferential::initially_approaching() const
 
 //==============================================================================
 bool is_in_eighth(
-    const double theta,
-    const double eighth_0,
-    const double eighth_1)
+  const double theta,
+  const double eighth_0,
+  const double eighth_1)
 {
   // Half of the angular range of one of the 1/8 divisions will be 2*pi/16
   const double half_range = M_PI/8.0;
   return (std::abs(theta - eighth_0) <= half_range)
-      || (std::abs(theta - eighth_1) <= half_range);
+    || (std::abs(theta - eighth_1) <= half_range);
 }
 
 //==============================================================================
@@ -551,7 +551,7 @@ std::vector<Time> DistanceDifferential::approach_times() const
 
   for (const double t : t_vx_zero)
   {
-    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2, 1>(0, 0);
     if (std::abs(dv.y()) < zero_tolerance)
     {
       insert_if_missing(t_full_zero, t);
@@ -559,10 +559,10 @@ std::vector<Time> DistanceDifferential::approach_times() const
     }
 
     // This is (vx: 0, vy: anything)
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = compute_position(_params, t).block<2, 1>(0, 0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, M_PI/2.0, -M_PI/2.0)
-        || is_negative_derivative(t, _params))
+      || is_negative_derivative(t, _params))
     {
       output.push_back(compute_real_time(_params.time_range, t));
     }
@@ -570,21 +570,21 @@ std::vector<Time> DistanceDifferential::approach_times() const
 
   for (const double t : t_vy_zero)
   {
-    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2, 1>(0, 0);
     if (std::abs(dv.x()) < zero_tolerance)
     {
       insert_if_missing(t_full_zero, t);
       continue;
     }
 
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = compute_position(_params, t).block<2, 1>(0, 0);
 
     double theta = std::atan2(dp.y(), dp.x());
     if (theta < -M_PI/2.0)
       theta += 2.0*M_PI;
 
     if (is_in_eighth(theta, 0.0, M_PI)
-        || is_negative_derivative(t, _params))
+      || is_negative_derivative(t, _params))
     {
       output.push_back(compute_real_time(_params.time_range, t));
     }
@@ -607,10 +607,10 @@ std::vector<Time> DistanceDifferential::approach_times() const
       continue;
 
     // This is (vx + vy = 0)
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = compute_position(_params, t).block<2, 1>(0, 0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, M_PI/4.0, -3.0*M_PI/4.0)
-        || is_negative_derivative(t, _params))
+      || is_negative_derivative(t, _params))
     {
       output.push_back(compute_real_time(_params.time_range, t));
     }
@@ -623,10 +623,10 @@ std::vector<Time> DistanceDifferential::approach_times() const
       continue;
 
     // This is (vx - vy = 0)
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = compute_position(_params, t).block<2, 1>(0, 0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, 3.0*M_PI/4.0, -M_PI/4.0)
-        || is_negative_derivative(t, _params))
+      || is_negative_derivative(t, _params))
     {
       output.push_back(compute_real_time(_params.time_range, t));
     }

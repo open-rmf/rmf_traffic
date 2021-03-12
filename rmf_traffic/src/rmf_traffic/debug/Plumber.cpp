@@ -25,7 +25,7 @@ namespace debug {
 
 //==============================================================================
 Plumber::Plumber(std::string name)
-  : _name(std::move(name))
+: _name(std::move(name))
 {
   _print('+');
 }

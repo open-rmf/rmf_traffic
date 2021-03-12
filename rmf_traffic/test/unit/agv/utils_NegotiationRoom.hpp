@@ -43,10 +43,11 @@ inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 
 //==============================================================================
 inline void print_route(
-    const rmf_traffic::Route& route,
-    const rmf_traffic::Time start_time)
+  const rmf_traffic::Route& route,
+  const rmf_traffic::Time start_time)
 {
-  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
+  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end();
+    ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -60,7 +61,7 @@ inline void print_route(
 
 //==============================================================================
 inline void print_itinerary(
-    const rmf_traffic::schedule::Itinerary& itinerary)
+  const rmf_traffic::schedule::Itinerary& itinerary)
 {
   auto start_time = print_start(*itinerary.front());
   for (const auto& r : itinerary)
@@ -124,13 +125,13 @@ public:
     std::shared_ptr<const rmf_traffic::schedule::Viewer> viewer,
     Intentions intentions,
     double max_cost_leeway =
-      rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
+    rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
     std::optional<double> min_cost_threshold =
-      rmf_traffic::agv::SimpleNegotiator::Options::DefaultMinCostThreshold,
+    rmf_traffic::agv::SimpleNegotiator::Options::DefaultMinCostThreshold,
     std::size_t max_alts = 1,
     const bool print = false)
   : negotiators(make_negotiators(
-                  intentions, max_cost_leeway, min_cost_threshold, max_alts)),
+        intentions, max_cost_leeway, min_cost_threshold, max_alts)),
     negotiation(Negotiation::make_shared(
         std::move(viewer), get_participants(intentions))),
     _print(print)
@@ -170,7 +171,7 @@ public:
     }
 
     while (!queue.empty()
-           && !negotiation->ready()) // Use this to allow a quick Negotiation
+      && !negotiation->ready()) // Use this to allow a quick Negotiation
 //           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
       if (_print)
@@ -199,7 +200,7 @@ public:
       if (_print)
       {
         rmf_traffic::agv::SimpleNegotiator::Debug
-            ::enable_debug_print(negotiator);
+        ::enable_debug_print(negotiator);
       }
 
       auto viewer = top->viewer();
@@ -290,8 +291,8 @@ public:
           rmf_traffic::agv::SimpleNegotiator(
             intention.start, intention.goal, intention.configuration,
             rmf_traffic::agv::SimpleNegotiator::Options(
-                  nullptr, nullptr, maximum_cost_leeway, maximum_alts)
-                .minimum_cost_threshold(min_cost_thresh))));
+              nullptr, nullptr, maximum_cost_leeway, maximum_alts)
+            .minimum_cost_threshold(min_cost_thresh))));
     }
 
     return negotiators;

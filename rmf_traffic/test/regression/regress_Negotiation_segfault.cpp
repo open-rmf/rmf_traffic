@@ -25,7 +25,8 @@ namespace {
 //==============================================================================
 struct MockNegotiator : public rmf_traffic::schedule::Negotiator
 {
-  enum Choice {
+  enum Choice
+  {
     Submit,
     Reject,
     Forfeit
@@ -87,10 +88,10 @@ void apply_submissions(
   for (const auto& table : submitted)
   {
     const auto& table_ptr = negotiation->table(
-          table.for_participant, table.to_accommodate);
+      table.for_participant, table.to_accommodate);
 
     MockNegotiator().submit().respond(
-          table_ptr->viewer(), Responder::make(table_ptr));
+      table_ptr->viewer(), Responder::make(table_ptr));
   }
 }
 
@@ -103,10 +104,10 @@ void apply_forfeit(
   for (const auto& table : forfeited)
   {
     const auto& table_ptr = negotiation->table(
-          table.for_participant, table.to_accommodate);
+      table.for_participant, table.to_accommodate);
 
     MockNegotiator().forfeit().respond(
-          table_ptr->viewer(), Responder::make(table_ptr));
+      table_ptr->viewer(), Responder::make(table_ptr));
   }
 }
 
@@ -121,9 +122,9 @@ SCENARIO("Identify a failed negotiation")
 
   // The Negotiation requires these participants to have descriptions
   auto description =
-      rmf_traffic::schedule::ParticipantDescription(
-        "", "", rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-        rmf_traffic::Profile(nullptr));
+    rmf_traffic::schedule::ParticipantDescription(
+    "", "", rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+    rmf_traffic::Profile(nullptr));
   database->register_participant(description);
   database->register_participant(description);
   database->register_participant(description);
@@ -217,7 +218,7 @@ public:
   }
 
   template<typename... Args>
-  static std::shared_ptr<MockResponder> make(Args&&... args)
+  static std::shared_ptr<MockResponder> make(Args&& ... args)
   {
     return std::make_shared<MockResponder>(std::forward<Args>(args)...);
   }
@@ -236,9 +237,9 @@ public:
     if (parent)
     {
       parent->reject(
-            parent->version(),
-            table->sequence().back().participant,
-            alternatives);
+        parent->version(),
+        table->sequence().back().participant,
+        alternatives);
     }
   }
 
@@ -255,9 +256,9 @@ SCENARIO("Submit after a rejection")
 
   // The Negotiation requires these participants to have descriptions
   auto description =
-      rmf_traffic::schedule::ParticipantDescription(
-        "", "", rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-        rmf_traffic::Profile(nullptr));
+    rmf_traffic::schedule::ParticipantDescription(
+    "", "", rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+    rmf_traffic::Profile(nullptr));
   database->register_participant(description);
   database->register_participant(description);
 
@@ -268,7 +269,7 @@ SCENARIO("Submit after a rejection")
   rmf_utils::optional<rmf_traffic::schedule::Version> version;
 
   auto responder = MockResponder::make(
-        negotiation->table(0, {}), &accepted, &version);
+    negotiation->table(0, {}), &accepted, &version);
 
   MockNegotiator().submit().respond(responder->table->viewer(), responder);
 
@@ -280,9 +281,9 @@ SCENARIO("Submit after a rejection")
   accepted = false;
   version = rmf_utils::nullopt;
   auto child_responder = MockResponder::make(
-        negotiation->table(1, {0}), &accepted, &version);
+    negotiation->table(1, {0}), &accepted, &version);
   MockNegotiator().forfeit().respond(
-        child_responder->table->viewer(), child_responder);
+    child_responder->table->viewer(), child_responder);
 
   CHECK_FALSE(version);
   CHECK_FALSE(accepted);

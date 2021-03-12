@@ -52,25 +52,25 @@ public:
 
 //==============================================================================
 SimpleNegotiator::Options::Options(ApprovalCallback approval_cb,
-    std::shared_ptr<const bool> interrupt_flag,
-    rmf_utils::optional<double> maximum_cost_leeway,
-    rmf_utils::optional<std::size_t> maximum_alts,
-    Duration min_hold_time)
+  std::shared_ptr<const bool> interrupt_flag,
+  rmf_utils::optional<double> maximum_cost_leeway,
+  rmf_utils::optional<std::size_t> maximum_alts,
+  Duration min_hold_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             std::move(approval_cb),
-             std::move(interrupt_flag),
-             maximum_cost_leeway,
-             maximum_alts,
-             min_hold_time
-           }))
+      Implementation{
+        std::move(approval_cb),
+        std::move(interrupt_flag),
+        maximum_cost_leeway,
+        maximum_alts,
+        min_hold_time
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
 auto SimpleNegotiator::Options::approval_callback(
-    ApprovalCallback approval_cb) -> Options&
+  ApprovalCallback approval_cb) -> Options&
 {
   _pimpl->approval_cb = std::move(approval_cb);
   return *this;
@@ -78,7 +78,7 @@ auto SimpleNegotiator::Options::approval_callback(
 
 //==============================================================================
 auto SimpleNegotiator::Options::interrupt_flag(
-    std::shared_ptr<const bool> flag) -> Options&
+  std::shared_ptr<const bool> flag) -> Options&
 {
   _pimpl->interrupt_flag = std::move(flag);
   return *this;
@@ -93,7 +93,7 @@ SimpleNegotiator::Options::interrupt_flag() const
 
 //==============================================================================
 auto SimpleNegotiator::Options::maximum_cost_leeway(
-    rmf_utils::optional<double> leeway) -> Options&
+  rmf_utils::optional<double> leeway) -> Options&
 {
   _pimpl->maximum_cost_leeway = leeway;
   return *this;
@@ -108,7 +108,7 @@ SimpleNegotiator::Options::maximum_cost_leeway() const
 
 //==============================================================================
 auto SimpleNegotiator::Options::minimum_cost_threshold(
-    const std::optional<double> cost) -> Options&
+  const std::optional<double> cost) -> Options&
 {
   _pimpl->minimum_cost_threshold = cost;
   return *this;
@@ -122,7 +122,7 @@ std::optional<double> SimpleNegotiator::Options::minimum_cost_threshold() const
 
 //==============================================================================
 auto SimpleNegotiator::Options::maximum_cost_threshold(
-    const std::optional<double> cost) -> Options&
+  const std::optional<double> cost) -> Options&
 {
   _pimpl->maximum_cost_threshold = cost;
   return *this;
@@ -136,7 +136,7 @@ std::optional<double> SimpleNegotiator::Options::maximum_cost_threshold() const
 
 //==============================================================================
 auto SimpleNegotiator::Options::maximum_alternatives(
-    rmf_utils::optional<std::size_t> num) -> Options&
+  rmf_utils::optional<std::size_t> num) -> Options&
 {
   _pimpl->maximum_alts = num;
   return *this;
@@ -198,11 +198,11 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Configuration planner_configuration,
   Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation(
-      {std::move(start)},
-      std::move(goal),
-      std::move(planner_configuration),
-      std::move(options))))
+      Implementation(
+        {std::move(start)},
+        std::move(goal),
+        std::move(planner_configuration),
+        std::move(options))))
 {
   // Do nothing
 }
@@ -214,10 +214,10 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Configuration planner_configuration,
   Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           std::move(starts),
-           std::move(goal),
-           std::move(planner_configuration),
-           std::move(options)))
+      std::move(starts),
+      std::move(goal),
+      std::move(planner_configuration),
+      std::move(options)))
 {
   // Do nothing
 }
@@ -225,8 +225,8 @@ SimpleNegotiator::SimpleNegotiator(
 namespace {
 //==============================================================================
 bool contains(
-    const std::vector<schedule::ParticipantId>& ids,
-    schedule::ParticipantId id)
+  const std::vector<schedule::ParticipantId>& ids,
+  schedule::ParticipantId id)
 {
   return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
@@ -245,12 +245,12 @@ inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 
 //==============================================================================
 inline void print_route(
-    const rmf_traffic::Route& route,
-    const rmf_traffic::Time start_time)
+  const rmf_traffic::Route& route,
+  const rmf_traffic::Time start_time)
 {
   assert(route.trajectory().size() > 0);
   for (auto it = ++route.trajectory().begin(); it
-       != route.trajectory().end(); ++it)
+    != route.trajectory().end(); ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -264,7 +264,7 @@ inline void print_route(
 
 //==============================================================================
 inline void print_itinerary(
-    const rmf_traffic::schedule::Itinerary& itinerary)
+  const rmf_traffic::schedule::Itinerary& itinerary)
 {
   if (itinerary.empty())
   {
@@ -304,7 +304,7 @@ class AlternativesTracker
 public:
 
   AlternativesTracker(std::vector<schedule::ParticipantId> participants)
-    : _ordered_participants(std::move(participants))
+  : _ordered_participants(std::move(participants))
   {
     std::sort(_ordered_participants.begin(), _ordered_participants.end());
   }
@@ -369,18 +369,18 @@ void SimpleNegotiator::respond(
   auto options = _pimpl->planner_options;
 
   const auto maximum_cost_leeway =
-      _pimpl->negotiator_options.maximum_cost_leeway();
+    _pimpl->negotiator_options.maximum_cost_leeway();
   const auto max_alts = _pimpl->negotiator_options.maximum_alternatives();
 
   const auto minimum_cost_threshold =
-      _pimpl->negotiator_options.minimum_cost_threshold();
+    _pimpl->negotiator_options.minimum_cost_threshold();
 
   const auto maximum_cost_threshold =
-      _pimpl->negotiator_options.maximum_cost_threshold();
+    _pimpl->negotiator_options.maximum_cost_threshold();
 
   std::deque<rmf_utils::clone_ptr<NegotiatingRouteValidator>> validators;
   validators.push_back(
-        rmf_utils::make_clone<NegotiatingRouteValidator>(rv_generator.begin()));
+    rmf_utils::make_clone<NegotiatingRouteValidator>(rv_generator.begin()));
 
   rmf_utils::optional<schedule::Negotiation::Alternatives> alternatives;
   rmf_utils::optional<std::vector<schedule::ParticipantId>> best_blockers;
@@ -419,7 +419,8 @@ void SimpleNegotiator::respond(
         for (const auto& r : validator->alternatives())
         {
           std::cout << " (" << r.participant << ":" << r.version
-                    << "/" << table_viewer->alternatives().at(r.participant)->size()
+                    << "/" <<
+            table_viewer->alternatives().at(r.participant)->size()
                     << ")";
         }
         std::cout << std::endl;
@@ -431,7 +432,8 @@ void SimpleNegotiator::respond(
     const double initial_cost_estimate = *plan.cost_estimate();
     if (_pimpl->debug_print)
     {
-      std::cout << "Initial cost estimate: " << initial_cost_estimate << std::endl;
+      std::cout << "Initial cost estimate: " << initial_cost_estimate <<
+        std::endl;
     }
 
     std::optional<double> cost_limit;
@@ -467,7 +469,8 @@ void SimpleNegotiator::respond(
       if (_pimpl->debug_print)
       {
         const double cost = plan->get_cost();
-        std::cout << "Maximum cost leeway factor: " << cost/initial_cost_estimate
+        std::cout << "Maximum cost leeway factor: " << cost/
+          initial_cost_estimate
                   << std::endl;
 
         std::cout << "Submitting:\n";
@@ -476,16 +479,16 @@ void SimpleNegotiator::respond(
 
       Responder::ApprovalCallback responder_approval_cb;
       auto options_approval_callback =
-          Options::Implementation::get_approval_cb(_pimpl->negotiator_options);
+        Options::Implementation::get_approval_cb(_pimpl->negotiator_options);
       if (options_approval_callback)
       {
         responder_approval_cb = [
-              approval_cb = options_approval_callback,
-              approved_plan = *plan
-            ]() -> Responder::UpdateVersion
-        {
-          return approval_cb(std::move(approved_plan));
-        };
+          approval_cb = options_approval_callback,
+          approved_plan = *plan
+          ]() -> Responder::UpdateVersion
+          {
+            return approval_cb(std::move(approved_plan));
+          };
       }
 
       if (_pimpl->debug_print)
@@ -519,8 +522,8 @@ void SimpleNegotiator::respond(
       if (contains(blockers, r))
       {
         validators.push_back(
-              rmf_utils::make_clone<NegotiatingRouteValidator>(
-                validator->next(r)));
+          rmf_utils::make_clone<NegotiatingRouteValidator>(
+            validator->next(r)));
       }
     }
 
@@ -557,7 +560,7 @@ void SimpleNegotiator::respond(
     Rollout rollout(plan);
     // TODO(MXG): Make the span configurable
     alternatives = rollout.expand(
-          parent_id, std::chrono::seconds(15), options, max_alts);
+      parent_id, std::chrono::seconds(15), options, max_alts);
 
     if (alternatives->empty())
     {
@@ -618,7 +621,7 @@ void SimpleNegotiator::respond(
 
 //==============================================================================
 SimpleNegotiator& SimpleNegotiator::Debug::enable_debug_print(
-    SimpleNegotiator& negotiator)
+  SimpleNegotiator& negotiator)
 {
   negotiator._pimpl->debug_print = true;
   return negotiator;

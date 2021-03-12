@@ -461,7 +461,7 @@ public:
 
 //==============================================================================
 Graph::Lane::Wait::Wait(Duration value)
-  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{value}))
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{value}))
 {
   // Do nothing
 }
@@ -632,7 +632,7 @@ auto Graph::Lane::Node::event() const -> const Event*
 
 //==============================================================================
 Graph::Lane::Node& Graph::Lane::Node::event(
-    rmf_utils::clone_ptr<Event> new_event)
+  rmf_utils::clone_ptr<Event> new_event)
 {
   _pimpl->_event = std::move(new_event);
   return *this;
@@ -780,7 +780,7 @@ bool Graph::remove_key(const std::string& key)
     return false;
 
   Waypoint::Implementation::get(_pimpl->waypoints.at(it->second))
-      .name = rmf_utils::nullopt;
+  .name = rmf_utils::nullopt;
 
   _pimpl->keys.erase(it);
   return true;
@@ -797,7 +797,7 @@ bool Graph::set_key(const std::string& key, std::size_t wp_index)
   if (!insertion.second)
   {
     Waypoint::Implementation::get(_pimpl->waypoints.at(insertion.first->second))
-        .name = rmf_utils::nullopt;
+    .name = rmf_utils::nullopt;
     insertion.first->second = wp_index;
   }
 
@@ -819,8 +819,8 @@ std::size_t Graph::num_waypoints() const
 
 //==============================================================================
 auto Graph::add_lane(
-    const Lane::Node& entry,
-    const Lane::Node& exit) -> Lane&
+  const Lane::Node& entry,
+  const Lane::Node& exit) -> Lane&
 {
   assert(entry.waypoint_index() < _pimpl->waypoints.size());
   assert(exit.waypoint_index() < _pimpl->waypoints.size());
@@ -829,7 +829,7 @@ auto Graph::add_lane(
   _pimpl->lanes_from.at(entry.waypoint_index()).push_back(lane_id);
   _pimpl->lanes_into.at(exit.waypoint_index()).push_back(lane_id);
   _pimpl->lane_between
-      .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
+  .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
 
   _pimpl->lanes.emplace_back(
     Lane::Implementation::make(

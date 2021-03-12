@@ -33,19 +33,19 @@ namespace planning {
 /// figure out which choice of floor-changing lane will allow for the shortest
 /// Euclidean distance traveling.
 class EuclideanHeuristic
-    : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
+  : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
 {
 public:
 
   EuclideanHeuristic(
-      std::size_t goal,
-      double max_speed,
-      std::shared_ptr<const Supergraph> graph);
+    std::size_t goal,
+    double max_speed,
+    std::shared_ptr<const Supergraph> graph);
 
   std::optional<double> generate(
-      const std::size_t& key,
-      const Storage& old_items,
-      Storage& new_items) const final;
+    const std::size_t& key,
+    const Storage& old_items,
+    Storage& new_items) const final;
 
 private:
   std::size_t _goal;

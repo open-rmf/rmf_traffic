@@ -165,7 +165,7 @@ RouteId Participant::set(std::vector<Route> itinerary)
   // TODO(MXG): Consider issuing an exception or warning when a single-point
   // trajectory is submitted.
   const auto r_it = std::remove_if(itinerary.begin(), itinerary.end(),
-                 [](const auto& r){ return r.trajectory().size() < 2; });
+      [](const auto& r) { return r.trajectory().size() < 2; });
   itinerary.erase(r_it, itinerary.end());
 
   const RouteId initial_route_id = _pimpl->_last_route_id;
@@ -240,7 +240,7 @@ void Participant::delay(Duration delay)
       new_trajectory.front().adjust_times(delay);
 
       item.route = std::make_shared<Route>(
-            item.route->map(), std::move(new_trajectory));
+        item.route->map(), std::move(new_trajectory));
     }
   }
 
@@ -374,8 +374,8 @@ Participant make_participant(ParticipantDescription description,
   if (!writer)
   {
     throw std::runtime_error(
-          "[rmf_traffic::schedule::make_participant] A nullptr was given for "
-          "the `writer` argument. This is illegal.");
+            "[rmf_traffic::schedule::make_participant] A nullptr was given for "
+            "the `writer` argument. This is illegal.");
   }
 
   return Participant::Implementation::make(

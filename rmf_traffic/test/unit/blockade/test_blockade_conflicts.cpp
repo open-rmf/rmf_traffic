@@ -34,15 +34,15 @@ rmf_traffic::blockade::Blockers make_ShouldGo_constraints(
   using namespace rmf_traffic::blockade;
 
   PeerToPeerBlockers peer_blockers;
-  for (std::size_t i=0; i < paths.size()-1; ++i)
+  for (std::size_t i = 0; i < paths.size()-1; ++i)
   {
-    for (std::size_t j=i+1; j < paths.size(); ++j)
+    for (std::size_t j = i+1; j < paths.size(); ++j)
     {
       const auto zero_order_blockers =
-          compute_blockers(
-            compute_brackets(
-              paths[i], radius, paths[j], radius, max_angle).conflicts,
-            i, paths[i].size(), j, paths[j].size());
+        compute_blockers(
+        compute_brackets(
+          paths[i], radius, paths[j], radius, max_angle).conflicts,
+        i, paths[i].size(), j, paths[j].size());
 
       peer_blockers[i][j] = zero_order_blockers.at(0);
       peer_blockers[j][i] = zero_order_blockers.at(1);
@@ -54,8 +54,8 @@ rmf_traffic::blockade::Blockers make_ShouldGo_constraints(
 
 //==============================================================================
 void check_for_expected_brackets(
-    const std::vector<rmf_traffic::blockade::BracketPair>& expectations,
-    const std::vector<rmf_traffic::blockade::AlignedBracketPair>& actual)
+  const std::vector<rmf_traffic::blockade::BracketPair>& expectations,
+  const std::vector<rmf_traffic::blockade::AlignedBracketPair>& actual)
 {
   for (const auto& expected : expectations)
   {
@@ -93,17 +93,17 @@ SCENARIO("Compute conflict brackets")
   GIVEN("Converging paths")
   {
     std::array<Eigen::Vector2d, 6> A;
-    A[0] = { 0,  0};
-    A[1] = { 5,  0};
-    A[2] = { 8,  5};
-    A[3] = {16,  5};
-    A[4] = {20,  0};
-    A[5] = {25,  0};
+    A[0] = { 0, 0};
+    A[1] = { 5, 0};
+    A[2] = { 8, 5};
+    A[3] = {16, 5};
+    A[4] = {20, 0};
+    A[5] = {25, 0};
     const auto path_A = make_path(A);
 
     const double b_height = 5 + half_r;
     std::array<Eigen::Vector2d, 6> B;
-    for (std::size_t i=0; i < B.size(); ++i)
+    for (std::size_t i = 0; i < B.size(); ++i)
       B[i] = {5.0*i, b_height};
 
     WHEN("Forward")
@@ -111,7 +111,7 @@ SCENARIO("Compute conflict brackets")
       const auto path_B = make_path(B);
 
       const auto brackets = compute_brackets(
-            path_A, radius, path_B, radius, max_angle).conflicts;
+        path_A, radius, path_B, radius, max_angle).conflicts;
 
       REQUIRE(brackets.size() == 1);
       const auto& bracket = brackets.front();
@@ -127,7 +127,7 @@ SCENARIO("Compute conflict brackets")
       CHECK_FALSE(bracket.B.include_finish);
 
       auto zero_order_blockers = compute_blockers(
-            brackets, 0, path_A.size(), 1, path_B.size());
+        brackets, 0, path_A.size(), 1, path_B.size());
 
       PeerToPeerBlockers peer_blockers;
       peer_blockers[0][1] = zero_order_blockers.at(0);
@@ -137,7 +137,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 1);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
+        compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
 
       simulate_all_sequences(should_go, nullptr, {5, 5});
     }
@@ -148,7 +148,7 @@ SCENARIO("Compute conflict brackets")
       const auto path_B = make_path(B);
 
       auto brackets = compute_brackets(
-            path_A, radius, path_B, radius, max_angle).conflicts;
+        path_A, radius, path_B, radius, max_angle).conflicts;
 
       REQUIRE(brackets.size() == 1);
       const auto& bracket = brackets.front();
@@ -164,7 +164,7 @@ SCENARIO("Compute conflict brackets")
       CHECK_FALSE(bracket.B.include_finish);
 
       auto zero_order_blockers = compute_blockers(
-            brackets, 0, path_A.size(), 1, path_B.size());
+        brackets, 0, path_A.size(), 1, path_B.size());
 
       PeerToPeerBlockers peer_blockers;
       peer_blockers[0][1] = zero_order_blockers.at(0);
@@ -174,7 +174,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 1);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
+        compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
 
       simulate_all_sequences(should_go, nullptr, {5, 5});
     }
@@ -184,28 +184,28 @@ SCENARIO("Compute conflict brackets")
   {
     std::array<Eigen::Vector2d, 9> A;
     A[0] = { 0, 10};
-    A[1] = { 0,  7};
-    A[2] = { 0,  5};
-    A[3] = { 5,  5};
-    A[4] = { 5,  0};
-    A[5] = {10,  0};
-    A[6] = {10,  5};
-    A[7] = {15,  5};
+    A[1] = { 0, 7};
+    A[2] = { 0, 5};
+    A[3] = { 5, 5};
+    A[4] = { 5, 0};
+    A[5] = {10, 0};
+    A[6] = {10, 5};
+    A[7] = {15, 5};
     A[8] = {15, 10};
     auto path_A = make_path(A);
 
     std::array<Eigen::Vector2d, 5> B;
     B[0] = { 15, 10};
-    B[1] = { 15,  5};
-    B[2] = {7.5,  5};
-    B[3] = {  0,  5};
-    B[4] = {  0,  0};
+    B[1] = { 15, 5};
+    B[2] = {7.5, 5};
+    B[3] = {  0, 5};
+    B[4] = {  0, 0};
     auto path_B = make_path(B);
 
     WHEN("Both can hold between passes")
     {
       const auto brackets = compute_brackets(
-            path_A, radius, path_B, radius, max_angle).conflicts;
+        path_A, radius, path_B, radius, max_angle).conflicts;
 
       REQUIRE(brackets.size() == 2);
 
@@ -230,7 +230,7 @@ SCENARIO("Compute conflict brackets")
       CHECK_FALSE(brackets[1].B.include_finish);
 
       auto zero_order_blockers = compute_blockers(
-            brackets, 0, path_A.size(), 1, path_B.size());
+        brackets, 0, path_A.size(), 1, path_B.size());
 
       PeerToPeerBlockers peer_blockers;
       peer_blockers[0][1] = zero_order_blockers.at(0);
@@ -240,7 +240,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 2);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
+        compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
@@ -251,7 +251,7 @@ SCENARIO("Compute conflict brackets")
       path_A[5].can_hold = false;
 
       const auto brackets = compute_brackets(
-            path_A, radius, path_B, radius, max_angle).conflicts;
+        path_A, radius, path_B, radius, max_angle).conflicts;
 
       REQUIRE(brackets.size() == 2);
 
@@ -276,7 +276,7 @@ SCENARIO("Compute conflict brackets")
       CHECK_FALSE(brackets[1].B.include_finish);
 
       auto zero_order_blockers = compute_blockers(
-            brackets, 0, path_A.size(), 1, path_B.size());
+        brackets, 0, path_A.size(), 1, path_B.size());
 
       PeerToPeerBlockers peer_blockers;
       peer_blockers[0][1] = zero_order_blockers.at(0);
@@ -286,7 +286,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 2);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
+        compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
@@ -296,7 +296,7 @@ SCENARIO("Compute conflict brackets")
       path_B[2].can_hold = false;
 
       const auto brackets = compute_brackets(
-            path_A, radius, path_B, radius, max_angle).conflicts;
+        path_A, radius, path_B, radius, max_angle).conflicts;
 
       REQUIRE(brackets.size() == 2);
 
@@ -321,7 +321,7 @@ SCENARIO("Compute conflict brackets")
       CHECK_FALSE(brackets[1].B.include_finish);
 
       const auto zero_order_blockers = compute_blockers(
-            brackets, 0, path_A.size(), 1, path_B.size());
+        brackets, 0, path_A.size(), 1, path_B.size());
 
       PeerToPeerBlockers peer_blockers;
       peer_blockers[0][1] = zero_order_blockers.at(0);
@@ -331,7 +331,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 2);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
+        compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
@@ -362,7 +362,7 @@ SCENARIO("Compute conflict brackets")
     paths.push_back(make_path(B));
 
     const auto brackets = compute_brackets(
-          paths[0], radius, paths[1], radius, max_angle).conflicts;
+      paths[0], radius, paths[1], radius, max_angle).conflicts;
 
     // [0, 1] x (2, 4]
     CHECK(brackets[0].A.include_start);
@@ -385,7 +385,7 @@ SCENARIO("Compute conflict brackets")
     CHECK_FALSE(brackets[1].B.include_finish);
 
     const auto zero_order_blockers = compute_blockers(
-          brackets, 0, paths.at(0).size(), 1, paths.at(1).size());
+      brackets, 0, paths.at(0).size(), 1, paths.at(1).size());
 
     PeerToPeerBlockers peer_blockers;
     peer_blockers[0][1] = zero_order_blockers.at(0);
@@ -395,7 +395,7 @@ SCENARIO("Compute conflict brackets")
     CHECK(peer_blockers[1][0].size() == 2);
 
     const Blockers should_go =
-        compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
+      compute_final_ShouldGo_constraints(peer_blockers, {}).should_go;
 
     simulate_all_sequences(should_go, nullptr, {5, 4});
   }
@@ -429,7 +429,7 @@ SCENARIO("Compute alignment brackets")
     const auto path_A = make_path(A);
 
     const auto brackets = compute_brackets(
-          path_A, radius, path_B, radius, max_angle).alignments;
+      path_A, radius, path_B, radius, max_angle).alignments;
 
     REQUIRE(brackets.size() == 1);
     const auto& whole_bracket = brackets.front().whole_bracket;
@@ -500,7 +500,7 @@ SCENARIO("Compute alignment brackets")
     const auto path_A = make_path(A);
 
     const auto brackets = compute_brackets(
-          path_A, radius, path_B, radius, max_angle).alignments;
+      path_A, radius, path_B, radius, max_angle).alignments;
 
     REQUIRE(brackets.size() == 2);
 
@@ -588,7 +588,7 @@ SCENARIO("Compute alignment brackets")
     const auto path_A = make_path(A);
 
     const auto brackets = compute_brackets(
-          path_A, radius, path_B, radius, max_angle).alignments;
+      path_A, radius, path_B, radius, max_angle).alignments;
 
     REQUIRE(brackets.size() == 2);
 

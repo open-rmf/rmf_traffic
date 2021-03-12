@@ -36,32 +36,32 @@ public:
 
   // Documentation inherited
   void set(
-      ParticipantId participant_id,
-      ReservationId reservation_id,
-      const Reservation& reservation) final;
+    ParticipantId participant_id,
+    ReservationId reservation_id,
+    const Reservation& reservation) final;
 
   // Documentation inherited
   void ready(
-      ParticipantId participant_id,
-      ReservationId reservation_id,
-      CheckpointId checkpoint) final;
+    ParticipantId participant_id,
+    ReservationId reservation_id,
+    CheckpointId checkpoint) final;
 
   // Documentation inherited
   void release(
-      ParticipantId participant_id,
-      ReservationId reservation_id,
-      CheckpointId checkpoint) final;
+    ParticipantId participant_id,
+    ReservationId reservation_id,
+    CheckpointId checkpoint) final;
 
   // Documentation inherited
   void reached(
-      ParticipantId participant_id,
-      ReservationId reservation_id,
-      CheckpointId checkpoint) final;
+    ParticipantId participant_id,
+    ReservationId reservation_id,
+    CheckpointId checkpoint) final;
 
   // Documentation inherited
   void cancel(
-      ParticipantId participant_id,
-      ReservationId reservation_id) final;
+    ParticipantId participant_id,
+    ReservationId reservation_id) final;
 
   // Documentation inherited
   void cancel(ParticipantId participant_id) final;
@@ -88,9 +88,9 @@ public:
   ///   default value for this parameter is 5-degrees. Something larger than 0
   ///   is recommended to help deal with numerical precision concerns.
   Moderator(
-      std::function<void(std::string)> info_logger = nullptr,
-      std::function<void(std::string)> debug_logger = nullptr,
-      double min_conflict_angle = 5.0*M_PI/180.0);
+    std::function<void(std::string)> info_logger = nullptr,
+    std::function<void(std::string)> debug_logger = nullptr,
+    double min_conflict_angle = 5.0* M_PI/180.0);
 
   /// Get the minimum angle that will trigger a conflict.
   double minimum_conflict_angle() const;
