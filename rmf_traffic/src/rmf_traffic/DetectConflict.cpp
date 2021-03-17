@@ -460,21 +460,21 @@ bool check_overlap(
     auto pos_b = spline_b.compute_position(time);
 
     auto rot_a =
-      fcl::AngleAxisd(pos_a[2],
-        Eigen::Vector3d::UnitZ()).toRotationMatrix();
-    auto  rot_b =
-      fcl::AngleAxisd(pos_b[2],
-        Eigen::Vector3d::UnitZ()).toRotationMatrix();
+      fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    auto rot_b =
+      fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
 
     fcl::CollisionObjectd obj_a(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
       rot_a,
-      fcl::Vector3d(pos_a[0], pos_a[1], 0.0));
+      fcl::Vector3d(pos_a[0], pos_a[1], 0.0)
+    );
 
     fcl::CollisionObjectd obj_b(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
       rot_b,
-      fcl::Vector3d(pos_b[0], pos_b[1], 0.0));
+      fcl::Vector3d(pos_b[0], pos_b[1], 0.0)
+    );
 
     if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
       return true;

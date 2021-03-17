@@ -44,8 +44,7 @@ public:
   };
 
   using SearchQueue =
-    std::priority_queue<
-    NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
+    std::priority_queue<NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
 
   bool quit(const NodePtr&, const SearchQueue&) const
   {

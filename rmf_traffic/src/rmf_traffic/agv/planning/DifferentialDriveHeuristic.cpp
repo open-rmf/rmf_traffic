@@ -591,7 +591,8 @@ auto DifferentialDriveHeuristic::generate(
       std::cout << "nullopt";
     std::cout << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
-    while (goal_node &&
+    while (
+      goal_node &&
       (!goal_node->info.entry.has_value()
       || goal_node->info.entry->side == Side::Start))
     {
@@ -644,11 +645,10 @@ auto DifferentialDriveHeuristic::generate(
                   << new_key.goal_lane << ", "
                   << new_key.goal_orientation << "]: ("
                   << solution->info.waypoint << ", "
-                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI <<
-          ") -> ("
-                  << goal_node->info.waypoint << ", "
-                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI <<
-          ") => "
+                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI
+                  << ") -> (" << goal_node->info.waypoint << ", "
+                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI
+                  << ") => "
                   << solution->info.remaining_cost_estimate << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
@@ -782,9 +782,9 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
     }
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
-    std::cout << key << " From (" << start_waypoint << ", " << yaw*180.0/M_PI <<
-      ") to ("
-              << _goal_waypoint << ", ";
+    std::cout << key << " From (" << start_waypoint << ", " << yaw*180.0/M_PI
+              << ") to (" << _goal_waypoint << ", ";
+
     if (_goal_yaw.has_value())
       std::cout << *_goal_yaw*180.0/M_PI;
     else
@@ -816,8 +816,8 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
     if (const auto entry = best_solution->info.entry)
     {
       const auto& lane = _graph->original().lanes[entry->lane];
-      std::cout << "(" << lane.entry().waypoint_index() << ", " <<
-        lane.exit().waypoint_index() << ") ";
+      std::cout << "(" << lane.entry().waypoint_index() << ", "
+                << lane.exit().waypoint_index() << ") ";
       std::cout << *entry;
     }
     else

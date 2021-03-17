@@ -30,8 +30,8 @@ StaticMotion::StaticMotion(const Eigen::Isometry2d& tf)
 
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   const auto x = fcl::Vector3d(p[0], p[1], 0.0);
-  _tf = fcl::Translation3d(x) * fcl::AngleAxisd(R.angle(),
-      fcl::Vector3d::UnitZ());
+  _tf =
+    fcl::Translation3d(x) * fcl::AngleAxisd(R.angle(), fcl::Vector3d::UnitZ());
 #else
   const auto x = fcl::Vec3f(p[0], p[1], 0.0);
   fcl::Quaternion3f q;
@@ -92,7 +92,8 @@ void StaticMotion::getCurrentTransform(fcl::Transform3f& tf) const
 
 //==============================================================================
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
-void StaticMotion::getTaylorModel(fcl::TMatrix3<double>&,
+void StaticMotion::getTaylorModel(
+  fcl::TMatrix3<double>&,
   fcl::TVector3<double>&) const
 #else
 void StaticMotion::getTaylorModel(fcl::TMatrix3&, fcl::TVector3& ) const

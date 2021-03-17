@@ -796,8 +796,8 @@ bool Graph::set_key(const std::string& key, std::size_t wp_index)
   const auto insertion = _pimpl->keys.insert({key, wp_index});
   if (!insertion.second)
   {
-    Waypoint::Implementation::get(_pimpl->waypoints.at(insertion.first->second))
-    .name = rmf_utils::nullopt;
+    Waypoint::Implementation::get(
+      _pimpl->waypoints.at(insertion.first->second)).name = rmf_utils::nullopt;
     insertion.first->second = wp_index;
   }
 
@@ -826,10 +826,10 @@ auto Graph::add_lane(
   assert(exit.waypoint_index() < _pimpl->waypoints.size());
 
   const std::size_t lane_id = _pimpl->lanes.size();
-  _pimpl->lanes_from.at(entry.waypoint_index()).push_back(lane_id);
+  const std::size_t entry_index = entry.waypoint_index();
+  _pimpl->lanes_from.at(entry_index).push_back(lane_id);
   _pimpl->lanes_into.at(exit.waypoint_index()).push_back(lane_id);
-  _pimpl->lane_between
-  .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
+  _pimpl->lane_between.at(entry_index)[exit.waypoint_index()] = lane_id;
 
   _pimpl->lanes.emplace_back(
     Lane::Implementation::make(

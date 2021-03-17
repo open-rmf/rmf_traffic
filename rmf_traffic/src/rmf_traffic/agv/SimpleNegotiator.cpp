@@ -418,10 +418,11 @@ void SimpleNegotiator::respond(
         std::cout << "Negotiating with rollouts:";
         for (const auto& r : validator->alternatives())
         {
+          const std::size_t total_size =
+            table_viewer->alternatives().at(r.participant)->size();
+
           std::cout << " (" << r.participant << ":" << r.version
-                    << "/" <<
-            table_viewer->alternatives().at(r.participant)->size()
-                    << ")";
+                    << "/" << total_size << ")";
         }
         std::cout << std::endl;
       }
@@ -469,9 +470,8 @@ void SimpleNegotiator::respond(
       if (_pimpl->debug_print)
       {
         const double cost = plan->get_cost();
-        std::cout << "Maximum cost leeway factor: " << cost/
-          initial_cost_estimate
-                  << std::endl;
+        std::cout << "Maximum cost leeway factor: "
+                  << cost/initial_cost_estimate << std::endl;
 
         std::cout << "Submitting:\n";
         print_itinerary(plan->get_itinerary());
@@ -522,8 +522,7 @@ void SimpleNegotiator::respond(
       if (contains(blockers, r))
       {
         validators.push_back(
-          rmf_utils::make_clone<NegotiatingRouteValidator>(
-            validator->next(r)));
+          rmf_utils::make_clone<NegotiatingRouteValidator>(validator->next(r)));
       }
     }
 

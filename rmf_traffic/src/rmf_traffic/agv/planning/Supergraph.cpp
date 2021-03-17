@@ -819,8 +819,8 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 
   if (!_constraint.has_value())
   {
-    for (std::size_t i = 0; i <= static_cast<std::size_t>(Orientation::Any);
-      ++i)
+    const auto any = static_cast<std::size_t>(Orientation::Any);
+    for (std::size_t i = 0; i <= any; ++i)
     {
       for (std::size_t j = 0; j <= static_cast<std::size_t>(Side::Finish); ++j)
         new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
@@ -859,8 +859,8 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
   const double dist = (p1 - p0).norm();
   if (dist <= supergraph->options().translation_thresh)
   {
-    for (std::size_t i = 0; i <= static_cast<std::size_t>(Orientation::Any);
-      ++i)
+    const auto any = static_cast<std::size_t>(Orientation::Any);
+    for (std::size_t i = 0; i <= any; ++i)
     {
       for (std::size_t j = 0; j <= static_cast<std::size_t>(Side::Finish); ++j)
         new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});

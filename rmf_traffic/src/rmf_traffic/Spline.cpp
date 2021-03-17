@@ -142,8 +142,7 @@ Time compute_real_time(
   using SecF64 = std::chrono::duration<double>;
   const auto duration =
     scaled_time
-    * std::chrono::duration_cast<SecF64>(
-    time_range[1] - time_range[0]);
+    * std::chrono::duration_cast<SecF64>(time_range[1] - time_range[0]);
 
   using Nano = std::chrono::nanoseconds;
   return std::chrono::duration_cast<Nano>(duration) + time_range[0];

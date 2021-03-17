@@ -46,8 +46,8 @@ inline void print_route(
   const rmf_traffic::Route& route,
   const rmf_traffic::Time start_time)
 {
-  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end();
-    ++it)
+  const auto end = route.trajectory().end();
+  for (auto it = ++route.trajectory().begin(); it != end; ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)

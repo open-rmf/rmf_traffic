@@ -1455,12 +1455,14 @@ SCENARIO("A single lane with an alcove holding space")
           get_participant_itinerary(*proposal, p0.id()).value();
         auto p1_itinerary =
           get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
-          2) ==
-          vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
-          2) ==
-          vertices["A"].first);
+
+        const Eigen::Vector2d p0_back =
+          p0_itinerary.back()->trajectory().back().position().segment(0, 2);
+        REQUIRE(p0_back == vertices["D"].first);
+
+        const Eigen::Vector2d p1_back =
+          p1_itinerary.back()->trajectory().back().position().segment(0, 2);
+        REQUIRE(p1_back == vertices["A"].first);
       }
     }
 
@@ -1773,12 +1775,14 @@ SCENARIO("A single lane with a alternate one way path")
           get_participant_itinerary(*proposal, p0.id()).value();
         auto p1_itinerary =
           get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
-          2) ==
-          vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
-          2) ==
-          vertices["A"].first);
+
+        const Eigen::Vector2d p0_back =
+          p0_itinerary.back()->trajectory().back().position().segment(0, 2);
+        REQUIRE(p0_back == vertices["D"].first);
+
+        const Eigen::Vector2d p1_back =
+          p1_itinerary.back()->trajectory().back().position().segment(0, 2);
+        REQUIRE(p1_back == vertices["A"].first);
       }
     }
   }
@@ -1910,12 +1914,14 @@ SCENARIO("A single lane with a alternate two way path")
           get_participant_itinerary(*proposal, p0.id()).value();
         auto p1_itinerary =
           get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
-          2) ==
-          vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
-          2) ==
-          vertices["A"].first);
+
+        const Eigen::Vector2d p0_back =
+          p0_itinerary.back()->trajectory().back().position().segment(0, 2);
+        REQUIRE(p0_back == vertices["D"].first);
+
+        const Eigen::Vector2d p1_back =
+          p1_itinerary.back()->trajectory().back().position().segment(0, 2);
+        REQUIRE(p1_back == vertices["A"].first);
       }
     }
   }

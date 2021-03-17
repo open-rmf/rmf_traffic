@@ -276,8 +276,8 @@ inline std::ostream& operator<<(std::ostream& os,
 inline std::ostream& operator<<(std::ostream& os,
   const DifferentialDriveMapTypes::Entry entry)
 {
-  os << "[" << entry.lane << ", " << entry.orientation << ", " << entry.side <<
-    "]";
+  os << "[" << entry.lane << ", " << entry.orientation << ", "
+     << entry.side << "]";
 
   return os;
 }

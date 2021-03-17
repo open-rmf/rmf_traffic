@@ -452,9 +452,9 @@ public:
                   << std::endl;
 
         std::cout << "Yaw: " << parent->yaw*180.0/M_PI << " --> "
-                  << yaw*180.0/M_PI << " | Trans: (" <<
-          parent->position.transpose()
-                  << ") --> (" << position.transpose() << ") <"
+                  << yaw*180.0/M_PI << " | Trans: ("
+                  << parent->position.transpose() << ") --> ("
+                  << position.transpose() << ") <"
                   << (parent->position - position).norm() << ">" << std::endl;
       }
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
@@ -902,8 +902,8 @@ public:
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       std::cout << "Expanding from " << top->waypoint.value()
                 << " -> " << traversal.finish_waypoint_index << " | "
-                << Orientation(i) << " {" << traversal.entry_event << "}" <<
-        std::endl;
+                << Orientation(i) << " {" << traversal.entry_event << "}"
+                << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       if (!alt.has_value())
@@ -1365,8 +1365,7 @@ public:
       return {false, {}};
     }
 
-    const Eigen::Vector2d course_vector =
-      (p1 - p0)/dist;
+    const Eigen::Vector2d course_vector = (p1 - p0)/dist;
     const auto yaw_options = constraint.get_orientations(course_vector);
 
     const Graph::Lane* const lane = start.lane() ?
