@@ -86,8 +86,18 @@ html_static_path = ['_static']
 
 # -- Options for breathe and exhale ------------------------------------------
 
+import os
+import os.path
+import subprocess
+
+read_the_docs_build = os.environ.get('READTHEDOCS', None) == 'True'
+if read_the_docs_build:
+    if not os.path.isdir('_build/doxygen'):
+        os.makedirs('_build/doxygen')
+    subprocess.call('doxygen', shell=True)
+
 breathe_projects = {
-    'rmf_traffic': '../build/doxygen/xml'
+    'rmf_traffic': '_build/doxygen/xml'
 }
 breathe_default_project = 'rmf_traffic'
 
@@ -97,8 +107,8 @@ exhale_args = {
     'rootFileTitle': 'rmf_traffic API',
     'doxygenStripFromPath': '../..',
     'createTreeView': True,
-    'exhaleExecutesDoxygen': True,
-    'exhaleDoxygenStdin': 'INPUT = ../../rmf_traffic/include',
+    'exhaleExecutesDoxygen': False,
+    'exhaleDoxygenStdin': 'INPUT = ../rmf_traffic/include',
 }
 
 primary_domain = 'cpp'
