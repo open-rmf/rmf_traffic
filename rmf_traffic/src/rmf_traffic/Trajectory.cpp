@@ -463,7 +463,7 @@ Trajectory::Waypoint& Trajectory::operator[](const std::size_t index)
 
 //==============================================================================
 const Trajectory::Waypoint& Trajectory::operator[](
-    const std::size_t index) const
+  const std::size_t index) const
 {
   return *_pimpl->ordering[index].value->myself;
 }

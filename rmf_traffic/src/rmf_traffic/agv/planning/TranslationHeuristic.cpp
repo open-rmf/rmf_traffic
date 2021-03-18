@@ -44,7 +44,7 @@ public:
 
   using SearchQueue =
     std::priority_queue<
-      NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
+    NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
 
   bool quit(const NodePtr&, const SearchQueue&) const
   {
@@ -90,12 +90,12 @@ public:
       }
 
       auto new_node = std::make_shared<Node>(
-            Node{
-              _goal,
-              0.0,
-              current_cost + remaining_cost.value(),
-              top
-            });
+        Node{
+          _goal,
+          0.0,
+          current_cost + remaining_cost.value(),
+          top
+        });
 
       queue.push(std::move(new_node));
       return;
@@ -122,26 +122,26 @@ public:
       }
 
       auto new_node = std::make_shared<Node>(
-            Node{
-              next_waypoint_index,
-              remaining_cost_estimate.value(),
-              current_cost + traversal.best_time,
-              top
-            });
+        Node{
+          next_waypoint_index,
+          remaining_cost_estimate.value(),
+          current_cost + traversal.best_time,
+          top
+        });
 
       queue.push(std::move(new_node));
     }
   }
 
   TranslationExpander(
-      std::size_t goal,
-      const TranslationHeuristic::Storage& old_items,
-      Cache<ShortestPathHeuristic> heuristic,
-      std::shared_ptr<const Supergraph> graph)
-    : _goal(goal),
-      _old_items(old_items),
-      _heuristic(heuristic),
-      _graph(std::move(graph))
+    std::size_t goal,
+    const TranslationHeuristic::Storage& old_items,
+    Cache<ShortestPathHeuristic> heuristic,
+    std::shared_ptr<const Supergraph> graph)
+  : _goal(goal),
+    _old_items(old_items),
+    _heuristic(heuristic),
+    _graph(std::move(graph))
   {
     // Do nothing
   }
@@ -223,19 +223,19 @@ std::optional<double> TranslationHeuristic::generate(
 
 //==============================================================================
 TranslationHeuristicFactory::TranslationHeuristicFactory(
-    std::shared_ptr<const Supergraph> graph)
-  : _graph(std::move(graph)),
-    _heuristic_cache(std::make_shared<ShortestPathHeuristicFactory>(_graph))
+  std::shared_ptr<const Supergraph> graph)
+: _graph(std::move(graph)),
+  _heuristic_cache(std::make_shared<ShortestPathHeuristicFactory>(_graph))
 {
   // Do nothing
 }
 
 //==============================================================================
 ConstTranslationHeuristicPtr TranslationHeuristicFactory::make(
-    const std::size_t goal) const
+  const std::size_t goal) const
 {
   return std::make_shared<TranslationHeuristic>(
-        goal, _graph, _heuristic_cache.get(goal));
+    goal, _graph, _heuristic_cache.get(goal));
 }
 
 } // namespace planning

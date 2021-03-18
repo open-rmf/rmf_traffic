@@ -46,9 +46,9 @@ public:
   {
     // Note: The z-value doesn't really matter, as long as it's greater than 0.0
     #ifdef RMF_TRAFFIC__USING_FCL_0_6
-      return {std::make_shared<fcl::Boxd>(_x, _y, 1.0)};
+    return {std::make_shared<fcl::Boxd>(_x, _y, 1.0)};
     #else
-      return {std::make_shared<fcl::Box>(_x, _y, 1.0)};
+    return {std::make_shared<fcl::Box>(_x, _y, 1.0)};
     #endif
   }
 

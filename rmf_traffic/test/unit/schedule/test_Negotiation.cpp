@@ -62,7 +62,7 @@ SCENARIO("Negotiation Unit Tests")
 
   {
     auto negotiation = *rmf_traffic::schedule::Negotiation::make(
-          database, {0, 1, 2});
+      database, {0, 1, 2});
 
     auto parent = negotiation.table(0, {});
     parent->submit({}, 1);

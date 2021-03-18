@@ -57,8 +57,8 @@ public:
   StubbornNegotiator(std::shared_ptr<const Participant> participant);
 
   void respond(
-      const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-      const ResponderPtr& responder) final;
+    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
+    const ResponderPtr& responder) final;
 
   class Implementation;
 private:

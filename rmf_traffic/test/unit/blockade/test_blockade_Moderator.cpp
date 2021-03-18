@@ -39,43 +39,43 @@ public:
   using Assignments = rmf_traffic::blockade::Moderator::Assignments;
 
   UnreliableModerator(const double success_rate = 0.2)
-    : _real_moderator(std::make_shared<rmf_traffic::blockade::Moderator>()),
-      _success_rate(success_rate)
+  : _real_moderator(std::make_shared<rmf_traffic::blockade::Moderator>()),
+    _success_rate(success_rate)
   {
     // Do nothing
   }
 
   void set(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      const Reservation& reservation) final
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    const Reservation& reservation) final
   {
     if (_dist(_rng) < _success_rate)
       _real_moderator->set(participant_id, reservation_id, reservation);
   }
 
   void ready(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      const CheckpointId checkpoint) final
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    const CheckpointId checkpoint) final
   {
     if (_dist(_rng) < _success_rate)
       _real_moderator->ready(participant_id, reservation_id, checkpoint);
   }
 
   void release(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      const CheckpointId checkpoint) final
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    const CheckpointId checkpoint) final
   {
     if (_dist(_rng) < _success_rate)
       _real_moderator->release(participant_id, reservation_id, checkpoint);
   }
 
   void reached(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      const CheckpointId checkpoint) final
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    const CheckpointId checkpoint) final
   {
     if (_dist(_rng) < _success_rate)
       _real_moderator->reached(participant_id, reservation_id, checkpoint);
@@ -102,7 +102,7 @@ private:
   std::shared_ptr<rmf_traffic::blockade::Moderator> _real_moderator;
   std::default_random_engine _rng = std::default_random_engine(33);
   std::uniform_real_distribution<double> _dist =
-      std::uniform_real_distribution<double>(0,1);
+    std::uniform_real_distribution<double>(0, 1);
   double _success_rate;
 };
 
@@ -114,16 +114,16 @@ public:
   using Factory = rmf_traffic::blockade::RectificationRequesterFactory;
 
   SimParticipant(
-      const rmf_traffic::blockade::ParticipantId participant_id,
-      const double radius,
-      std::shared_ptr<rmf_traffic::blockade::Writer> writer,
-      std::shared_ptr<Factory> factory,
-      std::vector<rmf_traffic::blockade::Writer::Checkpoint> path,
-      const std::size_t steps_per_waypoint = 3)
-    : _participant(
-        rmf_traffic::blockade::make_participant(
-          participant_id, radius, std::move(writer), std::move(factory))),
-      _steps_per_waypoint(steps_per_waypoint)
+    const rmf_traffic::blockade::ParticipantId participant_id,
+    const double radius,
+    std::shared_ptr<rmf_traffic::blockade::Writer> writer,
+    std::shared_ptr<Factory> factory,
+    std::vector<rmf_traffic::blockade::Writer::Checkpoint> path,
+    const std::size_t steps_per_waypoint = 3)
+  : _participant(
+      rmf_traffic::blockade::make_participant(
+        participant_id, radius, std::move(writer), std::move(factory))),
+    _steps_per_waypoint(steps_per_waypoint)
   {
     _participant.set(std::move(path));
     REQUIRE(!_participant.path().empty());
@@ -192,8 +192,8 @@ ModeratorContext make_unreliable()
   ModeratorContext context;
   const auto unreliable_moderator = std::make_shared<UnreliableModerator>();
   context.rectifier_factory =
-      std::make_shared<ModeratorRectFactory>(
-        unreliable_moderator->real_moderator());
+    std::make_shared<ModeratorRectFactory>(
+    unreliable_moderator->real_moderator());
 
   context.moderator = unreliable_moderator->real_moderator();
   context.writer = unreliable_moderator;
@@ -231,16 +231,16 @@ bool all_assignments_reached_end(const MapOfRanges& ranges)
 
 //==============================================================================
 void simulate_moderator(
-    ModeratorContext context,
-    GridlockScenario scenario,
-    const double radius)
+  ModeratorContext context,
+  GridlockScenario scenario,
+  const double radius)
 {
   std::vector<SimParticipant> participants;
-  for (std::size_t i=0; i < scenario.paths.size(); ++i)
+  for (std::size_t i = 0; i < scenario.paths.size(); ++i)
   {
     participants.emplace_back(
-          i, radius, context.writer, context.rectifier_factory,
-          std::move(scenario.paths[i]), 3);
+      i, radius, context.writer, context.rectifier_factory,
+      std::move(scenario.paths[i]), 3);
   }
 
   // TODO(MXG): We're testing that the moderator's constraints never get
@@ -268,7 +268,7 @@ void simulate_moderator(
   }
 
   while (!all_assignments_reached_end(
-           context.moderator->assignments().ranges()))
+      context.moderator->assignments().ranges()))
   {
     // Assignments should only ever fail to reach the end if this is an
     // unreliable moderator.
@@ -430,7 +430,7 @@ SCENARIO("Test lane sharing")
     participant.reached(Reached); \
     CHECK(ranges.at(participant.id()).begin == Begin); \
     CHECK(ranges.at(participant.id()).end == End); \
-  } while(0)
+  } while (0)
 
 #define up_A(Ready, Reached, Begin, End) \
   UPDATE(p_A, Ready, Reached, Begin, End)

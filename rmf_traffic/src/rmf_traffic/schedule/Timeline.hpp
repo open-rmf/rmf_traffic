@@ -457,9 +457,10 @@ public:
     if (entry->route && entry->route->trajectory().size() < 2)
     {
       throw std::runtime_error(
-        "[rmf_traffic::schedule::Timeline] Trying to insert a trajectory with "
-        "less than 2 waypoints ["
-        + std::to_string(entry->route->trajectory().size()) + "] is illegal!");
+              "[rmf_traffic::schedule::Timeline] Trying to insert a trajectory with "
+              "less than 2 waypoints ["
+              + std::to_string(
+                entry->route->trajectory().size()) + "] is illegal!");
     }
 
     if (entry->route && entry->route->trajectory().start_time())

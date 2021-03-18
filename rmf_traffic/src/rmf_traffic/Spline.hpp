@@ -33,9 +33,9 @@
 namespace rmf_traffic {
 
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
-  using FclSplineMotion = fcl::SplineMotion<double>;
+using FclSplineMotion = fcl::SplineMotion<double>;
 #else
-  using FclSplineMotion = fcl::SplineMotion;
+using FclSplineMotion = fcl::SplineMotion;
 #endif
 
 //==============================================================================
@@ -98,8 +98,8 @@ class DistanceDifferential
 public:
 
   DistanceDifferential(
-      const Spline& spline_a,
-      const Spline& spline_b);
+    const Spline& spline_a,
+    const Spline& spline_b);
 
   bool initially_approaching() const;
 

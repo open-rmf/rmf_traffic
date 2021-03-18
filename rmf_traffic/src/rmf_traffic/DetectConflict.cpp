@@ -55,7 +55,7 @@ public:
       + "conflict with a Trajectory that has [" + std::to_string(num_segments)
       + "] segments. This is not supported. Trajectories must have at least "
       + "2 segments to check them for conflicts. "
-        + function + ":" + std::to_string(line);
+      + function + ":" + std::to_string(line);
     return error;
   }
 
@@ -458,19 +458,23 @@ bool check_overlap(
   {
     auto pos_a = spline_a.compute_position(time);
     auto pos_b = spline_b.compute_position(time);
-    
-    auto rot_a = fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
-    auto  rot_b = fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
+    auto rot_a =
+      fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    auto rot_b =
+      fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
 
     fcl::CollisionObjectd obj_a(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
       rot_a,
-      fcl::Vector3d(pos_a[0], pos_a[1], 0.0));
+      fcl::Vector3d(pos_a[0], pos_a[1], 0.0)
+    );
 
     fcl::CollisionObjectd obj_b(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
       rot_b,
-      fcl::Vector3d(pos_b[0], pos_b[1], 0.0));
+      fcl::Vector3d(pos_b[0], pos_b[1], 0.0)
+    );
 
     if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
       return true;
@@ -480,11 +484,11 @@ bool check_overlap(
   fcl::CollisionResult result;
 
   auto convert = [](Eigen::Vector3d p) -> fcl::Transform3f
-  {
-    fcl::Matrix3f R;
-    R.setEulerZYX(0.0, 0.0, p[2]);
-    return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
-  };
+    {
+      fcl::Matrix3f R;
+      R.setEulerZYX(0.0, 0.0, p[2]);
+      return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
+    };
 
   for (const auto& pair : pairs)
   {
@@ -500,7 +504,7 @@ bool check_overlap(
       return true;
   }
 #endif
-  
+
   return false;
 }
 
@@ -525,13 +529,13 @@ bool close_start(
 
 //==============================================================================
 rmf_utils::optional<rmf_traffic::Time> detect_invasion(
-    const Profile::Implementation& profile_a,
-    Trajectory::const_iterator a_it,
-    const Trajectory::const_iterator& a_end,
-    const Profile::Implementation& profile_b,
-    Trajectory::const_iterator b_it,
-    const Trajectory::const_iterator& b_end,
-    std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
+  const Profile::Implementation& profile_a,
+  Trajectory::const_iterator a_it,
+  const Trajectory::const_iterator& a_end,
+  const Profile::Implementation& profile_b,
+  Trajectory::const_iterator b_it,
+  const Trajectory::const_iterator& b_end,
+  std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
 {
   rmf_utils::optional<Spline> spline_a;
   rmf_utils::optional<Spline> spline_b;
@@ -633,10 +637,10 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
 //==============================================================================
 Trajectory slice_trajectory(
-    const Time start_time,
-    const Spline& spline,
-    Trajectory::const_iterator it,
-    const Trajectory::const_iterator& end)
+  const Time start_time,
+  const Spline& spline,
+  Trajectory::const_iterator it,
+  const Trajectory::const_iterator& end)
 {
   Trajectory output;
   output.insert(
@@ -652,13 +656,13 @@ Trajectory slice_trajectory(
 
 //==============================================================================
 rmf_utils::optional<rmf_traffic::Time> detect_approach(
-    const Profile::Implementation& profile_a,
-    Trajectory::const_iterator a_it,
-    const Trajectory::const_iterator& a_end,
-    const Profile::Implementation& profile_b,
-    Trajectory::const_iterator b_it,
-    const Trajectory::const_iterator& b_end,
-    std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
+  const Profile::Implementation& profile_a,
+  Trajectory::const_iterator a_it,
+  const Trajectory::const_iterator& a_end,
+  const Profile::Implementation& profile_b,
+  Trajectory::const_iterator b_it,
+  const Trajectory::const_iterator& b_end,
+  std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
 {
   rmf_utils::optional<Spline> spline_a;
   rmf_utils::optional<Spline> spline_b;
@@ -680,7 +684,7 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
         return time;
 
       output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{a_it, b_it, time});
+        DetectConflict::Implementation::Conflict{a_it, b_it, time});
     }
 
     const auto approach_times = D.approach_times();
@@ -695,10 +699,10 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
         // TODO(MXG): Consider an approach that does not require making copies
         // of the trajectories.
         const Trajectory sliced_trajectory_a =
-            slice_trajectory(t, *spline_a, a_it, a_end);
+          slice_trajectory(t, *spline_a, a_it, a_end);
 
         const Trajectory sliced_trajectory_b =
-            slice_trajectory(t, *spline_b, b_it, b_end);
+          slice_trajectory(t, *spline_b, b_it, b_end);
 
         return detect_invasion(
           profile_a, ++sliced_trajectory_a.begin(), sliced_trajectory_a.end(),
@@ -712,11 +716,11 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
         return t;
 
       output_conflicts->emplace_back(
-            DetectConflict::Implementation::Conflict{a_it, b_it, t});
+        DetectConflict::Implementation::Conflict{a_it, b_it, t});
     }
 
     const bool still_close = check_overlap(
-          profile_a, *spline_a, profile_b, *spline_b, D.finish_time());
+      profile_a, *spline_a, profile_b, *spline_b, D.finish_time());
 
     if (spline_a->finish_time() < spline_b->finish_time())
     {
@@ -769,15 +773,15 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   if (trajectory_a.size() < 2)
   {
     throw invalid_trajectory_error::Implementation
-        ::make_segment_num_error(
-          trajectory_a.size(), __LINE__, __FUNCTION__);
+          ::make_segment_num_error(
+            trajectory_a.size(), __LINE__, __FUNCTION__);
   }
 
   if (trajectory_b.size() < 2)
   {
     throw invalid_trajectory_error::Implementation
-        ::make_segment_num_error(
-          trajectory_b.size(), __LINE__, __FUNCTION__);
+          ::make_segment_num_error(
+            trajectory_b.size(), __LINE__, __FUNCTION__);
   }
 
   const Profile::Implementation profile_a = convert_profile(input_profile_a);
@@ -809,25 +813,25 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
     // If the vehicles are already starting in close proximity, then we consider
     // it a conflict if they get any closer while within that proximity.
     return detect_approach(
-          profile_a,
-          std::move(a_it),
-          trajectory_a.end(),
-          profile_b,
-          std::move(b_it),
-          trajectory_b.end(),
-          output_conflicts);
+      profile_a,
+      std::move(a_it),
+      trajectory_a.end(),
+      profile_b,
+      std::move(b_it),
+      trajectory_b.end(),
+      output_conflicts);
   }
 
   // If the vehicles are starting an acceptable distance from each other, then
   // check if either one invades the vicinity of the other.
   return detect_invasion(
-        profile_a,
-        std::move(a_it),
-        trajectory_a.end(),
-        profile_b,
-        std::move(b_it),
-        trajectory_b.end(),
-        output_conflicts);
+    profile_a,
+    std::move(a_it),
+    trajectory_a.end(),
+    profile_b,
+    std::move(b_it),
+    trajectory_b.end(),
+    output_conflicts);
 }
 
 namespace internal {
