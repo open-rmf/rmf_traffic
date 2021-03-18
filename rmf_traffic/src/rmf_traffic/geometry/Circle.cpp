@@ -92,7 +92,8 @@ FinalShape Circle::finalize() const
 {
   return FinalShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
-    _get_internal()->make_fcl(), this->get_radius());
+    _get_internal()->make_fcl(), this->get_radius(),
+    make_equality_comparitor(*this));
 }
 
 //==============================================================================
@@ -100,7 +101,20 @@ FinalConvexShape Circle::finalize_convex() const
 {
   return FinalConvexShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
-    _get_internal()->make_fcl(), this->get_radius());
+    _get_internal()->make_fcl(), this->get_radius(),
+    make_equality_comparitor(*this));
+}
+
+//==============================================================================
+bool operator==(const Circle& lhs, const Circle& rhs)
+{
+  return lhs.get_radius() == rhs.get_radius();
+}
+
+//==============================================================================
+bool operator!=(const Circle& lhs, const Circle& rhs)
+{
+  return !(lhs == rhs);
 }
 
 } // namespace geometry

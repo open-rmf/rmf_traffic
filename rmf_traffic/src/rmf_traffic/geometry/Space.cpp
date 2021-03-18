@@ -64,5 +64,22 @@ Space& Space::set_pose(Eigen::Isometry2d tf)
   return *this;
 }
 
+//==============================================================================
+bool operator==(
+  const Space& lhs,
+  const Space& rhs)
+{
+  return *lhs.get_shape() == *rhs.get_shape() &&
+    lhs.get_pose().isApprox(rhs.get_pose());
+}
+
+//==============================================================================
+bool operator!=(
+  const Space& lhs,
+  const Space& rhs)
+{
+  return !(lhs == rhs);
+}
+
 } // namespace geometry
 } // namespace rmf_traffic
