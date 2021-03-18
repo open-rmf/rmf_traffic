@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <list>
+#include <iostream>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -110,8 +111,9 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    const std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
+    Version last_updated;
     RouteId last_route_id = std::numeric_limits<RouteId>::max();
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -139,6 +141,17 @@ public:
 
   using ParticipantRegistrationTime = std::map<Time, Version>;
   ParticipantRegistrationTime remove_participant_time;
+
+
+  // Keeps track of when the latest update was applied to each participant
+  struct UpdateParticipantDescriptionInfo
+  {
+    Version latest_update;
+    Version original_version;
+  };
+  using UpdateParticipantDescription = 
+    std::unordered_map<ParticipantId, UpdateParticipantDescriptionInfo>;
+  UpdateParticipantDescription update_participant_version;
 
   // NOTE(MXG): We store this record of inconsistency ranges here as a single
   // group that covers all participants in order to make it easy for us to share
@@ -652,6 +665,7 @@ Writer::Registration Database::register_participant(
         std::move(tracker),
         {},
         description_ptr,
+        version,
         version
       })).first;
 
@@ -664,6 +678,36 @@ Writer::Registration Database::register_participant(
     id, state.tracker->last_known_version(), state.last_route_id);
 }
 
+
+//==============================================================================
+void Database::update_description(
+    ParticipantId id,
+    ParticipantDescription desc)
+{
+  const auto p_it = _pimpl->states.find(id);
+  if (p_it == _pimpl->states.end())
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "[Database::erase] No participant with ID ["
+      + std::to_string(id) + "]");
+    // *INDENT-ON*
+  }
+
+  const auto description_ptr =
+    std::make_shared<ParticipantDescription>(std::move(desc));
+
+  auto version = ++_pimpl->schedule_version;
+  p_it->second.last_updated = version;
+  p_it->second.description = description_ptr;
+
+  _pimpl->descriptions[id] = description_ptr;
+  _pimpl->update_participant_version.insert({id, 
+    Implementation::UpdateParticipantDescriptionInfo {
+      version,
+      p_it->second.initial_schedule_version
+    }});
+}
 //==============================================================================
 void Database::unregister_participant(
   ParticipantId participant)
@@ -1122,6 +1166,7 @@ auto Database::changes(
 
   std::vector<Change::RegisterParticipant> registered;
   std::vector<Change::UnregisterParticipant> unregistered;
+  std::vector<Change::UpdateParticipantInfo> info_updates;
   if (after)
   {
     const Version after_v = *after;
@@ -1141,6 +1186,25 @@ auto Database::changes(
       // update to this mirror
       if (remove_it->second.original_version <= *after)
         unregistered.emplace_back(remove_it->second.id);
+    }
+
+   
+    for (auto& update_it : _pimpl->update_participant_version)
+    {
+       // Check which participants have been updated
+      auto id = update_it.first;
+      if (update_it.second.original_version <= after_v 
+        && update_it.second.latest_update > after_v)
+      {
+        // Only send the update if it is not a newly registered
+        // participant and if there has been an update since
+        // the mirror was last updated.
+        const auto p_it = _pimpl->states.find(id);
+        if (p_it == _pimpl->states.end()) continue;
+
+        info_updates.emplace_back(id,
+                                  *p_it->second.description);        
+      }
     }
   }
   else
@@ -1162,6 +1226,7 @@ auto Database::changes(
   return Patch(
     std::move(unregistered),
     std::move(registered),
+    std::move(info_updates),
     std::move(part_patches),
     cull,
     _pimpl->schedule_version);

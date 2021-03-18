@@ -64,6 +64,17 @@ SCENARIO("Test Database Conflicts")
       });
     CHECK(db.latest_version() == ++dbv);
 
+    db.update_description(p1.id(), rmf_traffic::schedule::ParticipantDescription{
+        "test_participant",
+        "test_Database2",
+        rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+        profile
+    });
+    CHECK(db.latest_version() == ++dbv);
+
+    auto participant = db.get_participant(p1.id());
+    CHECK(participant->owner() == "test_Database2");
+
     rmf_traffic::Trajectory t1;
     t1.insert(time, Eigen::Vector3d{-5, 0, 0}, Eigen::Vector3d{0, 0, 0});
     t1.insert(time + 10s, Eigen::Vector3d{5, 0, 0}, Eigen::Vector3d{0, 0, 0});
@@ -78,6 +89,7 @@ SCENARIO("Test Database Conflicts")
     changes = db.changes(query_all, 0);
     CHECK(changes.registered().size() == 1);
     CHECK(changes.unregistered().size() == 0);
+    CHECK(changes.updated().size() == 0);
 
     REQUIRE(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1.id());
@@ -298,6 +310,11 @@ SCENARIO("Test Database Conflicts")
       REQUIRE(changes.cull());
       CHECK(changes.cull()->time() == cull_time);
       CHECK(changes.latest_version() == db.latest_version());
+    }
+
+    // WHEN("participant is updated")
+    {
+
     }
   }
 }

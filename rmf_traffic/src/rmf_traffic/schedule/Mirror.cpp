@@ -335,6 +335,30 @@ Version Mirror::update(const Patch& patch)
     }
   }
 
+  for (const auto& updates: patch.updated())
+  {
+    const auto description = std::make_shared<ParticipantDescription>(
+      updates.description());
+
+    const ParticipantId id = updates.id();
+
+    if(_pimpl->participant_ids.count(id) == 0)
+    {
+      std::cerr << "[Mirror::update] Requested updating of participant ID ["
+                << id << "] but participant hasn't yet registered"
+                << "or has been deleted."
+                << std::endl;
+      continue;
+    }
+
+    _pimpl->states[id] = Implementation::ParticipantState{
+      {},
+      description
+    };
+
+    _pimpl->descriptions[id] = description;
+  }
+
   for (const auto& p : patch)
   {
     const ParticipantId participant = p.participant_id();
