@@ -76,7 +76,6 @@ public:
     for (const RouteId id : erase.ids())
     {
       const auto r_it = state.storage.find(id);
-      assert(r_it != state.storage.end());
       if (r_it == state.storage.end())
       {
         std::cerr << "[Mirror::update] Erasing unrecognized route [" << id
@@ -124,7 +123,6 @@ public:
       const RouteId route_id = item.id;
       auto insertion = state.storage.insert({route_id, RouteStorage()});
       const bool inserted = insertion.second;
-      assert(inserted);
       if (!inserted)
       {
         std::cerr << "[Mirror::update] Inserting a route [" << item.id
@@ -315,6 +313,13 @@ Version Mirror::update(const Patch& patch)
       registered.description());
 
     const ParticipantId id = registered.id();
+    // Check if this participant is already known about; if it is, skip it
+    const auto p_it = _pimpl->states.find(id);
+    if (p_it != _pimpl->states.end())
+    {
+      continue;
+    }
+
     const bool inserted = _pimpl->states.insert(
       std::make_pair(
         id,
