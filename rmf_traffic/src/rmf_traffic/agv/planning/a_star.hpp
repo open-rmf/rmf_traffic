@@ -24,12 +24,12 @@ namespace planning {
 
 //==============================================================================
 template<
-    class Expander,
-    class SearchQueue = typename Expander::SearchQueue,
-    class NodePtr = typename Expander::NodePtr>
+  class Expander,
+  class SearchQueue = typename Expander::SearchQueue,
+  class NodePtr = typename Expander::NodePtr>
 NodePtr a_star_search(
-    Expander& expander,
-    SearchQueue& queue)
+  Expander& expander,
+  SearchQueue& queue)
 {
   while (!queue.empty())
   {
@@ -62,7 +62,7 @@ struct SimpleCompare
     // TODO(MXG): Micro-optimization: consider saving the sum of these values
     // in the Node instead of needing to re-add them for every comparison.
     return b->remaining_cost_estimate + b->current_cost
-        < a->remaining_cost_estimate + a->current_cost;
+      < a->remaining_cost_estimate + a->current_cost;
   }
 };
 

@@ -39,13 +39,13 @@ SCENARIO("Translation Heuristic")
   // (intentionally) be forced to waste time accelerating and decelerating. That
   // slowdown will allow a longer path to require less time to reach the goal.
   const auto bogus_event = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(0)));
+    rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(0)));
 
   const std::size_t N = 30;
   const std::size_t start_index = 0;
   const std::size_t goal_index = N;
 
-  for (std::size_t i=0; i <= N; ++i)
+  for (std::size_t i = 0; i <= N; ++i)
   {
     graph.add_waypoint(test_map, {i, 0});
     if (i > 0)
@@ -56,7 +56,7 @@ SCENARIO("Translation Heuristic")
   }
 
   const double peak = 3.0;
-  for (std::size_t i=1; i < N; ++i)
+  for (std::size_t i = 1; i < N; ++i)
   {
     double offset;
     if (i < N/2)
@@ -89,12 +89,12 @@ SCENARIO("Translation Heuristic")
   traits.get_differential()->set_reversible(false);
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, rmf_traffic::agv::Interpolate::Options());
 
   using ShortestPathCache =
     rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>;
+    rmf_traffic::agv::planning::ShortestPathHeuristicFactory>;
   ShortestPathCache shortest_path_cache(
     std::make_shared<rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
       supergraph));
@@ -108,7 +108,7 @@ SCENARIO("Translation Heuristic")
 
   using TranslationCache =
     rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::TranslationHeuristicFactory>;
+    rmf_traffic::agv::planning::TranslationHeuristicFactory>;
   TranslationCache translation_cache(
     std::make_shared<rmf_traffic::agv::planning::TranslationHeuristicFactory>(
       supergraph));
@@ -128,7 +128,7 @@ SCENARIO("Translation Heuristic")
 
   const rmf_traffic::Trajectory trajectory =
     rmf_traffic::agv::Interpolate::positions(
-      traits, std::chrono::steady_clock::now(), {p_start, p_peak, p_goal});
+    traits, std::chrono::steady_clock::now(), {p_start, p_peak, p_goal});
 
   const double expected_time = duration(trajectory);
 

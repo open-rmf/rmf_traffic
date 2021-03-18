@@ -32,7 +32,7 @@
 
 //==============================================================================
 std::size_t count_alternatives(
-    const rmf_traffic::agv::planning::Traversals& traversals)
+  const rmf_traffic::agv::planning::Traversals& traversals)
 {
   std::size_t alternatives_counter = 0;
   for (const auto& traversal : traversals)
@@ -51,8 +51,8 @@ std::size_t count_alternatives(
 
 //==============================================================================
 bool has_only_map(
-    const std::string& reference_map,
-    const rmf_traffic::agv::planning::Traversals& traversals)
+  const std::string& reference_map,
+  const rmf_traffic::agv::planning::Traversals& traversals)
 {
   bool at_least_one = false;
   for (const auto& traversal : traversals)
@@ -91,14 +91,14 @@ SCENARIO("Supergraph -- Single Floor, Reversible")
   graph.add_waypoint(test_map, {0, 3}); // 6
 
   const auto forward_constraint =
-      rmf_traffic::agv::Graph::OrientationConstraint::make(
-        rmf_traffic::agv::Graph::OrientationConstraint::Direction::Forward,
-        Eigen::Vector2d::UnitX());
+    rmf_traffic::agv::Graph::OrientationConstraint::make(
+    rmf_traffic::agv::Graph::OrientationConstraint::Direction::Forward,
+    Eigen::Vector2d::UnitX());
 
   const auto backward_constraint =
-      rmf_traffic::agv::Graph::OrientationConstraint::make(
-        rmf_traffic::agv::Graph::OrientationConstraint::Direction::Backward,
-        Eigen::Vector2d::UnitX());
+    rmf_traffic::agv::Graph::OrientationConstraint::make(
+    rmf_traffic::agv::Graph::OrientationConstraint::Direction::Backward,
+    Eigen::Vector2d::UnitX());
 
   graph.add_lane(0, 4);
   graph.add_lane(4, 0);
@@ -134,8 +134,8 @@ SCENARIO("Supergraph -- Single Floor, Reversible")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, rmf_traffic::agv::Interpolate::Options());
 
   auto traversals = supergraph->traversals_from(0);
   REQUIRE(traversals);
@@ -216,7 +216,7 @@ SCENARIO("Supergraph -- Single Floor, Events, Irreversible")
   graph.add_waypoint(test_map, {-4, -4}); // 4
 
   const auto wait = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
+    rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
 
   graph.add_lane(0, 1);
   graph.add_lane(1, {2, wait});
@@ -239,14 +239,14 @@ SCENARIO("Supergraph -- Single Floor, Events, Irreversible")
   graph.add_waypoint(test_map, {0, 4}); // 12
 
   const auto forward_constraint =
-      rmf_traffic::agv::Graph::OrientationConstraint::make(
-        rmf_traffic::agv::Graph::OrientationConstraint::Direction::Forward,
-        Eigen::Vector2d::UnitX());
+    rmf_traffic::agv::Graph::OrientationConstraint::make(
+    rmf_traffic::agv::Graph::OrientationConstraint::Direction::Forward,
+    Eigen::Vector2d::UnitX());
 
   const auto backward_constraint =
-      rmf_traffic::agv::Graph::OrientationConstraint::make(
-        rmf_traffic::agv::Graph::OrientationConstraint::Direction::Backward,
-        Eigen::Vector2d::UnitX());
+    rmf_traffic::agv::Graph::OrientationConstraint::make(
+    rmf_traffic::agv::Graph::OrientationConstraint::Direction::Backward,
+    Eigen::Vector2d::UnitX());
 
   graph.add_lane(0, 9);
   graph.add_lane(9, {10, nullptr, forward_constraint});
@@ -259,8 +259,8 @@ SCENARIO("Supergraph -- Single Floor, Events, Irreversible")
   traits.get_differential()->set_reversible(false);
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, rmf_traffic::agv::Interpolate::Options());
 
   auto traversals = supergraph->traversals_from(0);
   REQUIRE(traversals);

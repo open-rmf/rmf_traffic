@@ -28,10 +28,10 @@ namespace blockade {
 bool Bracket::operator==(const Bracket& other) const
 {
   return
-         start == other.start
-      && finish == other.finish
-      && include_start == other.include_start
-      && include_finish == other.include_finish;
+    start == other.start
+    && finish == other.finish
+    && include_start == other.include_start
+    && include_finish == other.include_finish;
 }
 
 //==============================================================================
@@ -48,15 +48,15 @@ BracketPair BracketPair::complement() const
 
 //==============================================================================
 std::shared_ptr<Timeline> Timeline::make(
-    const std::vector<AlignedBracketPair>& alignments)
+  const std::vector<AlignedBracketPair>& alignments)
 {
   return std::shared_ptr<Timeline>(new Timeline(alignments));
 }
 
 //==============================================================================
 bool Timeline::is_behind(
-    const ReservedRange& range_A,
-    const ReservedRange& range_B) const
+  const ReservedRange& range_A,
+  const ReservedRange& range_B) const
 {
   const std::size_t a = range_A.end;
   const std::size_t b = range_B.begin;
@@ -72,7 +72,7 @@ bool Timeline::is_behind(
   {
     // This is some kind of bug, because it implies that the map is empty
     throw std::runtime_error(
-          "[rmf_traffic::blockade::Timeline::is_behind] BUG! Empty map!");
+            "[rmf_traffic::blockade::Timeline::is_behind] BUG! Empty map!");
   }
 
   return a < it_0->first && it_0->second.index <= b;
@@ -91,7 +91,7 @@ Timeline::Timeline(const std::vector<AlignedBracketPair>& alignments)
     else if (pair.A.include_start)
     {
       _insert_if_preferable(
-            pair.B.start, Comparison{Comparison::LessThan, pair.A.start});
+        pair.B.start, Comparison{Comparison::LessThan, pair.A.start});
     }
 
     if (pair.A.include_finish && pair.B.include_finish)
@@ -102,15 +102,15 @@ Timeline::Timeline(const std::vector<AlignedBracketPair>& alignments)
     else if (pair.B.include_finish)
     {
       _insert_if_preferable(
-            pair.B.finish, Comparison{Comparison::LessThan, pair.A.finish});
+        pair.B.finish, Comparison{Comparison::LessThan, pair.A.finish});
     }
   }
 }
 
 //==============================================================================
 void Timeline::_insert_if_preferable(
-    const std::size_t index,
-    const Comparison comp)
+  const std::size_t index,
+  const Comparison comp)
 {
   const auto insertion = _map.insert({index, comp});
   if (!insertion.second)
@@ -130,12 +130,12 @@ class BehindConstraint : public Constraint
 public:
 
   BehindConstraint(
-      std::size_t is_behind,
-      std::size_t is_in_front,
-      std::shared_ptr<Timeline> timeline)
-    : _is_behind(is_behind),
-      _is_in_front(is_in_front),
-      _timeline(std::move(timeline))
+    std::size_t is_behind,
+    std::size_t is_in_front,
+    std::shared_ptr<Timeline> timeline)
+  : _is_behind(is_behind),
+    _is_in_front(is_in_front),
+    _timeline(std::move(timeline))
   {
     _dependencies.insert(is_behind);
     _dependencies.insert(is_in_front);
@@ -144,8 +144,8 @@ public:
   bool evaluate(const State& state) const final
   {
     return _evaluate(
-          get_range(state, _is_behind),
-          get_range(state, _is_in_front));
+      get_range(state, _is_behind),
+      get_range(state, _is_in_front));
   }
 
   const std::unordered_set<std::size_t>& dependencies() const final
@@ -185,28 +185,28 @@ public:
 private:
 
   const ReservedRange& get_range(
-      const State& state,
-      const std::size_t participant) const
+    const State& state,
+    const std::size_t participant) const
   {
     const auto it = state.find(participant);
     if (it != state.end())
       return it->second;
 
     std::string error = "Failed to evalute BehindConstraint comparing "
-        + std::to_string(_is_behind) + " to "
-        + std::to_string(_is_in_front) + ". Participant "
-        + std::to_string(participant) + " is missing from the state.";
+      + std::to_string(_is_behind) + " to "
+      + std::to_string(_is_in_front) + ". Participant "
+      + std::to_string(participant) + " is missing from the state.";
     throw std::runtime_error(error);
   }
 
   bool _evaluate(
-      const ReservedRange& should_be_behind,
-      const ReservedRange& should_be_in_front) const
+    const ReservedRange& should_be_behind,
+    const ReservedRange& should_be_in_front) const
   {
     const bool result =
-        _timeline->is_behind(
-          should_be_behind,
-          should_be_in_front);
+      _timeline->is_behind(
+      should_be_behind,
+      should_be_in_front);
     return result;
   }
 
@@ -218,20 +218,20 @@ private:
 
 //==============================================================================
 std::shared_ptr<Constraint> behind(
-    std::size_t is_behind,
-    std::size_t is_in_front,
-    std::shared_ptr<Timeline> timeline)
+  std::size_t is_behind,
+  std::size_t is_in_front,
+  std::shared_ptr<Timeline> timeline)
 {
   return std::make_shared<BehindConstraint>(
-        is_behind, is_in_front, std::move(timeline));
+    is_behind, is_in_front, std::move(timeline));
 }
 
 //==============================================================================
 bool compatible_start_and_finish(
-    std::size_t start,
-    bool include_start,
-    std::size_t finish,
-    bool include_finish)
+  std::size_t start,
+  bool include_start,
+  std::size_t finish,
+  bool include_finish)
 {
   if (finish+1 < start)
     return false;
@@ -253,17 +253,17 @@ bool compatible_start_and_finish(
 
 //==============================================================================
 bool can_merge_brackets(
-    const Bracket& bracket0,
-    const Bracket& bracket1)
+  const Bracket& bracket0,
+  const Bracket& bracket1)
 {
   if (!compatible_start_and_finish(
-        bracket0.start, bracket0.include_start,
-        bracket1.finish, bracket1.include_finish))
+      bracket0.start, bracket0.include_start,
+      bracket1.finish, bracket1.include_finish))
     return false;
 
   if (!compatible_start_and_finish(
-        bracket1.start, bracket1.include_start,
-        bracket0.finish, bracket0.include_finish))
+      bracket1.start, bracket1.include_start,
+      bracket0.finish, bracket0.include_finish))
     return false;
 
   return true;
@@ -271,8 +271,8 @@ bool can_merge_brackets(
 
 //==============================================================================
 Bracket merge_brackets(
-    const Bracket& bracket0,
-    const Bracket& bracket1)
+  const Bracket& bracket0,
+  const Bracket& bracket1)
 {
   Bracket output;
 
@@ -313,18 +313,18 @@ Bracket merge_brackets(
 
 //==============================================================================
 bool can_merge_pair(
-    const BracketPair& pair0,
-    const BracketPair& pair1)
+  const BracketPair& pair0,
+  const BracketPair& pair1)
 {
   return can_merge_brackets(pair0.A, pair1.A)
-      && can_merge_brackets(pair0.B, pair1.B);
+    && can_merge_brackets(pair0.B, pair1.B);
 }
 
 //==============================================================================
 bool try_merge(
-    BracketPair& pair0,
-    const BracketPair& pair1,
-    std::size_t& merge_count)
+  BracketPair& pair0,
+  const BracketPair& pair1,
+  std::size_t& merge_count)
 {
   if (!can_merge_pair(pair0, pair1))
     return false;
@@ -337,8 +337,8 @@ bool try_merge(
 
 //==============================================================================
 void expand_bracket(
-    Bracket& bracket,
-    const std::vector<Writer::Checkpoint>& path)
+  Bracket& bracket,
+  const std::vector<Writer::Checkpoint>& path)
 {
   // This function accounts for points that the robot is not allowed to hold at.
   // These points get absorbed into the brackets as if they are part of the
@@ -365,15 +365,15 @@ void expand_bracket(
 
 //==============================================================================
 Brackets compute_brackets(
-    const std::vector<Writer::Checkpoint>& path_a,
-    const double radius_a,
-    const std::vector<Writer::Checkpoint>& path_b,
-    const double radius_b,
-    const double angle_threshold)
+  const std::vector<Writer::Checkpoint>& path_a,
+  const double radius_a,
+  const std::vector<Writer::Checkpoint>& path_b,
+  const double radius_b,
+  const double angle_threshold)
 {
   std::multimap<std::size_t, AlignedBracketPair> aligned_set;
   std::multimap<std::size_t, ConflictBracketPair> conflict_set;
-  for (std::size_t a=0; a < path_a.size()-1; ++a)
+  for (std::size_t a = 0; a < path_a.size()-1; ++a)
   {
     const auto& it_a_start = path_a[a];
     const auto& it_a_finish = path_a[a+1];
@@ -384,7 +384,7 @@ Brackets compute_brackets(
     const Segment segment_a{
       it_a_start.position, it_a_finish.position, radius_a};
 
-    for (std::size_t b=0; b < path_b.size()-1; ++b)
+    for (std::size_t b = 0; b < path_b.size()-1; ++b)
     {
       const auto& it_b_start = path_b[b];
       const auto& it_b_finish = path_b[b+1];
@@ -420,12 +420,12 @@ Brackets compute_brackets(
         expand_bracket(pair.B, path_b);
 
         conflict_set.emplace(
-              std::make_pair(pair.A.start, ConflictBracketPair{pair}));
+          std::make_pair(pair.A.start, ConflictBracketPair{pair}));
       }
       else if (info.is_alignment())
       {
         aligned_set.emplace(
-              std::make_pair(pair.A.start, AlignedBracketPair{pair}));
+          std::make_pair(pair.A.start, AlignedBracketPair{pair}));
       }
     }
   }
@@ -501,25 +501,25 @@ Brackets compute_brackets(
 
 //==============================================================================
 std::pair<std::size_t, ConstConstraintPtr> compute_blocker(
-    const Bracket& me,
-    const std::size_t my_path_size,
-    const Bracket& other,
-    const std::size_t other_path_size,
-    const std::size_t other_id)
+  const Bracket& me,
+  const std::size_t my_path_size,
+  const Bracket& other,
+  const std::size_t other_path_size,
+  const std::size_t other_id)
 {
   const std::size_t go_from = [&]() -> std::size_t
-  {
-    if (me.start == 0)
-      return 0;
+    {
+      if (me.start == 0)
+        return 0;
 
-    if (me.include_start)
-      return me.start-1;
+      if (me.include_start)
+        return me.start-1;
 
-    return me.start;
-  }();
+      return me.start;
+    } ();
 
   const bool other_may_hold =
-      (me.finish < my_path_size-1) || !me.include_finish;
+    (me.finish < my_path_size-1) || !me.include_finish;
 
   std::optional<std::size_t> blocker_hold_point;
   if (other_may_hold)
@@ -537,26 +537,26 @@ std::pair<std::size_t, ConstConstraintPtr> compute_blocker(
     if (other.finish < other_path_size-1)
     {
       end_condition = BlockageEndCondition{
-          other.finish, BlockageEndCondition::HasPassed};
+        other.finish, BlockageEndCondition::HasPassed};
     }
   }
   else
   {
     end_condition = BlockageEndCondition{
-        other.finish, BlockageEndCondition::HasReached};
+      other.finish, BlockageEndCondition::HasReached};
   }
 
   return std::make_pair(
-        go_from, blockage(other_id, blocker_hold_point, end_condition));
+    go_from, blockage(other_id, blocker_hold_point, end_condition));
 }
 
 //==============================================================================
 std::array<IndexToConstraint, 2> compute_blockers(
-    const std::vector<ConflictBracketPair>& conflict_brackets,
-    const std::size_t id_a,
-    const std::size_t a_path_size,
-    const std::size_t id_b,
-    const std::size_t b_path_size)
+  const std::vector<ConflictBracketPair>& conflict_brackets,
+  const std::size_t id_a,
+  const std::size_t a_path_size,
+  const std::size_t id_b,
+  const std::size_t b_path_size)
 {
   std::array<IndexToConstraint, 2> blockers;
   for (const auto& bracket : conflict_brackets)
@@ -592,7 +592,7 @@ Alignment get_alignment(const std::vector<AlignedBracketPair>& alignments)
 
 //==============================================================================
 std::vector<AlignedBracketPair> get_complement(
-    const std::vector<AlignedBracketPair>& alignments)
+  const std::vector<AlignedBracketPair>& alignments)
 {
   std::vector<AlignedBracketPair> output;
   output.reserve(alignments.size());
@@ -604,7 +604,7 @@ std::vector<AlignedBracketPair> get_complement(
 
 //==============================================================================
 std::array<std::vector<Alignment>, 2> compute_alignments(
-    const std::vector<AlignedBracketSet>& alignments)
+  const std::vector<AlignedBracketSet>& alignments)
 {
   std::array<std::vector<Alignment>, 2> output;
   for (const auto& alignment : alignments)
@@ -618,8 +618,8 @@ std::array<std::vector<Alignment>, 2> compute_alignments(
 
 //==============================================================================
 FinalConstraints compute_final_ShouldGo_constraints(
-    const PeerToPeerBlockers& peer_blockers,
-    const PeerToPeerAlignment& peer_alignment)
+  const PeerToPeerBlockers& peer_blockers,
+  const PeerToPeerAlignment& peer_alignment)
 {
   using IndexToZeroOrderConstraints =
     std::unordered_map<std::size_t, std::vector<ConstConstraintPtr>>;
@@ -694,8 +694,8 @@ FinalConstraints compute_final_ShouldGo_constraints(
           auto& caveat = p_caveats[c.first][other];
           caveat.timeline = align.timeline;
           caveat.caveats.insert(
-                c.second.begin(),
-                c.second.end());
+            c.second.begin(),
+            c.second.end());
         }
       }
     }
@@ -738,7 +738,7 @@ FinalConstraints compute_final_ShouldGo_constraints(
       if (!sharing_constraints.empty())
       {
         shares[participant][checkpoint] =
-            std::make_shared<AndConstraint>(std::move(sharing_constraints));
+          std::make_shared<AndConstraint>(std::move(sharing_constraints));
       }
     }
   }
@@ -780,7 +780,7 @@ FinalConstraints compute_final_ShouldGo_constraints(
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::Bracket& b)
+  std::ostream& os, const rmf_traffic::blockade::Bracket& b)
 {
   if (b.include_start)
     os << "[";
@@ -799,7 +799,7 @@ std::ostream& operator<<(
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::ConflictBracketPair& pair)
+  std::ostream& os, const rmf_traffic::blockade::ConflictBracketPair& pair)
 {
   os << pair.A << "x" << pair.B;
   return os;
@@ -807,7 +807,7 @@ std::ostream& operator<<(
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::AlignedBracketPair& pair)
+  std::ostream& os, const rmf_traffic::blockade::AlignedBracketPair& pair)
 {
   os << pair.A << "|" << pair.B;
   return os;

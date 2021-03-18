@@ -138,7 +138,7 @@ Duration estimate_rotation_time(
 
   const auto start_time = Time(Duration(0));
   States states = compute_traversal(
-        start_time, diff_heading_abs, w_nom, alpha_nom);
+    start_time, diff_heading_abs, w_nom, alpha_nom);
 
   return states.back().t - start_time;
 }

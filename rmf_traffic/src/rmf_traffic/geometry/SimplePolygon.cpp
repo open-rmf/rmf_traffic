@@ -399,7 +399,8 @@ public:
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   : fcl::Convexd(points_, 0, std::shared_ptr<const std::vector<int>>()),
 #else
-  : FclConvexType(nullptr, nullptr, 0, points_->data(), points_->size(), nullptr),
+  : FclConvexType(nullptr, nullptr, 0, points_->data(), points_->size(),
+      nullptr),
 #endif
     point_storage(std::move(points_))
   {

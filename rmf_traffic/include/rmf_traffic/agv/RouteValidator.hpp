@@ -114,10 +114,10 @@ public:
 
   /// Make the ScheduleRouteValidator as a clone_ptr
   template<typename... Args>
-  static rmf_utils::clone_ptr<ScheduleRouteValidator> make(Args&&... args)
+  static rmf_utils::clone_ptr<ScheduleRouteValidator> make(Args&& ... args)
   {
     return rmf_utils::make_clone<ScheduleRouteValidator>(
-          std::forward<Args>(args)...);
+      std::forward<Args>(args)...);
   }
 
   /// Change the schedule viewer to use for planning.

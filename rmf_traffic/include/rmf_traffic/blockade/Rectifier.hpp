@@ -114,7 +114,7 @@ class Moderator;
 /// instance and issues rectification requests when told to based on the current
 /// inconsistencies in the Database.
 class ModeratorRectificationRequesterFactory
-    : public RectificationRequesterFactory
+  : public RectificationRequesterFactory
 {
 public:
 
@@ -126,8 +126,8 @@ public:
 
   // Documentation inherited
   std::unique_ptr<RectificationRequester> make(
-      Rectifier rectifier,
-      ParticipantId participant_id) final;
+    Rectifier rectifier,
+    ParticipantId participant_id) final;
 
   /// Call this function to instruct all the RectificationRequesters produced by
   /// this factory to perform their rectifications.

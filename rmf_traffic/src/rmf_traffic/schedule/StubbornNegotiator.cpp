@@ -33,25 +33,25 @@ public:
 
 //==============================================================================
 StubbornNegotiator::StubbornNegotiator(const Participant& participant)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{&participant, nullptr}))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{&participant, nullptr}))
 {
   // Do nothing
 }
 
 //==============================================================================
 StubbornNegotiator::StubbornNegotiator(
-    std::shared_ptr<const Participant> participant)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{participant.get(), participant}))
+  std::shared_ptr<const Participant> participant)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{participant.get(), participant}))
 {
   // Do nothing
 }
 
 //==============================================================================
 void StubbornNegotiator::respond(
-    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-    const ResponderPtr& responder)
+  const schedule::Negotiation::Table::ViewerPtr& table_viewer,
+  const ResponderPtr& responder)
 {
   if (table_viewer->rejected())
   {
@@ -77,10 +77,10 @@ void StubbornNegotiator::respond(
           continue;
 
         if (rmf_traffic::DetectConflict::between(
-              profile,
-              item.route->trajectory(),
-              other_profile,
-              other_route->trajectory()))
+            profile,
+            item.route->trajectory(),
+            other_profile,
+            other_route->trajectory()))
         {
           rmf_traffic::schedule::Itinerary alternative;
           alternative.reserve(itinerary.size());

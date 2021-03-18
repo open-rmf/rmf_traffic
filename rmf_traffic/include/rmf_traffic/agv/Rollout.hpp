@@ -61,10 +61,10 @@ public:
   /// \return a collection of itineraries from the original Planning Result's
   /// starts past the blockages that were caused by the specified blocker.
   std::vector<schedule::Itinerary> expand(
-      schedule::ParticipantId blocker,
-      rmf_traffic::Duration span,
-      const Planner::Options& options,
-      rmf_utils::optional<std::size_t> max_rollouts = rmf_utils::nullopt) const;
+    schedule::ParticipantId blocker,
+    rmf_traffic::Duration span,
+    const Planner::Options& options,
+    rmf_utils::optional<std::size_t> max_rollouts = rmf_utils::nullopt) const;
 
   /// Expand the Planning Result through the specified behavior. Use the Options
   /// that are already tied to the Planning Result.
@@ -88,9 +88,9 @@ public:
   /// \return a collection of itineraries from the original Planning Result's
   /// starts past the blockages that were caused by the specified blocker.
   std::vector<schedule::Itinerary> expand(
-      schedule::ParticipantId blocker,
-      rmf_traffic::Duration span,
-      rmf_utils::optional<std::size_t> max_rollouts = rmf_utils::nullopt) const;
+    schedule::ParticipantId blocker,
+    rmf_traffic::Duration span,
+    rmf_utils::optional<std::size_t> max_rollouts = rmf_utils::nullopt) const;
 
   class Implementation;
 private:

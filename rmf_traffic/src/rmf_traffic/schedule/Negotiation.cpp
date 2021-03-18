@@ -136,7 +136,8 @@ class Negotiation::Table::Viewer::Endpoint::Implementation
 {
 public:
 
-  enum Type {
+  enum Type
+  {
     Initial,
     Final
   };
@@ -236,10 +237,11 @@ public:
     }
 
     initial_endpoints.insert(
-    {
-      participant,
-      Endpoint::Implementation::make_initial(participant, initial, description)
-    });
+      {
+        participant,
+        Endpoint::Implementation::make_initial(participant, initial,
+        description)
+      });
   }
 
   static void insert_final_endpoint(
@@ -259,10 +261,10 @@ public:
     }
 
     final_endpoints.insert(
-    {
-      participant,
-      Endpoint::Implementation::make_final(participant, final, description)
-    });
+      {
+        participant,
+        Endpoint::Implementation::make_final(participant, final, description)
+      });
   }
 
 
@@ -343,7 +345,7 @@ class DefunctFlag
 public:
 
   DefunctFlag()
-    : _defunct(std::make_shared<bool>(false))
+  : _defunct(std::make_shared<bool>(false))
   {
     // Do nothing
   }
@@ -1148,11 +1150,11 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
   for (const auto& alternative : chosen_alternatives)
   {
     const auto& participant_alternatives =
-        alternatives_timelines.at(alternative.participant);
+      alternatives_timelines.at(alternative.participant);
     assert(alternative.version < participant_alternatives.size());
 
     participant_alternatives.at(alternative.version)
-        ->inspect(spacetime, all_participants, inspector);
+    ->inspect(spacetime, all_participants, inspector);
   }
 
   // Query for the relevant routes that are outside of the negotiation

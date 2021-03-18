@@ -101,13 +101,13 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
   // allocation here?
   schedule::Query::Spacetime spacetime;
   spacetime.query_timespan()
-      .all_maps(false)
-      .add_map(route.map())
-      .set_lower_time_bound(*route.trajectory().start_time())
-      .set_upper_time_bound(*route.trajectory().finish_time());
+  .all_maps(false)
+  .add_map(route.map())
+  .set_lower_time_bound(*route.trajectory().start_time())
+  .set_upper_time_bound(*route.trajectory().finish_time());
 
   const auto view = _pimpl->viewer->query(
-        spacetime, schedule::Query::Participants::make_all());
+    spacetime, schedule::Query::Participants::make_all());
 
   for (const auto& v : view)
   {
@@ -147,13 +147,13 @@ public:
   std::vector<schedule::ParticipantId> alternative_sets;
 
   Implementation(
-      schedule::Negotiation::Table::ViewerPtr viewer,
-      Profile profile)
+    schedule::Negotiation::Table::ViewerPtr viewer,
+    Profile profile)
   : data(std::make_shared<Data>(
-           Data{
-             std::move(viewer),
-             std::move(profile)
-           }))
+        Data{
+          std::move(viewer),
+          std::move(profile)
+        }))
   {
     const auto& alternatives = data->viewer->alternatives();
     alternative_sets.reserve(alternatives.size());
@@ -167,7 +167,7 @@ NegotiatingRouteValidator::Generator::Generator(
   schedule::Negotiation::Table::ViewerPtr viewer,
   Profile profile)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           std::move(viewer), std::move(profile)))
+      std::move(viewer), std::move(profile)))
 {
   // Do nothing
 }
@@ -175,9 +175,9 @@ NegotiatingRouteValidator::Generator::Generator(
 //==============================================================================
 NegotiatingRouteValidator::Generator::Generator(
   schedule::Negotiation::Table::ViewerPtr viewer)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             viewer,
-             viewer->get_description(viewer->participant_id())->profile()))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      viewer,
+      viewer->get_description(viewer->participant_id())->profile()))
 {
   // Do nothing
 }
@@ -197,20 +197,20 @@ public:
   {
     NegotiatingRouteValidator output;
     output._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{
-            std::move(data),
-            std::move(rollouts)
-          });
+      Implementation{
+        std::move(data),
+        std::move(rollouts)
+      });
 
     return output;
   }
 
   static rmf_utils::clone_ptr<NegotiatingRouteValidator> make_ptr(
-      std::shared_ptr<const Generator::Implementation::Data> data,
-      schedule::Negotiation::VersionedKeySequence rollout)
+    std::shared_ptr<const Generator::Implementation::Data> data,
+    schedule::Negotiation::VersionedKeySequence rollout)
   {
     return rmf_utils::make_clone<NegotiatingRouteValidator>(
-          make(std::move(data), std::move(rollout)));
+      make(std::move(data), std::move(rollout)));
   }
 };
 
@@ -242,11 +242,11 @@ NegotiatingRouteValidator::Generator::all() const
 
   while (true) // A break statement provides the exit condition
   {
-    for (std::size_t i=0; i < N_alts-1; ++i)
+    for (std::size_t i = 0; i < N_alts-1; ++i)
     {
       if (current_versions[i] >= end_versions[i])
       {
-        for (std::size_t j=0; j <= i; ++j)
+        for (std::size_t j = 0; j <= i; ++j)
           current_versions[j] = 0;
 
         ++current_versions[i+1];
@@ -266,12 +266,12 @@ NegotiatingRouteValidator::Generator::all() const
 
   for (const auto& versions : version_queue)
   {
-    for (std::size_t i=0; i < N_alts; ++i)
+    for (std::size_t i = 0; i < N_alts; ++i)
       keys[i].version = versions[i];
 
     validators.emplace_back(
-          NegotiatingRouteValidator::Implementation::make_ptr(
-            _pimpl->data, keys));
+      NegotiatingRouteValidator::Implementation::make_ptr(
+        _pimpl->data, keys));
   }
 
   return validators;
@@ -285,7 +285,7 @@ NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
     rollouts.push_back({r.first, 0});
 
   return NegotiatingRouteValidator::Implementation::make(
-        _pimpl->data, std::move(rollouts));
+    _pimpl->data, std::move(rollouts));
 }
 
 //==============================================================================
@@ -297,14 +297,14 @@ NegotiatingRouteValidator::Generator::alternative_sets() const
 
 //==============================================================================
 std::size_t NegotiatingRouteValidator::Generator::alternative_count(
-    schedule::ParticipantId participant) const
+  schedule::ParticipantId participant) const
 {
   return _pimpl->data->viewer->alternatives().at(participant)->size();
 }
 
 //==============================================================================
 NegotiatingRouteValidator& NegotiatingRouteValidator::mask(
-    schedule::ParticipantId id)
+  schedule::ParticipantId id)
 {
   _pimpl->masked = id;
   return *this;
@@ -319,20 +319,20 @@ NegotiatingRouteValidator& NegotiatingRouteValidator::remove_mask()
 
 //==============================================================================
 NegotiatingRouteValidator NegotiatingRouteValidator::next(
-    schedule::ParticipantId id) const
+  schedule::ParticipantId id) const
 {
   auto rollouts = _pimpl->rollouts;
   const auto it = std::find_if(
-        rollouts.begin(), rollouts.end(), [&](
-        const schedule::Negotiation::VersionedKey& key)
-  {
-    return key.participant == id;
-  });
+    rollouts.begin(), rollouts.end(), [&](
+      const schedule::Negotiation::VersionedKey& key)
+    {
+      return key.participant == id;
+    });
 
   if (it == rollouts.end())
   {
     std::string error = "[NegotiatingRouteValidator::next] Requested next "
-        "alternative for " + std::to_string(id) + " but the only options are [";
+      "alternative for " + std::to_string(id) + " but the only options are [";
 
     for (const auto r : rollouts)
       error += " " + std::to_string(r.participant);
@@ -366,7 +366,7 @@ bool NegotiatingRouteValidator::end() const
   for (const auto& r : _pimpl->rollouts)
   {
     const auto num_alternatives =
-        _pimpl->data->viewer->alternatives().at(r.participant)->size();
+      _pimpl->data->viewer->alternatives().at(r.participant)->size();
 
     if (num_alternatives <= r.version)
       return true;
@@ -385,10 +385,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
   // needed here.
   schedule::Query::Spacetime spacetime;
   spacetime.query_timespan()
-      .all_maps(false)
-      .add_map(route.map())
-      .set_lower_time_bound(*route.trajectory().start_time())
-      .set_upper_time_bound(*route.trajectory().finish_time());
+  .all_maps(false)
+  .add_map(route.map())
+  .set_lower_time_bound(*route.trajectory().start_time())
+  .set_upper_time_bound(*route.trajectory().finish_time());
 
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
   for (const auto& v : view)
@@ -434,10 +434,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         Eigen::Vector3d::Zero());
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-            _pimpl->data->profile,
-            route.trajectory(),
-            other.second.description().profile(),
-            other_start))
+          _pimpl->data->profile,
+          route.trajectory(),
+          other.second.description().profile(),
+          other_start))
       {
         return Conflict{other.first, *time};
       }
@@ -470,10 +470,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         Eigen::Vector3d::Zero());
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-            _pimpl->data->profile,
-            route.trajectory(),
-            other.second.description().profile(),
-            other_finish))
+          _pimpl->data->profile,
+          route.trajectory(),
+          other.second.description().profile(),
+          other_finish))
       {
         return Conflict{other.first, *time};
       }

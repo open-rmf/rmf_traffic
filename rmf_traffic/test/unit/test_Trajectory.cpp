@@ -274,12 +274,12 @@ SCENARIO("Insertion time tests")
   trajectory.insert(now + 1h, x, v);
   trajectory.insert(now + 12s, x, v);
 
-  CHECK_FALSE(trajectory.insert(now + 12s, x ,v).inserted);
+  CHECK_FALSE(trajectory.insert(now + 12s, x, v).inserted);
   CHECK_FALSE(trajectory.insert(now + 1001ms, x, v).inserted);
 
   rmf_traffic::Time last_time = trajectory.front().time();
   CHECK(last_time == trajectory[0].time());
-  for (std::size_t i=1; i < trajectory.size(); ++i)
+  for (std::size_t i = 1; i < trajectory.size(); ++i)
     CHECK(last_time < trajectory[i].time());
 
   auto last_it = trajectory.begin();

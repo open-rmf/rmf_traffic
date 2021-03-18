@@ -26,8 +26,8 @@
 
 //==============================================================================
 Eigen::Vector3d get_location(
-    const rmf_traffic::agv::Plan::Start& start,
-    const rmf_traffic::agv::Graph& graph)
+  const rmf_traffic::agv::Plan::Start& start,
+  const rmf_traffic::agv::Graph& graph)
 {
   if (start.location())
   {
@@ -41,12 +41,12 @@ Eigen::Vector3d get_location(
 
 //==============================================================================
 void check_start_compatibility(
-    const rmf_traffic::agv::Graph& graph_a,
-    const rmf_traffic::Profile& profile_a,
-    const std::vector<rmf_traffic::agv::Plan::Start>& a_starts,
-    const rmf_traffic::agv::Graph& graph_b,
-    const rmf_traffic::Profile& profile_b,
-    const std::vector<rmf_traffic::agv::Plan::Start>& b_starts)
+  const rmf_traffic::agv::Graph& graph_a,
+  const rmf_traffic::Profile& profile_a,
+  const std::vector<rmf_traffic::agv::Plan::Start>& a_starts,
+  const rmf_traffic::agv::Graph& graph_b,
+  const rmf_traffic::Profile& profile_b,
+  const std::vector<rmf_traffic::agv::Plan::Start>& b_starts)
 {
   std::cout << "a_starts: " << a_starts.size()
             << " | b_starts: " << b_starts.size()
@@ -70,8 +70,8 @@ void check_start_compatibility(
       b_traj.insert(b.time() + 10s, p_b, zero);
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-            profile_a, a_traj,
-            profile_b, b_traj))
+          profile_a, a_traj,
+          profile_b, b_traj))
       {
         std::cout << "CONFLICT FOUND" << std::endl;
       }
@@ -81,7 +81,7 @@ void check_start_compatibility(
 
 //==============================================================================
 rmf_traffic::schedule::Itinerary convert(
-    const std::vector<rmf_traffic::Route>& itinerary)
+  const std::vector<rmf_traffic::Route>& itinerary)
 {
   rmf_traffic::schedule::Itinerary output;
   output.reserve(itinerary.size());
@@ -93,12 +93,12 @@ rmf_traffic::schedule::Itinerary convert(
 
 //==============================================================================
 std::vector<rmf_traffic::schedule::Itinerary> multiply(
-    const rmf_traffic::schedule::Itinerary& itinerary,
-    const std::size_t num = 10)
+  const rmf_traffic::schedule::Itinerary& itinerary,
+  const std::size_t num = 10)
 {
   std::vector<rmf_traffic::schedule::Itinerary> output;
   output.reserve(num);
-  for (std::size_t i=0; i < num; ++i)
+  for (std::size_t i = 0; i < num; ++i)
     output.push_back(itinerary);
 
   return output;
@@ -261,25 +261,25 @@ SCENARIO("Test difficult 3-way scenarios")
     auto a0_goal = rmf_traffic::agv::Plan::Goal(1);
 
     auto b1_starts = rmf_traffic::agv::compute_plan_starts(
-          graph_b, test_map_name, {11.892134, -15.398828, 2.631314}, time);
+      graph_b, test_map_name, {11.892134, -15.398828, 2.631314}, time);
     auto b1_goal = rmf_traffic::agv::Plan::Goal(11);
 
     auto b2_starts = rmf_traffic::agv::compute_plan_starts(
-          graph_b, test_map_name, {13.057442, -15.363754, -3.128299}, time);
+      graph_b, test_map_name, {13.057442, -15.363754, -3.128299}, time);
     auto b2_goal = rmf_traffic::agv::Plan::Goal(13);
 
     NegotiationRoom::Intentions intentions;
     intentions.insert({
-      a0.id(),
-      NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
+        a0.id(),
+        NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
 
     intentions.insert({
-      b1.id(),
-      NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
+        b1.id(),
+        NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
 
     intentions.insert({
-      b2.id(),
-      NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
+        b2.id(),
+        NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
     auto room = NegotiationRoom(database, intentions, 5.5, std::nullopt, 200);
     auto proposal = room.solve();
@@ -398,7 +398,7 @@ SCENARIO("Test cycling through all negotiation alternatives")
   };
 
   auto negotiation =
-      *rmf_traffic::schedule::Negotiation::make(database, {0, 1, 2, 3});
+    *rmf_traffic::schedule::Negotiation::make(database, {0, 1, 2, 3});
 
   const auto table = negotiation.table(0, {});
 
@@ -433,8 +433,8 @@ SCENARIO("Test cycling through all negotiation alternatives")
   }
 
   const auto validators =
-      rmf_traffic::agv::NegotiatingRouteValidator::Generator(
-        table->viewer(), profile).all();
+    rmf_traffic::agv::NegotiatingRouteValidator::Generator(
+    table->viewer(), profile).all();
 
   const auto start_0 = rmf_traffic::agv::Plan::Start(now, 0, 0.0);
   const auto goal_0 = rmf_traffic::agv::Plan::Goal(10);
@@ -443,8 +443,8 @@ SCENARIO("Test cycling through all negotiation alternatives")
     // Note: The most important thing about this test is making sure it does not
     // crash due to an exception.
     const auto plan_0 = planner.plan(
-          start_0, goal_0,
-          rmf_traffic::agv::Plan::Options(v));
+      start_0, goal_0,
+      rmf_traffic::agv::Plan::Options(v));
     CHECK(!plan_0);
     CHECK(!plan_0.cost_estimate());
   }
@@ -479,7 +479,7 @@ SCENARIO("Test empty proposal")
     database);
 
   auto negotiation =
-      *rmf_traffic::schedule::Negotiation::make(database, {0, 1});
+    *rmf_traffic::schedule::Negotiation::make(database, {0, 1});
 
   const auto empty_route = rmf_traffic::Route("test_map", {});
 
@@ -489,7 +489,7 @@ SCENARIO("Test empty proposal")
   not_empty_trajectory.insert(now, {0, 0, 0}, {0, 0, 0});
   not_empty_trajectory.insert(now + 10s, {0, 0, 0}, {0, 0, 0});
   const auto not_empty_route =
-      rmf_traffic::Route("test_map", not_empty_trajectory);
+    rmf_traffic::Route("test_map", not_empty_trajectory);
 
   negotiation.table(0, {})->submit({}, 1);
   negotiation.table(1, {})->submit({not_empty_route}, 1);
@@ -497,6 +497,6 @@ SCENARIO("Test empty proposal")
   negotiation.table(0, {1})->submit({not_empty_route}, 1);
 
   const auto quickest_finish =
-      negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());
+    negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());
   REQUIRE(quickest_finish);
 }

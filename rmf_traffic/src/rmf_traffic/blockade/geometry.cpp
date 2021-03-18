@@ -24,10 +24,10 @@ namespace blockade {
 
 //==============================================================================
 double compute_smallest_distance_squared(
-    const Eigen::Vector2d p,
-    const Eigen::Vector2d p_other0,
-    const Eigen::Vector2d n_other,
-    const double c_other)
+  const Eigen::Vector2d p,
+  const Eigen::Vector2d p_other0,
+  const Eigen::Vector2d n_other,
+  const double c_other)
 {
   const double u_star = n_other.dot(p - p_other0)/c_other;
   const double u = std::max(0.0, std::min(1.0, u_star));
@@ -37,9 +37,9 @@ double compute_smallest_distance_squared(
 
 //==============================================================================
 ConflictInfo detect_conflict(
-    const Segment& s_a,
-    const Segment& s_b,
-    const double angle_threshold)
+  const Segment& s_a,
+  const Segment& s_b,
+  const double angle_threshold)
 {
   const Eigen::Vector2d p_a0 = s_a.start;
   const Eigen::Vector2d p_a1 = s_a.finish;
@@ -55,7 +55,7 @@ ConflictInfo detect_conflict(
   // cause the calculation to flow a tiny bit over 1.0 or a tiny bit under -1.0,
   // which causes an NaN result for angle.
   const double cos_theta =
-      std::max(-1.0, std::min(1.0, c_ab/(n_a.norm()*n_b.norm())));
+    std::max(-1.0, std::min(1.0, c_ab/(n_a.norm()*n_b.norm())));
 
   const double angle = std::acos(cos_theta);
 
@@ -87,14 +87,14 @@ ConflictInfo detect_conflict(
     // no conflict if they are not touching.
     const std::array<Eigen::Vector2d, 2> p_b = {s_b.start, s_b.finish};
     std::array<double, 2> distances_squared;
-    for (std::size_t i=0; i < 2; ++i)
+    for (std::size_t i = 0; i < 2; ++i)
     {
       distances_squared[i] =
-          compute_smallest_distance_squared(p_b[i], p_a0, n_a, c_aa);
+        compute_smallest_distance_squared(p_b[i], p_a0, n_a, c_aa);
     }
 
     const double r_squared = *std::min_element(
-          distances_squared.begin(), distances_squared.end());
+      distances_squared.begin(), distances_squared.end());
 
     if (r_squared > conflict_r_squared)
       return ConflictInfo::nothing();
@@ -129,13 +129,13 @@ ConflictInfo detect_conflict(
   }
 
   const double r_squared_a0 =
-      compute_smallest_distance_squared(p_a0, p_b0, n_b, c_bb);
+    compute_smallest_distance_squared(p_a0, p_b0, n_b, c_bb);
   const double r_squared_a1 =
-      compute_smallest_distance_squared(p_a1, p_b0, n_b, c_bb);
+    compute_smallest_distance_squared(p_a1, p_b0, n_b, c_bb);
   const double r_squared_b0 =
-      compute_smallest_distance_squared(p_b0, p_a0, n_a, c_aa);
+    compute_smallest_distance_squared(p_b0, p_a0, n_a, c_aa);
   const double r_squared_b1 =
-      compute_smallest_distance_squared(p_b1, p_a0, n_a, c_aa);
+    compute_smallest_distance_squared(p_b1, p_a0, n_a, c_aa);
 
   info.include_cap_a[ConflictInfo::Start] = r_squared_a0 < conflict_r_squared;
   info.include_cap_a[ConflictInfo::Finish] = r_squared_a1 < conflict_r_squared;
@@ -147,13 +147,13 @@ ConflictInfo detect_conflict(
     // If both start endpoints are non-inclusive, then this can't really be
     // an alignment.
     if (!info.include_cap_a[ConflictInfo::Start]
-        && !info.include_cap_b[ConflictInfo::Start])
+      && !info.include_cap_b[ConflictInfo::Start])
       info.type = ConflictInfo::Conflict;
 
     // If both finish endpoints are non-inclusive, then this can't really be
     // an alignment.
     if (!info.include_cap_a[ConflictInfo::Finish]
-        && !info.include_cap_b[ConflictInfo::Finish])
+      && !info.include_cap_b[ConflictInfo::Finish])
       info.type = ConflictInfo::Conflict;
   }
 

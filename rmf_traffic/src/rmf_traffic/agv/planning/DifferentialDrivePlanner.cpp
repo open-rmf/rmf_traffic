@@ -109,20 +109,20 @@ struct OrientationTimeMap
         const auto& node_low = it_low->second;
         const auto& node_high = it_high->second;
         assert(node_low->route_from_parent.back().map()
-               == node_high->route_from_parent.back().map());
+          == node_high->route_from_parent.back().map());
 
         const auto& start_wp =
-            node_low->route_from_parent.back().trajectory().back();
+          node_low->route_from_parent.back().trajectory().back();
 
         const auto& end_wp =
-            node_high->route_from_parent.back().trajectory().back();
+          node_high->route_from_parent.back().trajectory().back();
 
         Route new_route{node_low->route_from_parent.back().map(), {}};
         new_route.trajectory().insert(start_wp);
         new_route.trajectory().insert(
-              end_wp.time(),
-              end_wp.position(),
-              Eigen::Vector3d::Zero());
+          end_wp.time(),
+          end_wp.position(),
+          Eigen::Vector3d::Zero());
 
         if (!validator || !validator->find_conflict(new_route))
         {
@@ -151,7 +151,7 @@ struct OrientationTimeMap
   {
     const auto yaw = node->yaw;
     const auto time =
-        *node->route_from_parent.back().trajectory().finish_time();
+      *node->route_from_parent.back().trajectory().finish_time();
 
     auto it = elements.begin();
     for (; it != elements.end(); ++it)
@@ -174,8 +174,8 @@ struct OrientationTimeMap
 //==============================================================================
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
-    const NodePtr& finish_node,
-    const agv::RouteValidator* validator)
+  const NodePtr& finish_node,
+  const agv::RouteValidator* validator)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
 
@@ -214,8 +214,8 @@ struct Indexing
 //==============================================================================
 template<typename NodePtr>
 std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
-    const std::vector<NodePtr>& node_sequence,
-    rmf_utils::optional<rmf_traffic::Duration> span = rmf_utils::nullopt)
+  const std::vector<NodePtr>& node_sequence,
+  rmf_utils::optional<rmf_traffic::Duration> span = rmf_utils::nullopt)
 {
   if (node_sequence.size() == 1)
   {
@@ -230,16 +230,16 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 
       // TODO(MXG): Make a unit test for this situation
       std::vector<Route> simple_route =
-          node_sequence.back()->route_from_parent;
+        node_sequence.back()->route_from_parent;
       if (simple_route.back().trajectory().size() < 2)
       {
         const auto& wp = simple_route.back().trajectory().back();
         for (auto&  r : simple_route)
         {
           r.trajectory().insert(
-                wp.time() + *span,
-                wp.position(),
-                Eigen::Vector3d::Zero());
+            wp.time() + *span,
+            wp.position(),
+            Eigen::Vector3d::Zero());
         }
       }
 
@@ -262,9 +262,9 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 
   // We exclude the first node in the sequence, because it contains an empty
   // route which is not helpful.
-  const std::size_t N =  node_sequence.size();
+  const std::size_t N = node_sequence.size();
   const std::size_t stop = node_sequence.size()-1;
-  for (std::size_t i=0; i < stop; ++i)
+  for (std::size_t i = 0; i < stop; ++i)
   {
     const std::size_t n = N-2-i;
     const auto& node = node_sequence.at(n);
@@ -296,8 +296,8 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 
   // Throw away any routes that have less than two waypoints.
   const auto r_it = std::remove_if(
-        routes.begin(), routes.end(),
-        [](const auto& r){ return r.trajectory().size() < 2; });
+    routes.begin(), routes.end(),
+    [](const auto& r) { return r.trajectory().size() < 2; });
   routes.erase(r_it, routes.end());
 
   return {routes, indexing};
@@ -322,7 +322,7 @@ std::vector<Plan::Waypoint> reconstruct_waypoints(
   const std::size_t N = node_sequence.size();
 
   std::vector<agv::Plan::Waypoint> waypoints;
-  for (std::size_t i=0; i < N; ++i)
+  for (std::size_t i = 0; i < N; ++i)
   {
     const auto& n = node_sequence[N-1-i];
     const auto& index = indexing[N-1-i];
@@ -351,9 +351,9 @@ Plan::Start find_start(NodePtr node)
   if (!node->start.has_value())
   {
     throw std::runtime_error(
-      "[rmf_traffic::agv::Planner::plan] The root node of a solved plan is "
-      "missing its Start information. This should not happen. Please report "
-      "this critical bug to the maintainers of rmf_traffic.");
+            "[rmf_traffic::agv::Planner::plan] The root node of a solved plan is "
+            "missing its Start information. This should not happen. Please report "
+            "this critical bug to the maintainers of rmf_traffic.");
   }
 
   return node->start.value();
@@ -439,21 +439,23 @@ public:
         (parent->get_total_cost_estimate() > get_total_cost_estimate() + 1e-3))
       {
         std::cout << "Inadmissible expansion! "
-              << parent->current_cost << " + "
-              << parent->remaining_cost_estimate << " = "
-              << parent->get_total_cost_estimate()
-              << " --> "
-              << current_cost << " + "
-              << remaining_cost_estimate << " = "
-              << get_total_cost_estimate()
-              << " | Diff: "
-              << parent->get_total_cost_estimate() - get_total_cost_estimate()
-              << std::endl;
+                  << parent->current_cost << " + "
+                  << parent->remaining_cost_estimate << " = "
+                  << parent->get_total_cost_estimate()
+                  << " --> "
+                  << current_cost << " + "
+                  << remaining_cost_estimate << " = "
+                  << get_total_cost_estimate()
+                  << " | Diff: "
+                  << parent->get_total_cost_estimate() -
+          get_total_cost_estimate()
+                  << std::endl;
 
         std::cout << "Yaw: " << parent->yaw*180.0/M_PI << " --> "
-              << yaw*180.0/M_PI << " | Trans: (" << parent->position.transpose()
-              << ") --> (" << position.transpose() << ") <"
-              << (parent->position - position).norm() << ">" << std::endl;
+                  << yaw*180.0/M_PI << " | Trans: ("
+                  << parent->position.transpose() << ") --> ("
+                  << position.transpose() << ") <"
+                  << (parent->position - position).norm() << ">" << std::endl;
       }
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
@@ -488,9 +490,9 @@ public:
 
   using SearchQueue =
     std::priority_queue<
-      SearchNodePtr,
-      std::vector<SearchNodePtr>,
-      DifferentialDriveCompare<SearchNodePtr>
+    SearchNodePtr,
+    std::vector<SearchNodePtr>,
+    DifferentialDriveCompare<SearchNodePtr>
     >;
 
   class InternalState : public State::Internal
@@ -584,7 +586,7 @@ public:
     assert(start.location().has_value());
 
     const auto approach_info = make_start_approach_trajectories(
-          top->start.value(), top->current_cost);
+      top->start.value(), top->current_cost);
 
     if (approach_info.trajectories.empty())
     {
@@ -669,7 +671,8 @@ public:
           continue;
       }
 
-      const double approach_cost = time::to_seconds(approach_trajectory.duration());
+      const double approach_cost = time::to_seconds(
+        approach_trajectory.duration());
       const double approach_yaw = approach_trajectory.back().position()[2];
       const auto approach_time = *approach_trajectory.finish_time();
 
@@ -735,19 +738,19 @@ public:
 
     queue.push(
       std::make_shared<SearchNode>(
-            SearchNode{
-              std::nullopt,
-              p,
-              yaw,
-              hold_until,
-              std::nullopt,
-              top->remaining_cost_estimate,
-              std::move(hold_routes),
-              nullptr,
-              top->current_cost + hold_cost,
-              start,
-              top
-            }));
+        SearchNode{
+          std::nullopt,
+          p,
+          yaw,
+          hold_until,
+          std::nullopt,
+          top->remaining_cost_estimate,
+          std::move(hold_routes),
+          nullptr,
+          top->current_cost + hold_cost,
+          start,
+          top
+        }));
   }
 
   SearchNodePtr expand_hold(
@@ -760,7 +763,7 @@ public:
       return nullptr;
 
     const std::string& map_name =
-        _supergraph->original().waypoints[wp_index].get_map_name();
+      _supergraph->original().waypoints[wp_index].get_map_name();
 
     const Eigen::Vector2d p = top->position;
     const double yaw = top->yaw;
@@ -780,19 +783,19 @@ public:
       return nullptr;
 
     return std::make_shared<SearchNode>(
-       SearchNode{
-         wp_index,
-         p,
-         yaw,
-         finish_time,
-         top->orientation,
-         top->remaining_cost_estimate,
-         {std::move(route)},
-         nullptr,
-         top->current_cost + cost,
-         std::nullopt,
-         top
-       });
+      SearchNode{
+        wp_index,
+        p,
+        yaw,
+        finish_time,
+        top->orientation,
+        top->remaining_cost_estimate,
+        {std::move(route)},
+        nullptr,
+        top->current_cost + cost,
+        std::nullopt,
+        top
+      });
   }
 
   void expand_hold(
@@ -807,7 +810,7 @@ public:
   {
     assert(top->waypoint == _goal_waypoint);
     const std::string& map_name =
-        _supergraph->original().waypoints[_goal_waypoint].get_map_name();
+      _supergraph->original().waypoints[_goal_waypoint].get_map_name();
 
     const Eigen::Vector2d p = top->position;
     const double target_yaw = _goal_yaw.value();
@@ -818,10 +821,10 @@ public:
 
     Trajectory trajectory;
     trajectory.insert(
-          start_time, start_position, Eigen::Vector3d::Zero());
+      start_time, start_position, Eigen::Vector3d::Zero());
     internal::interpolate_rotation(
-          trajectory, _w_nom, _alpha_nom, start_time,
-          start_position, finish_position, _rotation_threshold);
+      trajectory, _w_nom, _alpha_nom, start_time,
+      start_position, finish_position, _rotation_threshold);
 
     assert(trajectory.size() >= 2);
 
@@ -858,8 +861,8 @@ public:
       if (conflict)
       {
         auto time_it =
-            _issues->blocked_nodes[conflict->participant]
-            .insert({parent, conflict->time});
+          _issues->blocked_nodes[conflict->participant]
+          .insert({parent, conflict->time});
 
         if (!time_it.second)
         {
@@ -875,20 +878,20 @@ public:
   }
 
   void expand_traversal(
-      const SearchNodePtr& top,
-      const Traversal& traversal,
-      SearchQueue& queue) const
+    const SearchNodePtr& top,
+    const Traversal& traversal,
+    SearchQueue& queue) const
   {
     const auto initial_waypoint_index = top->waypoint.value();
     const auto& initial_waypoint =
-        _supergraph->original().waypoints[initial_waypoint_index];
+      _supergraph->original().waypoints[initial_waypoint_index];
     const Eigen::Vector2d p0 = initial_waypoint.get_location();
     const double initial_yaw = top->yaw;
     const std::string& initial_map_name = initial_waypoint.get_map_name();
 
     const auto next_waypoint_index = traversal.finish_waypoint_index;
     const auto& next_waypoint =
-        _supergraph->original().waypoints[next_waypoint_index];
+      _supergraph->original().waypoints[next_waypoint_index];
     const Eigen::Vector2d next_position = next_waypoint.get_location();
     const std::string& next_map_name = next_waypoint.get_map_name();
 
@@ -899,7 +902,8 @@ public:
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       std::cout << "Expanding from " << top->waypoint.value()
                 << " -> " << traversal.finish_waypoint_index << " | "
-                << Orientation(i) << " {" << traversal.entry_event << "}" << std::endl;
+                << Orientation(i) << " {" << traversal.entry_event << "}"
+                << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       if (!alt.has_value())
@@ -919,7 +923,7 @@ public:
       Trajectory approach_trajectory;
       const Eigen::Vector3d start{p0.x(), p0.y(), initial_yaw};
       approach_trajectory.insert(
-            start_time, start, Eigen::Vector3d::Zero());
+        start_time, start, Eigen::Vector3d::Zero());
 
       // TODO(MXG): We could push the logic for creating this trajectory
       // upstream into the traversal alternative.
@@ -928,10 +932,10 @@ public:
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       if (traversal_yaw.has_value())
       {
-        const Eigen::Vector3d finish{p0.x(), p0.y(), *traversal_yaw};
+        const Eigen::Vector3d finish{p0.x(), p0.y(), * traversal_yaw};
         internal::interpolate_rotation(
-              approach_trajectory, _w_nom, _alpha_nom, start_time,
-              start, finish, _rotation_threshold);
+          approach_trajectory, _w_nom, _alpha_nom, start_time,
+          start, finish, _rotation_threshold);
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
         approach_cost = time::to_seconds(approach_trajectory.duration());
@@ -940,9 +944,9 @@ public:
 
       auto approach_route =
         Route{
-          initial_map_name,
-          std::move(approach_trajectory)
-        };
+        initial_map_name,
+        std::move(approach_trajectory)
+      };
 
       if (!is_valid(top, approach_route))
       {
@@ -958,7 +962,7 @@ public:
       entry_event_trajectory.insert(approach_wp);
       double entry_event_cost = 0.0;
       if (traversal.entry_event
-          && traversal.entry_event->duration() > Duration(0))
+        && traversal.entry_event->duration() > Duration(0))
       {
         const auto duration = traversal.entry_event->duration();
         entry_event_cost = time::to_seconds(duration);
@@ -970,9 +974,9 @@ public:
 
       auto entry_event_route =
         Route{
-          initial_map_name,
-          std::move(entry_event_trajectory)
-        };
+        initial_map_name,
+        std::move(entry_event_trajectory)
+      };
 
       if (!is_valid(top, entry_event_route))
       {
@@ -1012,7 +1016,7 @@ public:
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       const auto remaining_cost_estimate = _heuristic.compute(
-            next_waypoint_index, traversal_result.finish_yaw);
+        next_waypoint_index, traversal_result.finish_yaw);
 
       if (!remaining_cost_estimate.has_value())
       {
@@ -1024,40 +1028,40 @@ public:
       }
 
       const auto& arrival_wp =
-          traversal_result.routes.back().trajectory().back();
+        traversal_result.routes.back().trajectory().back();
 
       Trajectory exit_event_trajectory;
       exit_event_trajectory.insert(arrival_wp);
       double exit_event_cost = 0.0;
       Duration exit_event_duration = Duration(0);
       if (traversal.exit_event
-          && traversal.exit_event->duration() > Duration(0))
+        && traversal.exit_event->duration() > Duration(0))
       {
         exit_event_duration = traversal.exit_event->duration();
         exit_event_cost = time::to_seconds(exit_event_duration);
 
         exit_event_trajectory.insert(
-              arrival_wp.time() + exit_event_duration,
-              arrival_wp.position(), Eigen::Vector3d::Zero());
+          arrival_wp.time() + exit_event_duration,
+          arrival_wp.position(), Eigen::Vector3d::Zero());
       }
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       std::cout << "Cost " << approach_cost + entry_event_cost + alt->time
-                   + exit_event_cost << " = " << "Approach: " << approach_cost
+        + exit_event_cost << " = " << "Approach: " << approach_cost
                 << " | Entry: " << entry_event_cost << " | Alt: " << alt->time
                 << " | Exit: " << exit_event_cost << std::endl;
       std::cout << "Previous cost " << top->current_cost << " + Cost "
                 << approach_cost + entry_event_cost + alt->time
-                   + exit_event_cost << " = " << top->current_cost
-                   + approach_cost + entry_event_cost + alt->time
-                   + exit_event_cost << std::endl;
+        + exit_event_cost << " = " << top->current_cost
+        + approach_cost + entry_event_cost + alt->time
+        + exit_event_cost << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       auto exit_event_route =
         Route{
-          next_map_name,
-          std::move(exit_event_trajectory)
-        };
+        next_map_name,
+        std::move(exit_event_trajectory)
+      };
 
       if (!is_valid(top, exit_event_route))
       {
@@ -1072,7 +1076,7 @@ public:
       if (approach_route.trajectory().size() >= 2 || traversal.entry_event)
       {
         const double cost =
-            time::to_seconds(approach_route.trajectory().duration());
+          time::to_seconds(approach_route.trajectory().duration());
         const double yaw = approach_wp.position()[2];
         const auto time = approach_wp.time();
 
@@ -1084,7 +1088,7 @@ public:
             time,
             orientation,
             *remaining_cost_estimate
-              + entry_event_cost + alt->time + exit_event_cost,
+            + entry_event_cost + alt->time + exit_event_cost,
             {std::move(approach_route)},
             traversal.entry_event,
             node->current_cost + cost,
@@ -1104,8 +1108,8 @@ public:
         else
         {
           traversal_result.routes.insert(
-                traversal_result.routes.begin(),
-                entry_event_route);
+            traversal_result.routes.begin(),
+            entry_event_route);
         }
       }
 
@@ -1150,8 +1154,8 @@ public:
   }
 
   void expand_freely(
-      const SearchNodePtr& top,
-      SearchQueue& queue) const
+    const SearchNodePtr& top,
+    SearchQueue& queue) const
   {
     // This function is used when there is no validator. We can just expand
     // freely to the goal without validating the results.
@@ -1168,15 +1172,15 @@ public:
 
       auto approach_info = solution_root->route_factory(top->time, top->yaw);
       if (approach_info.routes.back().trajectory().size() >= 2
-          || solution_root->info.event)
+        || solution_root->info.event)
       {
         // TODO(MXG): Refactor this logic into a conversion function
         const auto cost =
-            time::to_seconds(approach_info.finish_time - top->time);
+          time::to_seconds(approach_info.finish_time - top->time);
 
         const auto entry = solution_root->info.entry;
-        const auto orientation = entry.has_value()?
-              std::make_optional(entry->orientation) : std::nullopt;
+        const auto orientation = entry.has_value() ?
+          std::make_optional(entry->orientation) : std::nullopt;
 
         search_node = std::make_shared<SearchNode>(
           SearchNode{
@@ -1223,11 +1227,11 @@ public:
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
         auto route_info = solution_node->route_factory(
-              search_node->time, search_node->yaw);
+          search_node->time, search_node->yaw);
 
         const auto entry = solution_node->info.entry;
-        const auto orientation = entry.has_value()?
-              std::make_optional(entry->orientation) : std::nullopt;
+        const auto orientation = entry.has_value() ?
+          std::make_optional(entry->orientation) : std::nullopt;
 
         search_node = std::make_shared<SearchNode>(
           SearchNode{
@@ -1350,7 +1354,7 @@ public:
 
     const Eigen::Vector2d p0 = *location_opt;
     const Eigen::Vector2d p1 =
-        _supergraph->original().waypoints[waypoint_index].get_location();
+      _supergraph->original().waypoints[waypoint_index].get_location();
 
     const double translation_thresh = _supergraph->options().translation_thresh;
 
@@ -1361,16 +1365,15 @@ public:
       return {false, {}};
     }
 
-    const Eigen::Vector2d course_vector =
-        (p1 - p0)/dist;
+    const Eigen::Vector2d course_vector = (p1 - p0)/dist;
     const auto yaw_options = constraint.get_orientations(course_vector);
 
-    const Graph::Lane* const lane = start.lane()?
-          &_supergraph->original().lanes[*start.lane()] : nullptr;
+    const Graph::Lane* const lane = start.lane() ?
+      &_supergraph->original().lanes[*start.lane()] : nullptr;
     const Graph::OrientationConstraint* const entry_constraint =
-        lane? lane->entry().orientation_constraint() : nullptr;
+      lane ? lane->entry().orientation_constraint() : nullptr;
     const Graph::OrientationConstraint* const exit_constraint =
-        lane? lane->exit().orientation_constraint() : nullptr;
+      lane ? lane->exit().orientation_constraint() : nullptr;
 
     const double rotation_thresh = _supergraph->options().rotation_thresh;
     const auto start_time = start.time() + time::from_seconds(hold_time);
@@ -1394,11 +1397,11 @@ public:
       const double yaw = *yaw_opt;
 
       if (!orientation_constraint_satisfied(
-            p0, yaw, course_vector, entry_constraint, rotation_thresh))
+          p0, yaw, course_vector, entry_constraint, rotation_thresh))
         continue;
 
       if (!orientation_constraint_satisfied(
-            p1, yaw, course_vector, exit_constraint, rotation_thresh))
+          p1, yaw, course_vector, exit_constraint, rotation_thresh))
         continue;
 
       Trajectory trajectory;
@@ -1407,13 +1410,13 @@ public:
 
       const Eigen::Vector3d p_oriented{p0.x(), p0.y(), yaw};
       internal::interpolate_rotation(
-            trajectory, w_nom, alpha_nom, start_time, p_start, p_oriented,
-            rotation_thresh);
+        trajectory, w_nom, alpha_nom, start_time, p_start, p_oriented,
+        rotation_thresh);
 
       const Eigen::Vector3d p_arrived{p1.x(), p1.y(), yaw};
       internal::interpolate_translation(
-            trajectory, v_nom, a_nom, *trajectory.finish_time(),
-            p_oriented, p_arrived, translation_thresh);
+        trajectory, v_nom, a_nom, *trajectory.finish_time(),
+        p_oriented, p_arrived, translation_thresh);
 
       trajectories.emplace_back(std::move(trajectory));
     }
@@ -1425,7 +1428,7 @@ public:
   {
     const std::size_t initial_waypoint_index = start.waypoint();
     const auto& initial_waypoint =
-        _supergraph->original().waypoints.at(initial_waypoint_index);
+      _supergraph->original().waypoints.at(initial_waypoint_index);
     const auto& initial_map = initial_waypoint.get_map_name();
 
     const auto initial_time = start.time();
@@ -1458,7 +1461,7 @@ public:
         const double yaw = approach.back().position()[2];
         double cost = time::to_seconds(approach.duration());
         const auto heuristic_cost_estimate =
-            _heuristic.compute(initial_waypoint_index, yaw);
+          _heuristic.compute(initial_waypoint_index, yaw);
 
         if (!heuristic_cost_estimate.has_value())
           continue;
@@ -1499,7 +1502,7 @@ public:
     {
       node_waypoint = initial_waypoint_index;
       const auto heuristic_cost_estimate =
-          _heuristic.compute(initial_waypoint_index, initial_yaw);
+        _heuristic.compute(initial_waypoint_index, initial_yaw);
 
       if (!heuristic_cost_estimate.has_value())
       {
@@ -1525,19 +1528,19 @@ public:
     assert(!start_point_trajectory.empty());
 
     return std::make_shared<SearchNode>(
-          SearchNode{
-            node_waypoint,
-            start_location.value_or(waypoint_location),
-            initial_yaw,
-            start.time(),
-            std::nullopt,
-            remaining_cost_estimate,
-            {{initial_map, std::move(start_point_trajectory)}},
-            nullptr,
-            0.0,
-            start,
-            nullptr
-          });
+      SearchNode{
+        node_waypoint,
+        start_location.value_or(waypoint_location),
+        initial_yaw,
+        start.time(),
+        std::nullopt,
+        remaining_cost_estimate,
+        {{initial_map, std::move(start_point_trajectory)}},
+        nullptr,
+        0.0,
+        start,
+        nullptr
+      });
   }
 
   struct RolloutEntry
@@ -1553,7 +1556,7 @@ public:
     Duration span() const
     {
       return *node->route_from_parent.back().trajectory().finish_time()
-          - initial_time;
+        - initial_time;
     }
   };
 
@@ -1563,20 +1566,20 @@ public:
       return false;
 
     return _supergraph->original().waypoints
-        .at(*waypoint_index).is_holding_point();
+      .at(*waypoint_index).is_holding_point();
   }
 
   std::vector<schedule::Itinerary> rollout(
-      const Duration max_span,
-      const Issues::BlockedNodes& nodes,
-      std::optional<std::size_t> max_rollouts) const
+    const Duration max_span,
+    const Issues::BlockedNodes& nodes,
+    std::optional<std::size_t> max_rollouts) const
   {
     std::vector<RolloutEntry> rollout_queue;
     for (const auto& void_node : nodes)
     {
       bool skip = false;
       const auto original_node =
-          std::static_pointer_cast<SearchNode>(void_node.first);
+        std::static_pointer_cast<SearchNode>(void_node.first);
 
       const auto original_t = void_node.second;
 
@@ -1611,10 +1614,10 @@ public:
         continue;
 
       rollout_queue.emplace_back(
-            RolloutEntry{
-              original_t,
-              original_node
-            });
+        RolloutEntry{
+          original_t,
+          original_node
+        });
 
       // TODO(MXG): Consider making this configurable, or making a more
       // meaningful decision on how to prune the initial rollout queue.
@@ -1638,9 +1641,9 @@ public:
       const auto current_span = top.span();
 
       const bool stop_expanding =
-             (max_span < current_span)
-          || is_finished(top.node)
-          || is_holding_point(top.node->waypoint);
+        (max_span < current_span)
+        || is_finished(top.node)
+        || is_holding_point(top.node->waypoint);
 
       if (stop_expanding)
       {
@@ -1766,16 +1769,16 @@ public:
         }
 
         auto new_debug_node = std::make_shared<Planner::Debug::Node>(
-              agv::Planner::Debug::Node{
-                debug_parent,
-                node->route_from_parent,
-                node->remaining_cost_estimate,
-                node->current_cost,
-                node->waypoint,
-                node->yaw,
-                node->event,
-                std::nullopt
-              });
+          agv::Planner::Debug::Node{
+            debug_parent,
+            node->route_from_parent,
+            node->remaining_cost_estimate,
+            node->current_cost,
+            node->waypoint,
+            node->yaw,
+            node->event,
+            std::nullopt
+          });
 
         _to_debug[node] = new_debug_node;
         _from_debug[new_debug_node] = node;
@@ -1795,9 +1798,9 @@ public:
     agv::Planner::Options options_;
 
     Debugger(
-        std::vector<agv::Planner::Start> starts,
-        agv::Planner::Goal goal,
-        agv::Planner::Options options)
+      std::vector<agv::Planner::Start> starts,
+      agv::Planner::Goal goal,
+      agv::Planner::Options options)
     : starts_(std::move(starts)),
       goal_(std::move(goal)),
       options_(std::move(options))
@@ -1840,9 +1843,9 @@ public:
     agv::Planner::Options options) const
   {
     auto debugger = std::make_unique<Debugger>(
-          starts,
-          std::move(goal),
-          std::move(options));
+      starts,
+      std::move(goal),
+      std::move(options));
 
     for (const auto& start : starts)
     {
@@ -1854,7 +1857,7 @@ public:
   }
 
   std::optional<PlanData> debug_step(
-      Interface::Debugger& input_debugger) const
+    Interface::Debugger& input_debugger) const
   {
     Debugger& debugger = static_cast<Debugger&>(input_debugger);
 
@@ -1889,7 +1892,7 @@ public:
     auto nodes = reconstruct_nodes(solution, _validator);
     auto [routes, index] = reconstruct_routes(nodes);
     auto waypoints = reconstruct_waypoints(
-        nodes, index, _supergraph->original());
+      nodes, index, _supergraph->original());
     auto start = find_start(solution);
 
     return PlanData{
@@ -1920,13 +1923,13 @@ private:
 
 //==============================================================================
 DifferentialDrivePlanner::DifferentialDrivePlanner(
-    Planner::Configuration config)
-  : _config(std::move(config))
+  Planner::Configuration config)
+: _config(std::move(config))
 {
   _supergraph = Supergraph::make(
-        Graph::Implementation::get(_config.graph()),
-        _config.vehicle_traits(),
-        _config.interpolation());
+    Graph::Implementation::get(_config.graph()),
+    _config.vehicle_traits(),
+    _config.interpolation());
 
   _cache = DifferentialDriveHeuristic::make_manager(_supergraph);
 }
@@ -1959,8 +1962,8 @@ State DifferentialDrivePlanner::initiate(
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-      _supergraph,
-      goal.waypoint(),
+    _supergraph,
+    goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     goal,
@@ -1997,8 +2000,8 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(State& state) const
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-      _supergraph,
-      goal.waypoint(),
+    _supergraph,
+    goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     state.conditions.goal,
@@ -2034,8 +2037,8 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-      _supergraph,
-      goal.waypoint(),
+    _supergraph,
+    goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation()),
     },
     goal,
@@ -2068,8 +2071,8 @@ auto DifferentialDrivePlanner::debug_begin(
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-      _supergraph,
-      goal.waypoint(),
+    _supergraph,
+    goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     goal,
