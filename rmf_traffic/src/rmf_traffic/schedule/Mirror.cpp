@@ -342,7 +342,8 @@ Version Mirror::update(const Patch& patch)
 
     const ParticipantId id = updates.id();
 
-    if(_pimpl->participant_ids.count(id) == 0)
+    const auto it = _pimpl->states.find(id);
+    if (it == _pimpl->states.end())
     {
       std::cerr << "[Mirror::update] Requested updating of participant ID ["
                 << id << "] but participant hasn't yet registered"
@@ -351,12 +352,8 @@ Version Mirror::update(const Patch& patch)
       continue;
     }
 
-    _pimpl->states[id] = Implementation::ParticipantState{
-      {},
-      description
-    };
-
-    _pimpl->descriptions[id] = description;
+    it->second.description = description;
+    _pimpl->descriptions.at(id) = description;
   }
 
   for (const auto& p : patch)

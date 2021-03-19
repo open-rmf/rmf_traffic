@@ -30,7 +30,6 @@
 
 #include <algorithm>
 #include <list>
-#include <iostream>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -149,7 +148,7 @@ public:
     Version latest_update;
     Version original_version;
   };
-  using UpdateParticipantDescription = 
+  using UpdateParticipantDescription =
     std::unordered_map<ParticipantId, UpdateParticipantDescriptionInfo>;
   UpdateParticipantDescription update_participant_version;
 
@@ -681,8 +680,8 @@ Writer::Registration Database::register_participant(
 
 //==============================================================================
 void Database::update_description(
-    ParticipantId id,
-    ParticipantDescription desc)
+  ParticipantId id,
+  ParticipantDescription desc)
 {
   const auto p_it = _pimpl->states.find(id);
   if (p_it == _pimpl->states.end())
@@ -702,12 +701,13 @@ void Database::update_description(
   p_it->second.description = description_ptr;
 
   _pimpl->descriptions[id] = description_ptr;
-  _pimpl->update_participant_version.insert({id, 
-    Implementation::UpdateParticipantDescriptionInfo {
-      version,
-      p_it->second.initial_schedule_version
-    }});
+  _pimpl->update_participant_version[id] =
+    Implementation::UpdateParticipantDescriptionInfo{
+    version,
+    p_it->second.initial_schedule_version
+  };
 }
+
 //==============================================================================
 void Database::unregister_participant(
   ParticipantId participant)
@@ -1188,22 +1188,21 @@ auto Database::changes(
         unregistered.emplace_back(remove_it->second.id);
     }
 
-   
     for (auto& update_it : _pimpl->update_participant_version)
     {
-       // Check which participants have been updated
+      // Check which participants have been updated
       auto id = update_it.first;
-      if (update_it.second.original_version <= after_v 
+      if (update_it.second.original_version <= after_v
         && update_it.second.latest_update > after_v)
       {
         // Only send the update if it is not a newly registered
         // participant and if there has been an update since
         // the mirror was last updated.
         const auto p_it = _pimpl->states.find(id);
-        if (p_it == _pimpl->states.end()) continue;
+        if (p_it == _pimpl->states.end())
+          continue;
 
-        info_updates.emplace_back(id,
-                                  *p_it->second.description);        
+        info_updates.emplace_back(id, *p_it->second.description);
       }
     }
   }

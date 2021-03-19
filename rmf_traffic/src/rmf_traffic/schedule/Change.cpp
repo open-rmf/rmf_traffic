@@ -155,13 +155,14 @@ public:
   ParticipantDescription description;
 };
 
+//==============================================================================
 Change::UpdateParticipantInfo::UpdateParticipantInfo(
-  ParticipantId id, 
-  ParticipantDescription desc):
-  _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{id, desc}))
+  ParticipantId id,
+  ParticipantDescription desc)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{id, std::move(desc)}))
 {
-
+  // Do nothing
 }
 
 ParticipantId Change::UpdateParticipantInfo::id() const
