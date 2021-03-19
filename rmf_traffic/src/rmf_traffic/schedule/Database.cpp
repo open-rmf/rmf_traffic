@@ -1324,8 +1324,8 @@ RouteId Database::last_route_id(ParticipantId participant) const
   if (p_it == _pimpl->states.end())
   {
     throw std::runtime_error(
-      "[Database::last_route_id] No participant with ID ["
-      + std::to_string(participant) + "]");
+            "[Database::last_route_id] No participant with ID ["
+            + std::to_string(participant) + "]");
   }
 
   return p_it->second.last_route_id;

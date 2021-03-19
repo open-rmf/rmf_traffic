@@ -33,7 +33,7 @@ std::string toul(const std::size_t input)
   do
   {
     const std::size_t digit = value % TotalLetters;
-    char offset = output.empty()? 'A' : 'A'-1;
+    char offset = output.empty() ? 'A' : 'A'-1;
     output += static_cast<char>(digit + offset);
     value /= TotalLetters;
   } while (value > 0);
@@ -48,12 +48,12 @@ class BlockageConstraint : public Constraint
 public:
 
   BlockageConstraint(
-      std::size_t blocked_by,
-      std::optional<std::size_t> blocker_hold_point,
-      std::optional<BlockageEndCondition> end_condition)
-    : _blocked_by(blocked_by),
-      _blocker_hold_point(blocker_hold_point),
-      _end_condition(end_condition)
+    std::size_t blocked_by,
+    std::optional<std::size_t> blocker_hold_point,
+    std::optional<BlockageEndCondition> end_condition)
+  : _blocked_by(blocked_by),
+    _blocker_hold_point(blocker_hold_point),
+    _end_condition(end_condition)
   {
     _dependencies.insert(_blocked_by);
   }
@@ -105,7 +105,7 @@ public:
     std::stringstream str;
 
     const bool two_parts =
-        _blocker_hold_point.has_value() && _end_condition.has_value();
+      _blocker_hold_point.has_value() && _end_condition.has_value();
     const bool hold_failed = !_evaluate_can_hold(range);
     const bool end_failed = !_evaluate_has_reached(range);
     const bool whole_failed = hold_failed && end_failed;
@@ -203,8 +203,8 @@ private:
 
   std::string _description() const
   {
-    const auto h = _blocker_hold_point?
-          std::to_string(*_blocker_hold_point) : std::string("null");
+    const auto h = _blocker_hold_point ?
+      std::to_string(*_blocker_hold_point) : std::string("null");
 
     std::string desc = std::to_string(_blocked_by) + ":(" + h;
     if (_end_condition)
@@ -213,7 +213,7 @@ private:
       if (_end_condition->condition == BlockageEndCondition::HasReached)
         desc += ")";
       else
-        desc+= "]";
+        desc += "]";
     }
     else
     {
@@ -232,12 +232,12 @@ private:
 
 //==============================================================================
 ConstConstraintPtr blockage(
-    std::size_t blocked_by,
-    std::optional<std::size_t> blocker_hold_point,
-    std::optional<BlockageEndCondition> end_condition)
+  std::size_t blocked_by,
+  std::optional<std::size_t> blocker_hold_point,
+  std::optional<BlockageEndCondition> end_condition)
 {
   return std::make_shared<BlockageConstraint>(
-        blocked_by, blocker_hold_point, end_condition);
+    blocked_by, blocker_hold_point, end_condition);
 }
 
 //==============================================================================
@@ -246,10 +246,10 @@ class PassedConstraint : public Constraint
 public:
 
   PassedConstraint(
-      std::size_t participant,
-      std::size_t index)
-    : _participant(participant),
-      _index(index)
+    std::size_t participant,
+    std::size_t index)
+  : _participant(participant),
+    _index(index)
   {
     _dependencies.insert(_participant);
   }
@@ -260,8 +260,8 @@ public:
     if (it == state.end())
     {
       std::string error = "Failed to evaluate PassedConstraint because "
-          "participant " + std::to_string(_participant)
-          + " is missing from the state.";
+        "participant " + std::to_string(_participant)
+        + " is missing from the state.";
 
       throw std::runtime_error(error);
     }
@@ -319,8 +319,8 @@ private:
 
 //==============================================================================
 ConstConstraintPtr passed(
-    std::size_t participant,
-    std::size_t index)
+  std::size_t participant,
+  std::size_t index)
 {
   return std::make_shared<PassedConstraint>(participant, index);
 }
@@ -335,7 +335,7 @@ public:
     return true;
   }
 
-  const std::unordered_set<std::size_t> & dependencies() const final
+  const std::unordered_set<std::size_t>& dependencies() const final
   {
     static const std::unordered_set<std::size_t> empty_set;
     return empty_set;
@@ -607,7 +607,7 @@ ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
       }
 
       auto node = std::make_shared<GridlockNode>(
-            GridlockNode{blocker, nullptr, {}});
+        GridlockNode{blocker, nullptr, {}});
       node->visited[participant].insert(index);
 
       queue.push_back(std::move(node));
@@ -625,8 +625,8 @@ ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
     queue.pop_back();
 
     const bool is_new_node = expanded_nodes
-        .insert({top->blocker.participant, {}})
-        .first->second.insert(top->blocker.index).second;
+      .insert({top->blocker.participant, {}})
+      .first->second.insert(top->blocker.index).second;
 
     if (!is_new_node)
       continue;
@@ -643,7 +643,8 @@ ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
 
     for (const auto& dep : it->second)
     {
-      std::optional<bool> opt_eval = dep.constraint->partial_evaluate(test_state);
+      std::optional<bool> opt_eval =
+        dep.constraint->partial_evaluate(test_state);
       if (!opt_eval.has_value() || opt_eval.value())
         continue;
 
@@ -651,10 +652,10 @@ ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
       // chain
       Cache new_visited = top->visited;
       const bool loop_found = !new_visited[dep.participant]
-          .insert(dep.index).second;
+        .insert(dep.index).second;
 
       auto next = std::make_shared<GridlockNode>(
-            GridlockNode{dep, top, std::move(new_visited)});
+        GridlockNode{dep, top, std::move(new_visited)});
 
       if (loop_found)
         gridlock_constraints.push_back(compute_gridlock_constraint(next));

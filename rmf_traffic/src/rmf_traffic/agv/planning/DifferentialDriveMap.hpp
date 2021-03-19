@@ -49,7 +49,7 @@ inline std::ostream& operator<<(std::ostream& os, const Orientation orientation)
 {
   if (orientation == Orientation::Forward)
     os << "Forward";
-  else if(orientation == Orientation::Backward)
+  else if (orientation == Orientation::Backward)
     os << "Backward";
   else if (orientation == Orientation::Any)
     os << "Any";
@@ -109,11 +109,11 @@ struct DifferentialDriveMapTypes
     inline bool operator==(const Key& other) const
     {
       return
-          start_lane == other.start_lane &&
-          start_orientation == other.start_orientation &&
-          start_side == other.start_side &&
-          goal_lane == other.goal_lane &&
-          goal_orientation == other.goal_orientation;
+        start_lane == other.start_lane &&
+        start_orientation == other.start_orientation &&
+        start_side == other.start_side &&
+        goal_lane == other.goal_lane &&
+        goal_orientation == other.goal_orientation;
     }
   };
 
@@ -137,9 +137,9 @@ struct DifferentialDriveMapTypes
     inline bool operator==(const Entry& other) const
     {
       return
-          lane == other.lane &&
-          orientation == other.orientation &&
-          side == other.side;
+        lane == other.lane &&
+        orientation == other.orientation &&
+        side == other.side;
     }
 
     inline bool operator!=(const Entry& other) const
@@ -177,17 +177,17 @@ struct DifferentialDriveMapTypes
     std::vector<Route> routes;
 
     RouteInfo(
-        rmf_traffic::Time finish_time_,
-        double finish_yaw_,
-        std::vector<Route> routes_);
+      rmf_traffic::Time finish_time_,
+      double finish_yaw_,
+      std::vector<Route> routes_);
   };
 
   /// This type is a factory that produces routes. The SolutionNode will provide
   /// these to us so we can get the correct routes for our specific use cases.
   using RouteFactory =
     std::function<RouteInfo(
-      rmf_traffic::Time start_time,
-      double initial_yaw)>;
+        rmf_traffic::Time start_time,
+        double initial_yaw)>;
 
   /// This type is a factory that produces factories. The
   /// DifferentialDriveHeuristic::SearchNode will use these to generate
@@ -222,15 +222,15 @@ struct DifferentialDriveMapTypes
     std::size_t operator()(const Key& key) const
     {
       return
-          key.start_lane
-          + (static_cast<std::size_t>(key.start_orientation)
-             << _start_orientation_shift)
-          + (static_cast<std::size_t>(key.start_side)
-             << _start_side_shift)
-          + (key.goal_lane
-             << _goal_lane_shift)
-          + (static_cast<std::size_t>(key.goal_orientation)
-             << _goal_orientation_shift);
+        key.start_lane
+        + (static_cast<std::size_t>(key.start_orientation)
+        << _start_orientation_shift)
+        + (static_cast<std::size_t>(key.start_side)
+        << _start_side_shift)
+        + (key.goal_lane
+        << _goal_lane_shift)
+        + (static_cast<std::size_t>(key.goal_orientation)
+        << _goal_orientation_shift);
     }
 
   private:
@@ -251,8 +251,8 @@ struct DifferentialDriveMapTypes
     std::size_t operator()(const Entry& entry) const
     {
       return entry.lane
-          + (static_cast<std::size_t>(entry.orientation) << _orientation_shift)
-          + (static_cast<std::size_t>(entry.side) << _side_shift);
+        + (static_cast<std::size_t>(entry.orientation) << _orientation_shift)
+        + (static_cast<std::size_t>(entry.side) << _side_shift);
     }
 
   private:
@@ -262,7 +262,8 @@ struct DifferentialDriveMapTypes
 };
 
 //==============================================================================
-inline std::ostream& operator<<(std::ostream& os, const DifferentialDriveMapTypes::Key key)
+inline std::ostream& operator<<(std::ostream& os,
+  const DifferentialDriveMapTypes::Key key)
 {
   os << "[" << key.start_lane << ", " << key.start_orientation << ", "
      << key.start_side << ", " << key.goal_lane << ", " << key.goal_orientation
@@ -272,9 +273,11 @@ inline std::ostream& operator<<(std::ostream& os, const DifferentialDriveMapType
 }
 
 //==============================================================================
-inline std::ostream& operator<<(std::ostream& os, const DifferentialDriveMapTypes::Entry entry)
+inline std::ostream& operator<<(std::ostream& os,
+  const DifferentialDriveMapTypes::Entry entry)
 {
-  os << "[" << entry.lane << ", " << entry.orientation << ", " << entry.side << "]";
+  os << "[" << entry.lane << ", " << entry.orientation << ", "
+     << entry.side << "]";
 
   return os;
 }
@@ -283,23 +286,23 @@ inline std::ostream& operator<<(std::ostream& os, const DifferentialDriveMapType
 //==============================================================================
 using DifferentialDriveMap =
   std::unordered_map<
-    DifferentialDriveMapTypes::Key,
-    DifferentialDriveMapTypes::SolutionNodePtr,
-    DifferentialDriveMapTypes::KeyHash
+  DifferentialDriveMapTypes::Key,
+  DifferentialDriveMapTypes::SolutionNodePtr,
+  DifferentialDriveMapTypes::KeyHash
   >;
 
 //==============================================================================
 using DifferentialDriveKeySet =
   std::unordered_set<
-    DifferentialDriveMapTypes::Key,
-    DifferentialDriveMapTypes::KeyHash
+  DifferentialDriveMapTypes::Key,
+  DifferentialDriveMapTypes::KeyHash
   >;
 
 //==============================================================================
 using DifferentialDriveEntrySet =
   std::unordered_set<
-    DifferentialDriveMapTypes::Entry,
-    DifferentialDriveMapTypes::EntryHash
+  DifferentialDriveMapTypes::Entry,
+  DifferentialDriveMapTypes::EntryHash
   >;
 
 //==============================================================================
@@ -311,47 +314,47 @@ struct FactoryInfo
 
 //==============================================================================
 FactoryInfo make_differential_drive_translate_factory(
-    Eigen::Vector3d start,
-    Eigen::Vector3d finish,
-    KinematicLimits limits,
-    double translation_thresh,
-    double rotation_thresh,
-    std::vector<std::string> maps);
+  Eigen::Vector3d start,
+  Eigen::Vector3d finish,
+  KinematicLimits limits,
+  double translation_thresh,
+  double rotation_thresh,
+  std::vector<std::string> maps);
 
 //==============================================================================
 /// This returns a nullopt if it can guarantee that no rotation is needed
 std::optional<FactoryInfo> make_rotate_factory(
-    Eigen::Vector2d position,
-    std::optional<double> start_yaw,
-    std::optional<double> finish_yaw,
-    KinematicLimits limits,
-    double rotation_thresh,
-    std::string map);
+  Eigen::Vector2d position,
+  std::optional<double> start_yaw,
+  std::optional<double> finish_yaw,
+  KinematicLimits limits,
+  double rotation_thresh,
+  std::string map);
 
 //==============================================================================
 // NOTE: The minimum cost in this case is obvious: the value of duration
 DifferentialDriveMapTypes::RouteFactoryFactory
 make_hold_factory(
-    Eigen::Vector2d position,
-    std::optional<double> yaw,
-    Duration duration,
-    KinematicLimits limits,
-    double rotation_thresh,
-    std::vector<std::string> maps);
+  Eigen::Vector2d position,
+  std::optional<double> yaw,
+  Duration duration,
+  KinematicLimits limits,
+  double rotation_thresh,
+  std::vector<std::string> maps);
 
 //==============================================================================
 DifferentialDriveMapTypes::RouteFactoryFactory
 make_start_factory(
-    Eigen::Vector2d position,
-    std::optional<double> yaw,
-    KinematicLimits limits,
-    double rotation_thresh,
-    std::vector<std::string> maps);
+  Eigen::Vector2d position,
+  std::optional<double> yaw,
+  KinematicLimits limits,
+  double rotation_thresh,
+  std::vector<std::string> maps);
 
 //==============================================================================
 DifferentialDriveMapTypes::RouteFactoryFactory
 make_recycling_factory(
-    DifferentialDriveMapTypes::RouteFactory old_factory);
+  DifferentialDriveMapTypes::RouteFactory old_factory);
 
 } // namespace planning
 } // namespace agv

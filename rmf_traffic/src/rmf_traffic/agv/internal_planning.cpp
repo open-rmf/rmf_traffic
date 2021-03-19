@@ -30,8 +30,8 @@ InterfacePtr make_planner_interface(Planner::Configuration config)
     return std::make_shared<DifferentialDrivePlanner>(std::move(config));
 
   throw std::runtime_error(
-        "[rmf_traffic::agv::planning::make_planner_interface] The rmf_traffic "
-        "Planner currently only supports differential drive vehicles.");
+          "[rmf_traffic::agv::planning::make_planner_interface] The rmf_traffic "
+          "Planner currently only supports differential drive vehicles.");
 }
 
 } // namespace planning

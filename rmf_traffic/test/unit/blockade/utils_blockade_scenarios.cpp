@@ -18,9 +18,9 @@
 #include "utils_blockade_scenarios.hpp"
 
 //==============================================================================
-template <typename T>
+template<typename T>
 std::vector<std::size_t> get_goals(
-    const std::vector<std::vector<T>>& paths)
+  const std::vector<std::vector<T>>& paths)
 {
   std::vector<std::size_t> goals;
   for (const auto& p : paths)
@@ -37,19 +37,19 @@ GridlockScenario flyby_uturn()
   GridlockScenario scenario;
 
   std::array<Eigen::Vector2d, 6> A;
-  A[0] = { 0,  5};
-  A[1] = { 5,  5};
-  A[2] = {10,  5};
+  A[0] = { 0, 5};
+  A[1] = { 5, 5};
+  A[2] = {10, 5};
   A[3] = {10, 10};
   A[4] = { 5, 10};
   A[5] = { 0, 10};
   scenario.paths.push_back(make_path(A));
 
   std::array<Eigen::Vector2d, 4> B;
-  B[0] = {20,  5};
-  B[1] = {15,  5};
-  B[2] = { 8,  5};
-  B[3] = { 8,  0};
+  B[0] = {20, 5};
+  B[1] = {15, 5};
+  B[2] = { 8, 5};
+  B[3] = { 8, 0};
   scenario.paths.push_back(make_path(B));
 
   std::array<Eigen::Vector2d, 6> C;
@@ -58,7 +58,7 @@ GridlockScenario flyby_uturn()
   C[2] = { 8, 10};
   C[3] = {10, 10};
   C[4] = {15, 10};
-  C[5] = {15,  0};
+  C[5] = {15, 0};
   auto path_C = make_path(C);
   path_C.at(2).can_hold = false;
   path_C.at(4).can_hold = false;
@@ -75,8 +75,8 @@ GridlockScenario fourway_standoff()
   GridlockScenario scenario;
 
   std::array<Eigen::Vector2d, 3> A;
-  A[0] = { 5,  0};
-  A[1] = { 5,  5};
+  A[0] = { 5, 0};
+  A[1] = { 5, 5};
   A[2] = { 5, 15};
   scenario.paths.push_back(make_path(A));
 
@@ -89,13 +89,13 @@ GridlockScenario fourway_standoff()
   std::array<Eigen::Vector2d, 3> C;
   C[0] = {10, 15};
   C[1] = {10, 10};
-  C[2] = {10,  0};
+  C[2] = {10, 0};
   scenario.paths.push_back(make_path(C));
 
   std::array<Eigen::Vector2d, 3> D;
-  D[0] = {15,  5};
-  D[1] = {10,  5};
-  D[2] = { 0,  5};
+  D[0] = {15, 5};
+  D[1] = {10, 5};
+  D[2] = { 0, 5};
   scenario.paths.push_back(make_path(D));
 
   scenario.goals = get_goals(scenario.paths);

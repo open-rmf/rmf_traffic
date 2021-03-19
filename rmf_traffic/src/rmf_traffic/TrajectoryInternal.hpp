@@ -31,7 +31,7 @@ struct WaypointElement;
 using WaypointList = std::list<WaypointElement>;
 
 //==============================================================================
-template <typename Key, typename Value>
+template<typename Key, typename Value>
 class TemplateOrderMap
 {
 public:
@@ -41,8 +41,8 @@ public:
     Key key;
     Value value;
 
-    template <typename... Args>
-    static Element make(const Key& key, Args&&... args)
+    template<typename... Args>
+    static Element make(const Key& key, Args&& ... args)
     {
       return Element{key, Value{std::forward<Args>(args)...}};
     }
@@ -90,8 +90,8 @@ public:
     return std::lower_bound(_storage.begin(), _storage.end(), k, Comparison());
   }
 
-  template <typename... Args>
-  iterator emplace_hint(iterator hint, const Key& key, Args&&... args)
+  template<typename... Args>
+  iterator emplace_hint(iterator hint, const Key& key, Args&& ... args)
   {
     if (_storage.empty())
     {
@@ -104,7 +104,7 @@ public:
       if ( (--const_iterator(hint))->key < key)
       {
         return _storage.emplace(
-              _storage.end(), Element::make(key, std::forward<Args>(args)...));
+          _storage.end(), Element::make(key, std::forward<Args>(args)...));
       }
 
       // If the above test failed, then we were given a bad hint. Let's just use
@@ -115,7 +115,7 @@ public:
         return new_hint;
 
       return _storage.emplace(
-            new_hint, Element::make(key, std::forward<Args>(args)...));
+        new_hint, Element::make(key, std::forward<Args>(args)...));
     }
 
     if (hint->key == key)
@@ -126,37 +126,37 @@ public:
       if (hint == _storage.begin())
       {
         return _storage.emplace(
-              hint, Element::make(key, std::forward<Args>(args)...));
+          hint, Element::make(key, std::forward<Args>(args)...));
       }
       else if ( (--const_iterator(hint))->key < key)
       {
         return _storage.emplace(
-              hint, Element::make(key, std::forward<Args>(args)...));
+          hint, Element::make(key, std::forward<Args>(args)...));
       }
 
       // If the above tests failed, then we don't have a perfect hint, but at
       // least we know that it's on the correct side of hint, so we'll use that
       // for the upper bound on the search.
       const auto new_hint =
-          std::lower_bound(_storage.begin(), hint, key, Comparison());
+        std::lower_bound(_storage.begin(), hint, key, Comparison());
 
       if (new_hint->key == key)
         return new_hint;
 
       return _storage.emplace(
-            new_hint, Element::make(key, std::forward<Args>(args)...));
+        new_hint, Element::make(key, std::forward<Args>(args)...));
     }
 
     // If the above tests failed, then we have been given a bad hint, but at
     // least we know hint is on the lower end of the bound.
     const auto new_hint =
-        std::lower_bound(hint, _storage.end(), key, Comparison());
+      std::lower_bound(hint, _storage.end(), key, Comparison());
 
     if (new_hint->key == key)
       return new_hint;
 
     return _storage.emplace(
-          new_hint, Element::make(key, std::forward<Args>(args)...));
+      new_hint, Element::make(key, std::forward<Args>(args)...));
   }
 
   /// Rotate the elements of the vector so that the mover is located right in

@@ -32,7 +32,7 @@ namespace planning {
 /// path between two waypoints, not accounting for acceleration, deceleration,
 /// turning, or orientation constraints.
 class ShortestPathHeuristic
-    : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
+  : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
 {
 public:
 

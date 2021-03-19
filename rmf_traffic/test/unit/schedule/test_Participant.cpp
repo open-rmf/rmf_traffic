@@ -226,7 +226,7 @@ SCENARIO("Test Participant")
 
   // Create a simple rectifier factory
   const auto rectifier = std::make_shared<
-      rmf_traffic::schedule::DatabaseRectificationRequesterFactory>(db);
+    rmf_traffic::schedule::DatabaseRectificationRequesterFactory>(db);
 
   // Create a shape
   const auto shape = rmf_traffic::geometry::make_final_convex<

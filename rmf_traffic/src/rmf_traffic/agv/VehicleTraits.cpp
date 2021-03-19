@@ -22,7 +22,7 @@ namespace agv {
 
 //==============================================================================
 auto VehicleTraits::Limits::Implementation::get(
-    const Limits& limits) -> const Implementation&
+  const Limits& limits) -> const Implementation&
 {
   return *limits._pimpl;
 }
@@ -44,7 +44,7 @@ VehicleTraits::Implementation::Implementation(
 
 //==============================================================================
 KinematicLimits VehicleTraits::Implementation::get_limits(
-    const VehicleTraits& traits)
+  const VehicleTraits& traits)
 {
   return {
     Limits::Implementation::get(traits._pimpl->_linear),
