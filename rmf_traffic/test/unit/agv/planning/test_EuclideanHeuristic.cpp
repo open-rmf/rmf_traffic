@@ -128,7 +128,6 @@ SCENARIO("Euclidean Heuristic -- Easy Multifloor")
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
   const Eigen::Vector2d p2 = graph.get_waypoint(2).get_location();
   const Eigen::Vector2d p3 = graph.get_waypoint(3).get_location();
-  const Eigen::Vector2d p7 = graph.get_waypoint(7).get_location();
   const Eigen::Vector2d p8 = graph.get_waypoint(8).get_location();
   const Eigen::Vector2d p11 = graph.get_waypoint(11).get_location();
 

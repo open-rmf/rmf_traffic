@@ -254,10 +254,6 @@ public:
             });
         }
 
-        double entry_cost = 0.0;
-        if (oriented_top != top)
-          entry_cost = oriented_top->info.cost_from_parent;
-
         queue.push(std::move(new_node));
       }
     }
@@ -271,8 +267,6 @@ public:
 
     const Eigen::Vector2d p = top->info.position;
     const double target_yaw = _goal_yaw.value();
-    const Eigen::Vector3d start_position =
-    {p.x(), p.y(), top->info.yaw.value()};
 
     // We assume we will get back a valid factory, because if no rotation is
     // needed, then the planner should have accepted this node earlier.
