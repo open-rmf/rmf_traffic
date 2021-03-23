@@ -3392,17 +3392,17 @@ SCENARIO("Test planning with lane closures")
   {
     expected_waypoints = {0, 6, 8, 5, 4, 1};
     configuration.lane_closures()
-      .close(graph.lane_from(3, 4)->index())
-      .close(graph.lane_from(7, 4)->index());
+    .close(graph.lane_from(3, 4)->index())
+    .close(graph.lane_from(7, 4)->index());
   }
 
   WHEN("Close lanes 3->4, 7->4, 5->4")
   {
     expected_waypoints = {};
     configuration.lane_closures()
-      .close(graph.lane_from(3, 4)->index())
-      .close(graph.lane_from(7, 4)->index())
-      .close(graph.lane_from(5, 4)->index());
+    .close(graph.lane_from(3, 4)->index())
+    .close(graph.lane_from(7, 4)->index())
+    .close(graph.lane_from(5, 4)->index());
   }
 
   rmf_traffic::agv::Planner planner(

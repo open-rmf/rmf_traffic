@@ -31,7 +31,7 @@ SCENARIO("Test LaneClosure class functions")
   {
 //    THEN("All lanes are open")
     {
-      for (std::size_t i=0; i < lane_num; ++i)
+      for (std::size_t i = 0; i < lane_num; ++i)
       {
         CHECK(closure.is_open(i));
         CHECK_FALSE(closure.is_closed(i));
@@ -46,7 +46,7 @@ SCENARIO("Test LaneClosure class functions")
 
 //    THEN("All lanes but 73 are open")
     {
-      for (std::size_t i=0; i < lane_num; ++i)
+      for (std::size_t i = 0; i < lane_num; ++i)
       {
         if (73 == i)
         {
@@ -69,7 +69,7 @@ SCENARIO("Test LaneClosure class functions")
 
 //    THEN("All lanes are open")
     {
-      for (std::size_t i=0; i < lane_num; ++i)
+      for (std::size_t i = 0; i < lane_num; ++i)
       {
         CHECK(closure.is_open(i));
         CHECK_FALSE(closure.is_closed(i));
@@ -138,7 +138,7 @@ SCENARIO("Fuzz test of LaneClosure", "[debug]")
 
   while (closed_lanes.size() > 0)
   {
-    for (std::size_t i=0; i < num_lanes; ++i)
+    for (std::size_t i = 0; i < num_lanes; ++i)
     {
       if (closed_lanes.count(i))
       {
@@ -157,7 +157,7 @@ SCENARIO("Fuzz test of LaneClosure", "[debug]")
     closed_lanes.erase(pop);
   }
 
-  for (std::size_t i=0; i < num_lanes; ++i)
+  for (std::size_t i = 0; i < num_lanes; ++i)
   {
     CHECK(closure.is_open(i));
     CHECK_FALSE(closure.is_closed(i));
