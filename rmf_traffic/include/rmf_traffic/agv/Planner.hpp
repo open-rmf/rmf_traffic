@@ -21,6 +21,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <rmf_traffic/agv/Graph.hpp>
+#include <rmf_traffic/agv/LaneClosure.hpp>
 #include <rmf_traffic/agv/Interpolate.hpp>
 #include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
@@ -56,6 +57,9 @@ public:
     ///
     /// \param[in] graph
     ///   The graph which is being planned over
+    ///
+    /// \param[in] interpolation
+    ///   The options for how the planner will perform trajectory interpolation
     Configuration(
       Graph graph,
       VehicleTraits traits,
@@ -87,6 +91,16 @@ public:
 
     /// Get a const reference to the interpolation options
     const Interpolate::Options& interpolation() const;
+
+    /// Set the lane closures for the graph. The planner will not attempt to
+    /// expand down any lanes that are closed.
+    Configuration& lane_closures(LaneClosure closures);
+
+    /// Get a mutable reference to the LaneClosure setting
+    LaneClosure& lane_closures();
+
+    /// Get a const reference to the LaneClosure setting
+    const LaneClosure& lane_closures() const;
 
     // TODO(MXG): Add a field to specify whether multi-start planning problems
     // should choose the plan that takes the least amount of time (according to

@@ -42,7 +42,7 @@ SCENARIO("Euclidean Heuristic -- Single Floor")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
@@ -117,7 +117,7 @@ SCENARIO("Euclidean Heuristic -- Easy Multifloor")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
@@ -233,7 +233,7 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
@@ -334,7 +334,7 @@ SCENARIO("Euclidean Heuristic -- No Connection")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(

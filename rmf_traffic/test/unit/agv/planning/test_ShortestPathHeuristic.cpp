@@ -50,7 +50,7 @@ SCENARIO("Shortest Path Heuristic -- Single Floor")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
@@ -148,7 +148,7 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
@@ -284,7 +284,7 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
     rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
@@ -390,7 +390,7 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
 
   auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   auto cache_map =
     std::make_optional<rmf_traffic::agv::planning::CacheManagerMap<
@@ -467,7 +467,7 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
 
   supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   // We need to completely reconstruct the cache map, because the supergraph has
   // changed.

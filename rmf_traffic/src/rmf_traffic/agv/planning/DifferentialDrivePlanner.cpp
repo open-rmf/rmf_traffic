@@ -1929,6 +1929,7 @@ DifferentialDrivePlanner::DifferentialDrivePlanner(
   _supergraph = Supergraph::make(
     Graph::Implementation::get(_config.graph()),
     _config.vehicle_traits(),
+    _config.lane_closures(),
     _config.interpolation());
 
   _cache = DifferentialDriveHeuristic::make_manager(_supergraph);
