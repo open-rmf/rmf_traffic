@@ -30,6 +30,7 @@ public:
   schedule::ParticipantId _pid;
   rmf_traffic::Time _start_time;
   std::optional<rmf_traffic::Duration>  _duration;
+  std::optional<rmf_traffic::Time>  _finish_time;
 };
 
 //=============================================================================
@@ -42,6 +43,38 @@ const rmf_traffic::Time Reservation::start_time() const
 const std::optional<rmf_traffic::Duration> Reservation::duration() const
 {
   return _pimpl->_duration;
+}
+
+//=============================================================================
+const std::optional<rmf_traffic::Time> Reservation::finish_time() const
+{
+  return _pimpl->_finish_time;
+}
+
+//=============================================================================
+const std::optional<rmf_traffic::Time> Reservation::actual_finish_time() const
+{
+  if(is_indefinite()) return std::nullopt;
+
+  if(_pimpl->_finish_time.has_value() && _pimpl->_duration.has_value())
+  {
+    return {std::max(_pimpl->_start_time + *_pimpl->_duration, 
+      *_pimpl->_finish_time)};
+  }
+  else if(_pimpl->_finish_time.has_value())
+  {
+    return _pimpl->_finish_time;
+  }
+  else
+  {
+    return _pimpl->_start_time + *_pimpl->_duration;
+  }
+}
+
+//=============================================================================
+bool Reservation::is_indefinite() const
+{
+  return !_pimpl->_finish_time.has_value() && !_pimpl->_duration.has_value();
 }
 
 //=============================================================================
@@ -67,7 +100,8 @@ Reservation Reservation::make_reservation(
   rmf_traffic::Time start_time,
   std::string resource_name,
   schedule::ParticipantId pid,
-  std::optional<rmf_traffic::Duration> duration)
+  std::optional<rmf_traffic::Duration> duration,
+  std::optional<rmf_traffic::Time> finish_time)
 {
   static std::atomic<uint64_t> counter {0};
   Reservation res;
@@ -77,6 +111,7 @@ Reservation Reservation::make_reservation(
   res._pimpl->_pid = pid;
   res._pimpl->_resource_name = resource_name;
   res._pimpl->_duration = duration;
+  res._pimpl->_finish_time = finish_time;
   
   counter++;
 
@@ -86,12 +121,6 @@ Reservation Reservation::make_reservation(
 //=============================================================================
 Reservation::Reservation(): 
   _pimpl(rmf_utils::make_impl<Implementation>())
-{
-
-}
-
-//=============================================================================
-bool Reservation::operator< (const Reservation& other) const
 {
 
 }

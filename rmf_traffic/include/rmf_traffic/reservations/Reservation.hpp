@@ -24,8 +24,6 @@
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
-
-
 namespace rmf_traffic {
 namespace reservations {
 
@@ -38,19 +36,26 @@ public:
 
   const std::optional<rmf_traffic::Duration> duration() const;
 
+  const std::optional<rmf_traffic::Time> finish_time() const;
+
+  bool is_indefinite() const;
+
+  const std::optional<rmf_traffic::Time> actual_finish_time() const;
+
   const std::string resource_name() const;
   
   ReservationId reservation_id() const;
 
   schedule::ParticipantId participant_id() const;
 
-  bool operator< (const Reservation& other) const;
+  std::size_t request_id() const;
 
   static Reservation make_reservation(
     rmf_traffic::Time start_time,
     std::string resource_name,
     schedule::ParticipantId pid,
-    std::optional<rmf_traffic::Duration> duration);
+    std::optional<rmf_traffic::Duration> duration,
+    std::optional<rmf_traffic::Time> finish_time);
   
   class Implementation;
 private:
