@@ -3394,7 +3394,9 @@ SCENARIO("Test planning with lane closures")
   WHEN("Close lanes 3->4, 7->4")
   {
     expected_waypoints = {0, 6, 8, 5, 4, 1};
-    expected_lanes = {{}, {}, {0, 10}, {}, {16, 18}, {}, {15}, {}, {9}, {}, {3}};
+    expected_lanes = {
+      {}, {}, {0, 10}, {}, {16, 18}, {}, {15}, {}, {9}, {}, {3}
+    };
     configuration.lane_closures()
     .close(graph.lane_from(3, 4)->index())
     .close(graph.lane_from(7, 4)->index());
