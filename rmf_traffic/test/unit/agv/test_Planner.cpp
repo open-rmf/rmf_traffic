@@ -3376,21 +3376,25 @@ SCENARIO("Test planning with lane closures")
 
   rmf_traffic::agv::Planner::Configuration configuration{graph, traits};
   std::vector<std::size_t> expected_waypoints;
+  std::vector<std::vector<std::size_t>> expected_lanes;
 
   WHEN("No closures")
   {
     expected_waypoints = {0, 3, 4, 1};
+    expected_lanes = {{}, {}, {0}, {}, {6}, {}, {3}};
   }
 
   WHEN("Close lane 3->4")
   {
     expected_waypoints = {0, 6, 7, 1};
+    expected_lanes = {{}, {}, {0, 10}, {}, {16}, {}, {13, 3}};
     configuration.lane_closures().close(graph.lane_from(3, 4)->index());
   }
 
   WHEN("Close lanes 3->4, 7->4")
   {
     expected_waypoints = {0, 6, 8, 5, 4, 1};
+    expected_lanes = {{}, {}, {0, 10}, {}, {16, 18}, {}, {15}, {}, {9}, {}, {3}};
     configuration.lane_closures()
     .close(graph.lane_from(3, 4)->index())
     .close(graph.lane_from(7, 4)->index());
@@ -3399,6 +3403,7 @@ SCENARIO("Test planning with lane closures")
   WHEN("Close lanes 3->4, 7->4, 5->4")
   {
     expected_waypoints = {};
+    expected_lanes = {};
     configuration.lane_closures()
     .close(graph.lane_from(3, 4)->index())
     .close(graph.lane_from(7, 4)->index())
@@ -3429,5 +3434,9 @@ SCENARIO("Test planning with lane closures")
     CHECK(visited_waypoints.size() == expected_waypoints.size());
     for (const auto& wp : expected_waypoints)
       CHECK(visited_waypoints.count(wp));
+
+    REQUIRE(expected_lanes.size() == result->get_waypoints().size());
+    for (std::size_t i = 0; i < result->get_waypoints().size(); ++i)
+      CHECK(result->get_waypoints()[i].approach_lanes() == expected_lanes[i]);
   }
 }

@@ -214,6 +214,7 @@ public:
             NodeInfo{
               finishing_entry_opt,
               traversal.finish_waypoint_index,
+              traversal.traversed_lanes,
               next_position,
               target_yaw,
               *remaining_cost_estimate + exit_event_duration,
@@ -242,6 +243,7 @@ public:
               NodeInfo{
                 finish_entry,
                 traversal.finish_waypoint_index,
+                traversal.traversed_lanes,
                 next_position,
                 target_yaw,
                 *remaining_cost_estimate,
@@ -281,6 +283,7 @@ public:
         NodeInfo{
           _goal_entry,
           top->info.waypoint,
+          {},
           p,
           target_yaw,
           0.0,
@@ -386,6 +389,7 @@ public:
             Side::Start
           },
           target_waypoint_index,
+          {},
           p,
           finish_yaw,
           remaining_cost_estimate + event_duration,
@@ -421,6 +425,7 @@ public:
         NodeInfo{
           std::nullopt,
           target_waypoint_index,
+          {},
           oriented_node->info.position,
           oriented_node->info.yaw,
           remaining_cost_estimate,
@@ -534,6 +539,7 @@ auto DifferentialDriveHeuristic::generate(
             key.start_side
           },
           start_waypoint_index,
+          {},
           start_p,
           yaw,
           *start_heuristic,

@@ -76,6 +76,7 @@ struct TraversalNode
 
   // TODO(MXG): Can std::string_view be used to make this more memory efficient?
   std::vector<std::string> map_names;
+  std::vector<std::size_t> traversed_lanes;
 
   std::array<std::optional<double>, 2> orientations;
   bool standstill = false;
@@ -111,6 +112,7 @@ void node_to_traversals(
   traversal.best_time = 0.0;
   traversal.maps = std::vector<std::string>(
     node.map_names.begin(), node.map_names.end());
+  traversal.traversed_lanes = node.traversed_lanes;
 
 //  std::cout << "Traversal [" << traversal.initial_lane_index << "] -> ("
 //            << traversal.finish_lane_index << "): entry event {"
@@ -260,6 +262,7 @@ void perform_traversal(
     node.initial_lane_index = parent->initial_lane_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
+    node.traversed_lanes = parent->traversed_lanes;
 
     if (parent->entry_event)
       node.entry_event = parent->entry_event->clone();
@@ -273,6 +276,7 @@ void perform_traversal(
       node.entry_event = entry_event->clone();
   }
 
+  node.traversed_lanes.push_back(lane_index);
   node.finish_p = p1;
 
   add_if_missing(node.map_names, wp0.get_map_name());

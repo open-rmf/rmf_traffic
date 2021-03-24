@@ -963,6 +963,12 @@ std::optional<std::size_t> Plan::Waypoint::graph_index() const
 }
 
 //==============================================================================
+const std::vector<std::size_t>& Plan::Waypoint::approach_lanes() const
+{
+  return _pimpl->approach_lanes;
+}
+
+//==============================================================================
 std::size_t Plan::Waypoint::itinerary_index() const
 {
   return _pimpl->itinerary_index;

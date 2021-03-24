@@ -65,6 +65,7 @@ struct Traversal
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
   std::vector<std::string> maps;
+  std::vector<std::size_t> traversed_lanes;
   double best_time;
 
   struct Alternative

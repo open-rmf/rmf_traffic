@@ -728,6 +728,13 @@ public:
     /// Get the graph index of this Waypoint
     std::optional<std::size_t> graph_index() const;
 
+    /// Get the graph indices of the lanes that will be traversed on the way to
+    /// this Waypoint. This will have multiple values if the robot is able to
+    /// move straight through multiple lanes without stopping to reach this
+    /// Waypoint. It will be empty if the robot does not need to traverse any
+    /// lanes to reach this Waypoint (e.g. it is simply turning in place).
+    const std::vector<std::size_t>& approach_lanes() const;
+
     /// Get the index of the Route in the plan's Itinerary that this Waypoint
     /// belongs to.
     std::size_t itinerary_index() const;

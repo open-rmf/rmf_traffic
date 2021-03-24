@@ -335,7 +335,8 @@ std::vector<Plan::Waypoint> reconstruct_waypoints(
     waypoints.emplace_back(
       Plan::Waypoint::Implementation::make(
         Eigen::Vector3d{p[0], p[1], n->yaw}, time, n->waypoint,
-        index.itinerary_index, index.trajectory_index, n->event));
+        n->approach_lanes, index.itinerary_index, index.trajectory_index,
+        n->event));
   }
 
   return waypoints;
@@ -376,6 +377,7 @@ public:
     // We use optional here because start nodes don't always have a waypoint.
     // If this is a nullopt, then SearchNode::start should have a value.
     std::optional<std::size_t> waypoint;
+    std::vector<std::size_t> approach_lanes;
     Eigen::Vector2d position;
     double yaw;
     Time time;
@@ -410,6 +412,7 @@ public:
 
     SearchNode(
       std::optional<std::size_t> waypoint_,
+      std::vector<std::size_t> approach_lanes_,
       Eigen::Vector2d position_,
       double yaw_,
       Time time_,
@@ -421,6 +424,7 @@ public:
       std::optional<Planner::Start> start_,
       SearchNodePtr parent_)
     : waypoint(waypoint_),
+      approach_lanes(std::move(approach_lanes_)),
       position(position_),
       yaw(yaw_),
       time(time_),
@@ -596,11 +600,13 @@ public:
     }
 
     std::vector<std::string> map_names;
+    std::vector<std::size_t> approach_lanes;
     Graph::Lane::EventPtr exit_event;
     double exit_event_cost = 0.0;
     Duration exit_event_duration = Duration(0);
     if (const auto lane_index = start.lane())
     {
+      approach_lanes.push_back(*lane_index);
       const auto& lane = _supergraph->original().lanes[*lane_index];
 
       const std::size_t wp0_index = lane.entry().waypoint_index();
@@ -682,6 +688,7 @@ public:
       auto node = std::make_shared<SearchNode>(
         SearchNode{
           target_waypoint_index,
+          approach_lanes,
           wp_location,
           approach_yaw,
           approach_time,
@@ -699,6 +706,7 @@ public:
         node = std::make_shared<SearchNode>(
           SearchNode{
             target_waypoint_index,
+            {},
             wp_location,
             approach_yaw,
             approach_time + exit_event_duration,
@@ -740,6 +748,7 @@ public:
       std::make_shared<SearchNode>(
         SearchNode{
           std::nullopt,
+          {},
           p,
           yaw,
           hold_until,
@@ -785,6 +794,7 @@ public:
     return std::make_shared<SearchNode>(
       SearchNode{
         wp_index,
+        {},
         p,
         yaw,
         finish_time,
@@ -837,6 +847,7 @@ public:
     return std::make_shared<SearchNode>(
       SearchNode{
         _goal_waypoint,
+        {},
         p,
         target_yaw,
         finish_time,
@@ -1083,6 +1094,7 @@ public:
         node = std::make_shared<SearchNode>(
           SearchNode{
             initial_waypoint_index,
+            {},
             p0,
             yaw,
             time,
@@ -1116,6 +1128,7 @@ public:
       node = std::make_shared<SearchNode>(
         SearchNode{
           next_waypoint_index,
+          traversal.traversed_lanes,
           next_position,
           traversal_result.finish_yaw,
           traversal_result.finish_time,
@@ -1133,6 +1146,7 @@ public:
         node = std::make_shared<SearchNode>(
           SearchNode{
             next_waypoint_index,
+            {},
             next_position,
             traversal_result.finish_yaw,
             traversal_result.finish_time + exit_event_duration,
@@ -1185,6 +1199,7 @@ public:
         search_node = std::make_shared<SearchNode>(
           SearchNode{
             solution_root->info.waypoint,
+            solution_root->info.approach_lanes,
             solution_root->info.position,
             approach_info.finish_yaw,
             approach_info.finish_time,
@@ -1236,6 +1251,7 @@ public:
         search_node = std::make_shared<SearchNode>(
           SearchNode{
             solution_node->info.waypoint,
+            solution_node->info.approach_lanes,
             solution_node->info.position,
             route_info.finish_yaw,
             route_info.finish_time,
@@ -1530,6 +1546,7 @@ public:
     return std::make_shared<SearchNode>(
       SearchNode{
         node_waypoint,
+        {},
         start_location.value_or(waypoint_location),
         initial_yaw,
         start.time(),
