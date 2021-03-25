@@ -99,6 +99,9 @@ public:
 
     for (const auto l : _graph->original().lanes_from[current_wp_index])
     {
+      if (_graph->closures().is_closed(l))
+        continue;
+
       const auto& lane = _graph->original().lanes[l];
       const auto& exit = lane.exit();
       const auto next_waypoint_index = exit.waypoint_index();

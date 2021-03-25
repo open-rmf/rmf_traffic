@@ -37,6 +37,7 @@ public:
   Graph graph;
   VehicleTraits traits;
   Interpolate::Options interpolation;
+  LaneClosure lane_closures;
 
 };
 
@@ -49,7 +50,8 @@ Planner::Configuration::Configuration(
       Implementation{
         std::move(graph),
         std::move(traits),
-        std::move(interpolation)
+        std::move(interpolation),
+        LaneClosure()
       }))
 {
   // Do nothing
@@ -112,6 +114,26 @@ Interpolate::Options& Planner::Configuration::interpolation()
 const Interpolate::Options& Planner::Configuration::interpolation() const
 {
   return _pimpl->interpolation;
+}
+
+//==============================================================================
+auto Planner::Configuration::lane_closures(LaneClosure closures)
+-> Configuration&
+{
+  _pimpl->lane_closures = std::move(closures);
+  return *this;
+}
+
+//==============================================================================
+LaneClosure& Planner::Configuration::lane_closures()
+{
+  return _pimpl->lane_closures;
+}
+
+//==============================================================================
+const LaneClosure& Planner::Configuration::lane_closures() const
+{
+  return _pimpl->lane_closures;
 }
 
 //==============================================================================
@@ -938,6 +960,12 @@ rmf_traffic::Time Plan::Waypoint::time() const
 std::optional<std::size_t> Plan::Waypoint::graph_index() const
 {
   return _pimpl->graph_index;
+}
+
+//==============================================================================
+const std::vector<std::size_t>& Plan::Waypoint::approach_lanes() const
+{
+  return _pimpl->approach_lanes;
 }
 
 //==============================================================================

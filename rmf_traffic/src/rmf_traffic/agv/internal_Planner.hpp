@@ -36,6 +36,8 @@ public:
 
   rmf_utils::optional<std::size_t> graph_index;
 
+  std::vector<std::size_t> approach_lanes;
+
   std::size_t itinerary_index;
 
   std::size_t trajectory_index;
