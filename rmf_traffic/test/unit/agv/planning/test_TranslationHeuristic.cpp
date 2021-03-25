@@ -90,7 +90,7 @@ SCENARIO("Translation Heuristic")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   using ShortestPathCache =
     rmf_traffic::agv::planning::CacheManagerMap<
