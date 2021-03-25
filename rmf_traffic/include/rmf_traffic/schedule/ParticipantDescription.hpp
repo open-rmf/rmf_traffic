@@ -101,6 +101,11 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
+//==============================================================================
+using ParticipantDescriptionsMap = std::unordered_map<
+  ParticipantId,
+  ParticipantDescription>;
+
 } // namespace rmf_traffic
 } // namespace schedule
 

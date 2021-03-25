@@ -216,6 +216,13 @@ protected:
     const auto relevant = [](const Entry&) -> bool { return true; };
     for (const auto& entry : *_all_bucket)
     {
+      if (!*entry->description)
+      {
+        // This entry is still missing its participant description, so it
+        // should be ignored for now.
+        continue;
+      }
+
       if (participant_filter.ignore(entry->participant))
         continue;
 
@@ -239,7 +246,7 @@ protected:
       [&spacetime_data](const Entry& entry) -> bool
       {
         return rmf_traffic::internal::detect_conflicts(
-          entry.description->profile(),
+          (*entry.description)->profile(),
           entry.route->trajectory(),
           spacetime_data);
       };
@@ -365,6 +372,13 @@ protected:
       for (; entry_it != bucket.end(); ++entry_it)
       {
         const Entry* entry = entry_it->get();
+
+        if (!*entry->description)
+        {
+          // This entry is still missing its participant description, so it
+          // should be ignored for now.
+          continue;
+        }
 
         if (participant_filter.ignore(entry->participant))
           continue;

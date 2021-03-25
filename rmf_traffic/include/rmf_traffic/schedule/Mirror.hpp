@@ -74,6 +74,9 @@ public:
   /// Create a database mirror
   Mirror();
 
+  /// Update the known participants and their descriptions.
+  void update_participants_info(const ParticipantDescriptionsMap& participants);
+
   /// Update this mirror.
   ///
   /// \return the last version that this Mirror knows of

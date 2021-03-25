@@ -91,7 +91,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
-    std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
 
     // ===== Additional fields for this timeline entry =====
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
@@ -111,7 +111,7 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
     const Version initial_schedule_version;
     Version last_updated;
     RouteId last_route_id = std::numeric_limits<RouteId>::max();
@@ -123,7 +123,7 @@ public:
   // more efficient to create snapshots
   using ParticipantDescriptions =
     std::unordered_map<ParticipantId,
-      std::shared_ptr<const ParticipantDescription>
+      std::shared_ptr<std::shared_ptr<const ParticipantDescription>>
     >;
   ParticipantDescriptions descriptions;
 
@@ -655,7 +655,10 @@ Writer::Registration Database::register_participant(
   const Version version = ++_pimpl->schedule_version;
 
   const auto description_ptr =
-    std::make_shared<ParticipantDescription>(std::move(description));
+    std::make_shared<const ParticipantDescription>(std::move(description));
+  const auto description_ptr_ptr =
+    std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+      description_ptr);
 
   const auto p_it = _pimpl->states.insert(
     std::make_pair(
@@ -664,12 +667,12 @@ Writer::Registration Database::register_participant(
         {},
         std::move(tracker),
         {},
-        description_ptr,
+        description_ptr_ptr,
         version,
         version
       })).first;
 
-  _pimpl->descriptions.insert({id, description_ptr});
+  _pimpl->descriptions.insert({id, description_ptr_ptr});
 
   _pimpl->add_participant_version[version] = id;
 
@@ -695,7 +698,8 @@ void Database::update_description(
   }
 
   const auto description_ptr =
-    std::make_shared<ParticipantDescription>(std::move(desc));
+    std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+    std::make_shared<ParticipantDescription>(std::move(desc)));
 
   auto version = ++_pimpl->schedule_version;
   p_it->second.last_updated = version;
@@ -1067,7 +1071,7 @@ std::shared_ptr<const ParticipantDescription> Database::get_participant(
   if (state_it == _pimpl->descriptions.end())
     return nullptr;
 
-  return state_it->second;
+  return *state_it->second;
 }
 
 //==============================================================================
@@ -1100,10 +1104,19 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
   using SnapshotType =
     SnapshotImplementation<Implementation::RouteEntry, ViewRelevanceInspector>;
 
+  Database::Implementation::ParticipantDescriptions descriptions;
+  for (const auto& [id, desc] : _pimpl->descriptions)
+  {
+    const auto new_desc =
+      std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+        std::make_shared<const ParticipantDescription>(**desc));
+    descriptions[id] = new_desc;
+  }
+
   return std::make_shared<SnapshotType>(
     _pimpl->timeline.snapshot(),
     _pimpl->participant_ids,
-    _pimpl->descriptions,
+    descriptions,
     _pimpl->schedule_version);
 }
 
@@ -1176,7 +1189,7 @@ auto Database::changes(
     {
       const auto p_it = _pimpl->states.find(add_it->second);
       assert(p_it != _pimpl->states.end());
-      registered.emplace_back(p_it->first, *p_it->second.description);
+      registered.emplace_back(p_it->first, **p_it->second.description);
     }
 
     auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
@@ -1202,8 +1215,7 @@ auto Database::changes(
         const auto p_it = _pimpl->states.find(id);
         if (p_it == _pimpl->states.end()) continue;
 
-        info_updates.emplace_back(id,
-                                  *p_it->second.description);        
+        info_updates.emplace_back(id, **p_it->second.description);
       }
     }
   }
@@ -1212,7 +1224,7 @@ auto Database::changes(
     // If this is a mirror's first pull from the database, then we should send
     // all the participant information.
     for (const auto& p : _pimpl->states)
-      registered.emplace_back(p.first, *p.second.description);
+      registered.emplace_back(p.first, **p.second.description);
 
     // We do not need to mention any participants that have unregistered.
   }

@@ -35,7 +35,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
-    std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
   };
   using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
 
@@ -50,14 +50,14 @@ public:
   struct ParticipantState
   {
     std::unordered_map<RouteId, RouteStorage> storage;
-    std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
   // more efficient to create snapshots
   using ParticipantDescriptions =
     std::unordered_map<ParticipantId,
-      std::shared_ptr<const ParticipantDescription>
+      std::shared_ptr<std::shared_ptr<const ParticipantDescription>>
     >;
   ParticipantDescriptions descriptions;
 
@@ -239,7 +239,7 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
   if (p == _pimpl->descriptions.end())
     return nullptr;
 
-  return p->second;
+  return *p->second;
 }
 
 //==============================================================================
@@ -273,10 +273,19 @@ std::shared_ptr<const Snapshot> Mirror::snapshot() const
       MirrorViewRelevanceInspector
     >;
 
+  Mirror::Implementation::ParticipantDescriptions descriptions;
+  for (const auto& [id, desc] : _pimpl->descriptions)
+  {
+    const auto new_desc =
+      std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+        std::make_shared<const ParticipantDescription>(**desc));
+    descriptions[id] = new_desc;
+  }
+
   return std::make_shared<SnapshotType>(
     _pimpl->timeline.snapshot(),
     _pimpl->participant_ids,
-    _pimpl->descriptions,
+    descriptions,
     _pimpl->latest_version);
 }
 
@@ -288,85 +297,95 @@ Mirror::Mirror()
 }
 
 //==============================================================================
-Version Mirror::update(const Patch& patch)
+void Mirror::update_participants_info(
+  const ParticipantDescriptionsMap& participants)
 {
-  for (const auto& unregistered : patch.unregistered())
+  // First remove any participants that are no longer around
+  for ([[maybe_unused]] const auto& [id, state]: _pimpl->states)
   {
-    const ParticipantId id = unregistered.id();
+    const auto p_it = participants.find(id);
+    if (p_it == participants.end())
+    {
+      // This participant is not in the updated list of participants, so remove
+      // the mirror's copy of it
+      _pimpl->states.erase(id);
+      _pimpl->descriptions.erase(id);
+      _pimpl->participant_ids.erase(id);
+    }
+  }
+
+  // Next add-or-update all participants that are currently present
+  for (const auto& [id, description]: participants)
+  {
     const auto p_it = _pimpl->states.find(id);
-    assert(p_it != _pimpl->states.end());
     if (p_it == _pimpl->states.end())
     {
-      std::cerr << "[Mirror::update] Unrecognized participant ["
-                << id << "] being unregistered" << std::endl;
-      continue;
+      // New participant - add
+      const auto description_ptr =
+        std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+          std::make_shared<const ParticipantDescription>(description));
+      const bool inserted = _pimpl->states.insert(
+        std::make_pair(
+          id,
+          Implementation::ParticipantState{
+            {},
+            description_ptr
+          })).second;
+
+      _pimpl->descriptions.insert({id, description_ptr});
+      _pimpl->participant_ids.insert(id);
+
+      assert(inserted);
+      if (!inserted)
+      {
+        std::cerr << "[Mirror::update_participants_info] Duplicate participant "
+                  "ID [" << id << "] while trying to register a new participant"
+                  << std::endl;
+      }
     }
-
-    _pimpl->states.erase(p_it);
-    _pimpl->descriptions.erase(id);
-    _pimpl->participant_ids.erase(id);
-  }
-
-  for (const auto& registered : patch.registered())
-  {
-    const auto description = std::make_shared<ParticipantDescription>(
-      registered.description());
-
-    const ParticipantId id = registered.id();
-    // Check if this participant is already known about; if it is, skip it
-    const auto p_it = _pimpl->states.find(id);
-    if (p_it != _pimpl->states.end())
+    else
     {
-      continue;
-    }
-
-    const bool inserted = _pimpl->states.insert(
-      std::make_pair(
-        id,
-        Implementation::ParticipantState{
-          {},
-          description
-        })).second;
-
-    _pimpl->descriptions.insert({id, description});
-    _pimpl->participant_ids.insert(id);
-
-    assert(inserted);
-    if (!inserted)
-    {
-      std::cerr << "[Mirror::update] Duplicate participant ID ["
-                << id << "] while trying to register a new participant"
-                << std::endl;
+      // Existing participant - overwrite the description
+      *p_it->second.description =
+        std::make_shared<const ParticipantDescription>(description);
     }
   }
+}
 
-  for (const auto& updates: patch.updated())
+//==============================================================================
+Version Mirror::update(const Patch& patch)
+{
+  if (_pimpl->latest_version >= patch.latest_version())
   {
-    const auto description = std::make_shared<ParticipantDescription>(
-      updates.description());
-
-    const ParticipantId id = updates.id();
-
-    if(_pimpl->participant_ids.count(id) == 0)
-    {
-      std::cerr << "[Mirror::update] Requested updating of participant ID ["
-                << id << "] but participant hasn't yet registered"
-                << "or has been deleted."
-                << std::endl;
-      continue;
-    }
-
-    _pimpl->states[id] = Implementation::ParticipantState{
-      {},
-      description
-    };
-
-    _pimpl->descriptions[id] = description;
+    // This patch is older than or equal to the information this mirror already
+    // has, so it can safely be ignored.
+    return _pimpl->latest_version;
   }
 
   for (const auto& p : patch)
   {
     const ParticipantId participant = p.participant_id();
+    // Check if the mirror knows about this participant yet
+    const auto p_it = _pimpl->states.find(participant);
+    if (p_it == _pimpl->states.end())
+    {
+      // Unknown participant; create an empty participant to store the route
+      // information; a set of participant information has already been
+      // requested as part of registering this mirror with the query.
+      const auto empty_description =
+        std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+          std::shared_ptr<const ParticipantDescription>());
+      const bool inserted = _pimpl->states.insert(
+        std::make_pair(
+          participant,
+          Implementation::ParticipantState{
+            {},
+            empty_description
+          })).second;
+
+      _pimpl->descriptions.insert({participant, empty_description});
+      _pimpl->participant_ids.insert(participant);
+    }
     Implementation::ParticipantState& state = _pimpl->states.at(participant);
 
     Implementation::erase_routes(participant, state, p.erasures());

@@ -35,7 +35,7 @@ public:
     ParticipantId participant;
     RouteId route_id;
     ConstRoutePtr route;
-    std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
   };
 
   std::vector<Storage> storage;
@@ -80,7 +80,7 @@ public:
     {
       assert(s.route);
       elements.emplace_back(
-        Element{s.participant, s.route_id, *s.route, *s.description});
+        Element{s.participant, s.route_id, *s.route, **s.description});
     }
   }
 };

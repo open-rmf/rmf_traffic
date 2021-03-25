@@ -118,7 +118,7 @@ struct RouteEntry
   ConstRoutePtr route;
   ParticipantId participant;
   RouteId route_id;
-  std::shared_ptr<const ParticipantDescription> description;
+  std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
 };
 using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
 
@@ -455,7 +455,9 @@ public:
     for (const auto& p : proposal)
     {
       const ParticipantId participant = p.participant;
-      const auto& description = schedule_viewer->get_participant(participant);
+      const auto& description =
+        std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+          schedule_viewer->get_participant(participant));
       for (std::size_t i = 0; i < p.itinerary.size(); ++i)
       {
         const auto& route = p.itinerary[i];
@@ -627,7 +629,9 @@ public:
     const Alternatives& alternatives) const
   {
     AlternativesTimelineMap output;
-    const auto& description = schedule_viewer->get_participant(participant);
+    const auto& description =
+      std::make_shared<std::shared_ptr<const ParticipantDescription>>(
+        schedule_viewer->get_participant(participant));
 
     for (const auto& alternative : alternatives)
     {
