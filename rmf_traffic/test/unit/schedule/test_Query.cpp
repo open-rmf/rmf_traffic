@@ -143,7 +143,7 @@ SCENARIO("Test Query API", "[query]")
     }
 
     WHEN("Both queries are equal timespans for all maps, "
-         "but one has a map explicitly added")
+      "but one has a map explicitly added")
     {
       rmf_traffic::schedule::Query query1 =
         rmf_traffic::schedule::make_query({"test_map"}, &now, &now_plus_30s);
