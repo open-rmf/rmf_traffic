@@ -142,6 +142,20 @@ SCENARIO("Test Query API", "[query]")
       REQUIRE(query1 == query2);
     }
 
+    WHEN("Both queries are equal timespans for all maps, "
+         "but one has a map explicitly added")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({"test_map"}, &now, &now_plus_30s);
+      query1.spacetime().timespan()->all_maps(true);
+
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_30s);
+      query2.spacetime().timespan()->all_maps(true);
+
+      CHECK(query1 == query2);
+    }
+
     WHEN("Both queries have different spacetime queries")
     {
       rmf_traffic::schedule::Query query1 =
