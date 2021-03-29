@@ -30,8 +30,16 @@ class Negotiator
     /// It should @return true if the offer is to be accepted 
     virtual bool offer_received(Reservation res) = 0;
 
+    virtual float added_cost(Reservation res) = 0;
+
+    /// Commits to the last offer. 
+    virtual void offer_commited() = 0;
+
+    /// Called when we whish to retract the last offer
+    virtual void offer_retracted() = 0;
+
     /// Called when all offers are rejected. I.E none of the proposed
-    /// Reservations 
+    /// Reservations are acceptable;
     virtual void offers_rejected() = 0;
 };
 

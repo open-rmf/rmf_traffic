@@ -58,6 +58,8 @@ public:
 
   const std::string resource_name() const;
 
+  bool is_indefinite() const;
+
   static ReservationRequest make_request(
     std::string resource_name,
     schedule::ParticipantId participant,
@@ -70,7 +72,7 @@ public:
 
 private:
   ReservationRequest();
-  rmf_utils::unique_impl_ptr<Implementation>  _pimpl;
+  rmf_utils::impl_ptr<Implementation>  _pimpl;
 };
 }
 }

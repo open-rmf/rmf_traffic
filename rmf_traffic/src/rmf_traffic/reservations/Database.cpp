@@ -18,6 +18,7 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include <set>
 #include <map>
+#include <future>
 
 namespace rmf_traffic {
 namespace reservations {
@@ -31,9 +32,6 @@ class Database::Implementation
   using ReservationMapping = std::unordered_map<ReservationId, std::string>;
   ReservationMapping _reservation_mapping;
 
-  using GapList = std::map<rmf_traffic::Duration, std::pair<ReservationId, ReservationId>>;
-  std::unordered_map<std::string, GapList> _timeGapList;
-
   class RequestStatus
   {
   public:
@@ -44,92 +42,122 @@ class Database::Implementation
 
   using RequestId = uint64_t;
   using RequestTracker = std::unordered_map<RequestId, RequestStatus>;
-  RequestTracker _request_tracking;
+  RequestTracker _request_tracker;
 
-  using ConflictTracker = std::unordered_map<ReservationId, std::vector<RequestId>>;
+  using ConflictTracker = std::unordered_map<ReservationId, std::unordered_set<RequestId>>;
   ConflictTracker _conflict_tracker;
+
+  using ActiveReservationTracker = std::unordered_map<ReservationId, RequestId>;
+  ActiveReservationTracker _active_reservation_tracker;
+
+  bool contains_indefinite_resolution(ResourceSchedule& sched)
+  {
+    auto res = sched.rbegin();
+    if(res == sched.rend()) {
+      return false;
+    }
+    return res->second.is_indefinite();
+  }
+
+  std::optional<Time> latest_start_time(ReservationId id)
+  {
+    RequestId req_id = _active_reservation_tracker[id];
+    auto status = _request_tracker[req_id];
+    auto& start_constraints = status.requests[status.assigned_index];
+    
+    if(!start_constraints.start_time().has_value() ||
+      !start_constraints.start_time()->upper_bound().has_value()) 
+      return std::nullopt;
+
+    start_constraints.start_time()->upper_bound();
+  }
 
 public:
 
-  bool can_accomodate(ReservationRequest& request)
+  rmf_traffic::Time current_time;
+
+  class Plan
   {
-    auto name = request.resource_name();
-    auto resource_schedule = _resource_schedules.find(name);
+  public:
+    unsigned long long cost;
+    std::vector<Reservation> impacted_reservations;
+  };
 
-    if(resource_schedule == _resource_schedules.end())
+  /// \brief Gives a list of reservations that are impacted when we perform a push back
+  /// \param sched is the ResourceSchedule to operate on
+  /// \param start_time is the time after which all the reservations will be pushed back
+  /// \param desired_time is the time which the reservation should be moved to 
+  /// \returns a Plan if a valid plan exists. IF a pushback_results in  
+  std::optional<Plan> 
+    plan_push_back_reservations(ResourceSchedule& sched, 
+      rmf_traffic::Time start_time, 
+      rmf_traffic::Time desired_time,
+      RequestId request_id)
+  {
+    auto item = sched.lower_bound(start_time);
+    auto next_item = std::next(item);
+    auto item_desired_time = desired_time;
+
+    auto push_back_duration = desired_time - item->first;
+
+    Plan proposal;
+    proposal.cost = 0;
+
+    while(
+      next_item != sched.end() && // We have not reached the end of the schedule
+      next_item->first < item_desired_time+*item->second.duration() 
+      // There is an overlap between next item and current item
+      // We don't need to check for infinite reservations because only 
+      // the last item will be infinite and this while loop doesn't handle the last item
+    )
     {
-      // Resource has not yet been created, you may reserve it
-      return true;
-    }
-
-    if(resource_schedule->second.size() == 0)
-    {
-      // Resource has been alocated but no reservations have been made yet
-      return true;
-    }
-
-    if(!request.start_time().has_value())
-    {
-      // Handles the case where no start time is specified;
-
-      // Check if there is an indefinite reservation.
-      auto last_reservation = resource_schedule->second.rbegin();
-      if(last_reservation->second.is_indefinite())
+      auto latest_start = latest_start_time(item->second.reservation_id());
+      if(latest_start.has_value() && 
+        *latest_start < item_desired_time)
       {
-        if(!request.duration().has_value())
-        {
-          if(!request.finish_time().has_value())
-          {
-            // Requesting an indefinite reservation - not possible
-            // as theres already one
-            return false;
-          }
-
-          auto slot_after = resource_schedule->second.upper_bound(*request.finish_time());          
-          if(slot_after == resource_schedule->second.end())
-          {
-            // The reservation is after the indefinite reservation
-            return false;
-          }
-
-        }
-        // Since, last reservation was indefinite reservation, We can't 
-        // insert any thing afterwards, we will have to check if there are time gaps
-        // between now and the reservation.
-        if(resource_schedule->second.size() == 1)
-        {
-          // Theres only one reservation for this resource. Hence, the gaplist will
-          // not have been populated. We will simply check if the request ends
-          // before the start of the indefinite reservation.
-          return request.finish_time() <= last_reservation->second.start_time();
-        }
-        auto gap = _timeGapList[name].upper_bound(*request.duration());
-      }
-      else
-      {
-        // We may simply place the reservation after the last reservation
-        return true;
-      }
-    }
-
-    if(!request.finish_time().has_value() && !request.duration().has_value())
-    {
-      // Handle indefinite reservations
-      auto last_reservation = resource_schedule->second.rbegin();
-      if(last_reservation->second.is_indefinite())
-      {
-        // Last reservation was indefinite reservation. Can't 
-        // insert second indefinite reservation
-        return false;
+        // Violates the starting conditions mark this as a potential conflict
+        _conflict_tracker[item->second.reservation_id()].insert(request_id);
+        return std::nullopt;
       }
 
-      // Check end time of last reservation
-      auto end_time = *last_reservation->second.actual_finish_time();
+      auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
+      proposal.impacted_reservations.push_back(proposed_reservation);
+      proposal.cost += (item_desired_time - *latest_start).count();
+
+      // Get the next_item
+      item = next_item;
+      item_desired_time = item->first + push_back_duration;
+      next_item = std::next(next_item);
+    }
+
+    auto latest_start = latest_start_time(item->second.reservation_id());
+    if(latest_start.has_value() && 
+      *latest_start < item_desired_time)
+    {
+      // Violates the starting conditions mark this as a potential conflict
+      _conflict_tracker[item->second.reservation_id()].insert(request_id);
+      return std::nullopt;
+    }
+    auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
+    proposal.impacted_reservations.push_back(proposed_reservation);
+    proposal.cost += (item_desired_time - *latest_start).count();
+
+    return proposal;
+  }
+
+
+  void add_reservation(Reservation& res)
+  {
+
+  }
+
   
-      return end_time <= request.start_time()->upper_bound();
-    }
-
-
+  
+  std::future<std::optional<Reservation>> reserve(
+    ReservationRequest& request,
+    std::shared_ptr<Negotiator> nego)
+  {
+    
   }
 };
 

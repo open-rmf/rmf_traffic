@@ -52,6 +52,34 @@ const std::optional<rmf_traffic::Time> Reservation::finish_time() const
 }
 
 //=============================================================================
+void Reservation::set_actual_finish_time(rmf_traffic::Time dur)
+{
+  if(dur < _pimpl->_start_time)
+    _pimpl->_start_time = dur;
+
+  _pimpl->_finish_time = dur;
+  _pimpl->_duration.emplace(*_pimpl->_finish_time - _pimpl->_start_time);
+}
+
+//=============================================================================
+Reservation Reservation::propose_new_finish_time(rmf_traffic::Time time)
+{
+  Reservation res;
+  res = *this;
+  res.set_actual_finish_time(time);
+  return res;
+}
+
+//=============================================================================
+Reservation Reservation::propose_new_start_time(rmf_traffic::Time start_time)
+{
+  Reservation res;
+  res = *this;
+  res._pimpl->_start_time = start_time;
+  return res;
+}
+
+//=============================================================================
 const std::optional<rmf_traffic::Time> Reservation::actual_finish_time() const
 {
   if(is_indefinite()) return std::nullopt;
@@ -63,7 +91,7 @@ const std::optional<rmf_traffic::Time> Reservation::actual_finish_time() const
   }
   else if(_pimpl->_finish_time.has_value())
   {
-    return _pimpl->_finish_time;
+    return {std::max(_pimpl->_start_time, *_pimpl->_finish_time)};
   }
   else
   {

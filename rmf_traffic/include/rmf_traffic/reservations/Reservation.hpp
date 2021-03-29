@@ -38,6 +38,12 @@ public:
 
   const std::optional<rmf_traffic::Time> finish_time() const;
 
+  void set_actual_finish_time(rmf_traffic::Time dur);
+
+  Reservation propose_new_finish_time(rmf_traffic::Time dur);
+
+  Reservation propose_new_start_time(rmf_traffic::Time dur);
+
   bool is_indefinite() const;
 
   const std::optional<rmf_traffic::Time> actual_finish_time() const;
@@ -48,15 +54,13 @@ public:
 
   schedule::ParticipantId participant_id() const;
 
-  std::size_t request_id() const;
-
   static Reservation make_reservation(
     rmf_traffic::Time start_time,
     std::string resource_name,
     schedule::ParticipantId pid,
     std::optional<rmf_traffic::Duration> duration,
     std::optional<rmf_traffic::Time> finish_time);
-  
+
   class Implementation;
 private:
   Reservation();

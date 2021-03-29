@@ -98,6 +98,12 @@ const std::string ReservationRequest::resource_name() const
 }
 
 //=============================================================================
+bool ReservationRequest::is_indefinite() const
+{
+  return !_pimpl->_duration.has_value() && !_pimpl->_finish.has_value();
+}
+
+//=============================================================================
 ReservationRequest ReservationRequest::make_request(
   std::string resource_name,
   schedule::ParticipantId participant,
@@ -117,7 +123,7 @@ ReservationRequest ReservationRequest::make_request(
 
 //=============================================================================
 ReservationRequest::ReservationRequest():
-  _pimpl(rmf_utils::make_unique_impl<Implementation>())
+  _pimpl(rmf_utils::make_impl<Implementation>())
 {
 }
 
