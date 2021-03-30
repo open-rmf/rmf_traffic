@@ -48,7 +48,8 @@ public:
     const Profile& profile_b,
     const Trajectory& trajectory_b,
     Interpolate interpolation,
-    std::vector<Conflict>* output_conflicts = nullptr);
+    std::vector<Conflict>* output_conflicts = nullptr,
+    bool zero = true);
 
 };
 

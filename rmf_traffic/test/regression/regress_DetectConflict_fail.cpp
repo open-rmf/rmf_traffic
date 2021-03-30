@@ -19,9 +19,10 @@
 #include <rmf_traffic/agv/Graph.hpp>
 
 #include <rmf_utils/catch.hpp>
-#include <rmf_traffic/agv/VehicleTraits.hpp>
-#include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
+#include <rmf_traffic/geometry/Circle.hpp>
 
 namespace {
 
@@ -118,7 +119,7 @@ SCENARIO("Failed Detect Conflict")
 
   auto plan_obstacle =
     planner_obstacle.plan({rmf_traffic::time::apply_offset(start_time,
-        106.362), 1, 90.0}, {5});
+        106.362), 1, 90.0 * M_PI / 180.0}, {5});
 
   new_obstacle.set(plan_obstacle->get_itinerary());
 
@@ -127,13 +128,55 @@ SCENARIO("Failed Detect Conflict")
     database, std::numeric_limits<std::size_t>::max(), traits.profile());
 
   rmf_traffic::agv::Planner::Options options(obstacle_validator);
-  options.saturation_limit(100000);
+  options.saturation_limit(1000000);
   rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
     {graph, traits},
     options
   };
-  auto plan = planner.plan({start_time, 5, 180.0}, {2});
+  auto plan = planner.plan({start_time, 5, 180.0 * M_PI / 180.0}, {2});
 
   CHECK_FALSE(plan.success());
+
+  for (const auto& obstacle_it : plan_obstacle->get_itinerary())
+  {
+    for (const auto& it : plan->get_itinerary())
+    {
+      rmf_traffic::Trajectory obstacle_traj;
+      rmf_traffic::Trajectory traj;
+      for (auto waypoint_traj = obstacle_it.trajectory().begin();
+        waypoint_traj != obstacle_it.trajectory().end(); ++waypoint_traj)
+      {
+        auto position = waypoint_traj->position();
+        auto velocity = waypoint_traj->velocity();
+        obstacle_traj.insert(waypoint_traj->time(), position, velocity);
+      }
+      for (auto waypoint_traj = it.trajectory().begin();
+        waypoint_traj != it.trajectory().end();
+        ++waypoint_traj)
+      {
+        auto position = waypoint_traj->position();
+        auto velocity = waypoint_traj->velocity();
+        traj.insert(waypoint_traj->time(), position, velocity);
+      }
+
+      bool detect_conflict_flag_true =
+        rmf_traffic::DetectConflict::between(traits.profile(),
+          obstacle_traj,
+          traits.profile(),
+          traj,
+          rmf_traffic::DetectConflict::Interpolate::CubicSpline,
+          true).has_value();
+
+      bool detect_conflict_flag_false =
+        rmf_traffic::DetectConflict::between(traits.profile(),
+          obstacle_traj,
+          traits.profile(),
+          traj,
+          rmf_traffic::DetectConflict::Interpolate::CubicSpline,
+          false).has_value();
+
+      CHECK(detect_conflict_flag_true == detect_conflict_flag_false);
+    }
+  }
 }
 }
