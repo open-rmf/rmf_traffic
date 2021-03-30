@@ -257,6 +257,7 @@ bool operator==(
       return false;
     }
   }
+
   if (lhs.get_upper_time_bound() == nullptr)
   {
     if (rhs.get_upper_time_bound() != nullptr)
