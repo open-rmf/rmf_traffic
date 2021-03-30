@@ -117,7 +117,7 @@ FinalShapePtr make_final(const T& shape)
 
 //==============================================================================
 template<typename T>
-std::function<bool(const Shape& other)> make_equality_comparitor(const T& myself)
+std::function<bool(const Shape& other)> make_equality_comparator(const T& myself)
 {
   return [&myself](const Shape& other)
   {

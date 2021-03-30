@@ -114,7 +114,7 @@ FinalShape Box::finalize() const
   return FinalShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const Box>(*this),
     _get_internal()->make_fcl(), characteristic_length,
-    make_equality_comparitor(*this));
+    make_equality_comparator(*this));
 }
 
 //==============================================================================
@@ -126,7 +126,7 @@ FinalConvexShape Box::finalize_convex() const
   return FinalConvexShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const Box>(*this),
     _get_internal()->make_fcl(), characteristic_length,
-    make_equality_comparitor(*this));
+    make_equality_comparator(*this));
 }
 
 //==============================================================================

@@ -691,7 +691,7 @@ FinalShape SimplePolygon::finalize() const
   return FinalShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const SimplePolygon>(*this),
     _get_internal()->make_fcl(), characteristic_length,
-    make_equality_comparitor(*this));
+    make_equality_comparator(*this));
 }
 
 //==============================================================================
