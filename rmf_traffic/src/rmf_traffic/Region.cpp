@@ -272,6 +272,7 @@ bool operator==(
     {
       return false;
     }
+
     if (*lhs.get_upper_time_bound() != *rhs.get_upper_time_bound())
     {
       return false;
