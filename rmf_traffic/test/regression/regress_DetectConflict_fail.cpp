@@ -22,6 +22,7 @@
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 namespace {
 
@@ -135,5 +136,34 @@ SCENARIO("Failed Detect Conflict")
   auto plan = planner.plan({start_time, 5, 180.0}, {2});
 
   CHECK_FALSE(plan.success());
+
+  if (plan.success())
+  {
+    // The plan should not be successful, but these additional tests are to
+    // highlight that simply changing the precision of the waypoints is
+    // impacting the detection of the conflict.
+    //
+    // DetectConflict does not see any problem with the trajectory returned by
+    // the planner, but if we merely reduce its precision slightly by casting it
+    // to single-precision floating point values, suddenly the collision gets
+    // detected.
+    for (const auto& agent_route : plan->get_itinerary())
+    {
+      for (const auto& obstacle_route : new_obstacle.itinerary())
+      {
+        CHECK_FALSE(rmf_traffic::DetectConflict::between(
+                traits.profile(), agent_route.trajectory(),
+                traits.profile(), obstacle_route.route->trajectory()));
+
+        auto low_precision_agent_trajectory = agent_route.trajectory();
+        for (auto& wp : low_precision_agent_trajectory)
+          wp.position(wp.position().cast<float>().cast<double>());
+
+        CHECK_FALSE(rmf_traffic::DetectConflict::between(
+                traits.profile(), low_precision_agent_trajectory,
+                traits.profile(), obstacle_route.route->trajectory()));
+      }
+    }
+  }
 }
 }
