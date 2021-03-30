@@ -238,6 +238,7 @@ bool operator==(
   {
     return false;
   }
+
   if (lhs.get_lower_time_bound() == nullptr)
   {
     if (rhs.get_lower_time_bound() != nullptr)
