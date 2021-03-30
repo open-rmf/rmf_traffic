@@ -113,7 +113,8 @@ FinalShape Box::finalize() const
     + this->get_y_length() * this->get_y_length());
   return FinalShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const Box>(*this),
-    _get_internal()->make_fcl(), characteristic_length);
+    _get_internal()->make_fcl(), characteristic_length,
+    make_equality_comparator(*this));
 }
 
 //==============================================================================
@@ -124,7 +125,21 @@ FinalConvexShape Box::finalize_convex() const
     + this->get_y_length() * this->get_y_length());
   return FinalConvexShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const Box>(*this),
-    _get_internal()->make_fcl(), characteristic_length);
+    _get_internal()->make_fcl(), characteristic_length,
+    make_equality_comparator(*this));
+}
+
+//==============================================================================
+bool operator==(const Box& lhs, const Box& rhs)
+{
+  return lhs.get_x_length() == rhs.get_x_length() &&
+    lhs.get_y_length() == rhs.get_y_length();
+}
+
+//==============================================================================
+bool operator!=(const Box& lhs, const Box& rhs)
+{
+  return !(lhs == rhs);
 }
 
 } // namespace geometry

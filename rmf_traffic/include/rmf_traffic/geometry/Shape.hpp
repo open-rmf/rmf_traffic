@@ -21,6 +21,7 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <functional>
 #include <memory>
 
 namespace rmf_traffic {
@@ -84,6 +85,12 @@ public:
 
   virtual ~FinalShape() = default;
 
+  /// Equality operator
+  bool operator==(const FinalShape& other) const;
+
+  /// Non-equality operator
+  bool operator!=(const FinalShape& other) const;
+
   class Implementation;
 protected:
   FinalShape();
@@ -106,6 +113,20 @@ template<typename T>
 FinalShapePtr make_final(const T& shape)
 {
   return std::make_shared<FinalShape>(shape.finalize());
+}
+
+//==============================================================================
+template<typename T>
+std::function<bool(const Shape& other)> make_equality_comparator(const T& myself)
+{
+  return [&myself](const Shape& other)
+  {
+    if (const auto* other_derived = dynamic_cast<const T*>(&other))
+    {
+      return myself == *other_derived;
+    }
+    return false;
+  };
 }
 
 } // namespace geometry

@@ -165,7 +165,32 @@ extern template class bidirectional_iterator<
     const geometry::Space, Region::IterImpl, Region
 >;
 
+// Equality
 } // namespace detail
+
+//==============================================================================
+/// Equality operator for Region objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator==(
+  const Region& lhs,
+  const Region& rhs);
+
+//==============================================================================
+/// Non-equality operator for Region objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator!=(
+  const Region& lhs,
+  const Region& rhs);
 
 } // namespace rmf_traffic
 
