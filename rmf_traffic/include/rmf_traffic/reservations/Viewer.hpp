@@ -23,6 +23,7 @@
 #include <rmf_traffic/reservations/Query.hpp>
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 #include <vector>
+#include <map>
 
 namespace rmf_traffic {
 namespace reservations {
@@ -35,7 +36,8 @@ public:
   {
   public:
     class IterImpl;
-    using const_iterator = base_iterator<const Reservation, IterImpl, View>;
+    using ReservationSchedule = std::map<rmf_traffic::Time, Reservation>;
+    using const_iterator = base_iterator<const ReservationSchedule, IterImpl, View>;
     using iterator = const_iterator;
 
     /// Returns an iterator to the first element of the View
@@ -55,6 +57,9 @@ public:
   };
 
   virtual View query(Query query) = 0;
+
+  // Virtual destructor
+  virtual ~Viewer() = default;
 };
 }
 }

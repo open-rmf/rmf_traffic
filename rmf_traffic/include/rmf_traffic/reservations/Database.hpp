@@ -24,7 +24,7 @@
 
 namespace rmf_traffic {
 namespace reservations {
-class Database: public Writer//, public Viewer
+class Database: public Writer, public Viewer
 {
 public:
   void make_reservation(
@@ -38,8 +38,10 @@ public:
 
   void cancel(ReservationId id);
 
-  //std::vector<Reservation> query(Query query);
+  Viewer::View query(Query query);
 
+  Database();
+  
   class Implementation;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;

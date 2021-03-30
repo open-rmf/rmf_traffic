@@ -30,12 +30,8 @@ namespace reservations {
   public: 
     const std::vector<std::string> resources() const;
 
-    const std::vector<schedule::ParticipantId> participants() const;
-
     static Query make_query(
-      std::vector<std::string>& resources,
-      std::vector<schedule::ParticipantId>& participants
-    );
+      std::vector<std::string>& resources);
     class Implementation;
 
   private:

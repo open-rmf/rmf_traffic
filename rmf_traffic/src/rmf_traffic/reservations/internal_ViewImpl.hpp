@@ -14,50 +14,32 @@
  * limitations under the License.
  *
 */
-
-#include "internal_DatabasImpl.hpp"
+#ifndef SRC__RMF_TRAFFIC__RESERVATIONS__INTERNAL_VIEWIMPL 
+#define SRC__RMF_TRAFFIC__RESERVATIONS__INTERNAL_VIEWIMPL 
+#include <rmf_traffic/reservations/Viewer.hpp>
+#include "../detail/internal_bidirectional_iterator.hpp"
+#include <map>
+#include <unordered_map>
 
 namespace rmf_traffic {
 namespace reservations {
 
-void Database::make_reservation(
-  std::vector<ReservationRequest> request,
-  std::shared_ptr<Negotiator> nego)
+class Viewer::View::Implementation
 {
+public:
+  using ReservationSchedule = std::map<rmf_traffic::Time, Reservation>;
+  using ReservationSchedules = std::unordered_map<std::string, ReservationSchedule>; 
+public:
+  ReservationSchedules schedule_holder;
   
-}
-
-void Database::set_duration(ReservationId id, rmf_traffic::Duration duration)
-{
-
-}
-
-void Database::clear_duration(ReservationId id)
-{
-
-}
-
-void Database::set_start_time(ReservationId id, rmf_traffic::Time time)
-{
-
-}
-
-void Database::cancel(ReservationId id)
-{
-
-}
-
-Viewer::View Database::query(Query query)
-{
-
-}
-
-//==============================================================================
-Database::Database()
-  : _pimpl(rmf_utils::make_unique_impl<Implementation>())
-{
-  // Do nothing
-}
+  static Viewer::View make_view()
+  {
+    Viewer::View view;
+    view._pimpl = rmf_utils::make_impl<Implementation>();
+    return view;
+  }
+};
 
 }
 }
+#endif

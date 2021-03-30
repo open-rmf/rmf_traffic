@@ -15,29 +15,32 @@
  *
 */
 
-#include <rmf_traffic/reservations/Viewer.hpp>
+#include "internal_ViewImpl.hpp"
 
 namespace rmf_traffic {
 namespace reservations {
 
-class Viewer::View::Implementation
+class Viewer::View::IterImpl
 {
-  
+  using ReservationSchedule = std::map<rmf_traffic::Time, Reservation>;
+  using ReservationSchedules = std::unordered_map<std::string, ReservationSchedule>; 
+public:
+  ReservationSchedules::const_iterator iter;
 };
 
 Viewer::View::const_iterator Viewer::View::begin() const
 {
-
+  return Viewer::View::const_iterator{IterImpl{_pimpl->schedule_holder.begin()}};
 }
 
 Viewer::View::const_iterator Viewer::View::end() const
 {
-
+  return Viewer::View::const_iterator{IterImpl{_pimpl->schedule_holder.end()}};
 }
 
 std::size_t Viewer::View::size() const
 {
-
+  return _pimpl->schedule_holder.size();
 }
 
 }
