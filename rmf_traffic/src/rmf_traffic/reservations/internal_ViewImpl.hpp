@@ -35,9 +35,17 @@ public:
   static Viewer::View make_view()
   {
     Viewer::View view;
-    view._pimpl = rmf_utils::make_impl<Implementation>();
+    view._pimpl = rmf_utils::make_impl<Viewer::View::Implementation>();
     return view;
   }
+};
+
+class Viewer::View::IterImpl
+{
+  using ReservationSchedule = std::map<rmf_traffic::Time, Reservation>;
+  using ReservationSchedules = std::unordered_map<std::string, ReservationSchedule>; 
+public:
+  ReservationSchedules::const_iterator iter;
 };
 
 }

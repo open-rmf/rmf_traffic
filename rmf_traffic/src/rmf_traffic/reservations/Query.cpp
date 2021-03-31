@@ -22,7 +22,7 @@ Query::Query():
 }
 
 Query Query::make_query(
-  std::vector<std::string>& resources)
+  const std::vector<std::string>& resources)
 {
   Query query;
   query._pimpl->_resources = resources;

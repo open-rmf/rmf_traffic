@@ -38,7 +38,7 @@ public:
 
   void cancel(ReservationId id);
 
-  Viewer::View query(Query query);
+  Viewer::View query(Query& query);
 
   Database();
   

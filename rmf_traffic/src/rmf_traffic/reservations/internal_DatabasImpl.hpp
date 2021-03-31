@@ -26,6 +26,7 @@ namespace reservations {
 
 class Database::Implementation
 {
+public:
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
   ResourceSchedules _resource_schedules;
@@ -78,8 +79,6 @@ class Database::Implementation
 
     start_constraints.start_time()->upper_bound();
   }
-
-public:
 
   rmf_traffic::Time current_time;
 
@@ -161,7 +160,7 @@ public:
 
   }
 
-  void add_request_queue(
+  RequestId add_request_queue(
     std::vector<ReservationRequest>& requests,
     std::shared_ptr<Negotiator> negotiator)
   {
@@ -172,9 +171,16 @@ public:
       RequestStatus::Status::Pending,
       0
     }});
-    counter++;
+    
+    return counter++;
   }
 
+  void make_reservation(
+    std::vector<ReservationRequest>& request,
+    std::shared_ptr<Negotiator> nego)
+  {
+    
+  }
   
 
 };

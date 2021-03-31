@@ -31,7 +31,7 @@ namespace reservations {
     const std::vector<std::string> resources() const;
 
     static Query make_query(
-      std::vector<std::string>& resources);
+      const std::vector<std::string>& resources);
     class Implementation;
 
   private:

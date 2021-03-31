@@ -20,13 +20,7 @@
 namespace rmf_traffic {
 namespace reservations {
 
-class Viewer::View::IterImpl
-{
-  using ReservationSchedule = std::map<rmf_traffic::Time, Reservation>;
-  using ReservationSchedules = std::unordered_map<std::string, ReservationSchedule>; 
-public:
-  ReservationSchedules::const_iterator iter;
-};
+
 
 Viewer::View::const_iterator Viewer::View::begin() const
 {

@@ -16,7 +16,7 @@
 */
 
 #include "internal_DatabasImpl.hpp"
-
+#include "internal_ViewImpl.hpp"
 namespace rmf_traffic {
 namespace reservations {
 
@@ -24,7 +24,7 @@ void Database::make_reservation(
   std::vector<ReservationRequest> request,
   std::shared_ptr<Negotiator> nego)
 {
-  
+  _pimpl->make_reservation(request, nego);
 }
 
 void Database::set_duration(ReservationId id, rmf_traffic::Duration duration)
@@ -47,9 +47,15 @@ void Database::cancel(ReservationId id)
 
 }
 
-Viewer::View Database::query(Query query)
+Viewer::View Database::query(Query& query)
 {
-
+  auto resources = query.resources();
+  auto view = Viewer::View::Implementation::make_view();
+  for(auto resource: resources)
+  {
+    view._pimpl->schedule_holder[resource] = _pimpl->_resource_schedules[resource];
+  }
+  return view;
 }
 
 //==============================================================================

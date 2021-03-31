@@ -37,7 +37,7 @@ public:
   public:
     class IterImpl;
     using ReservationSchedule = std::map<rmf_traffic::Time, Reservation>;
-    using const_iterator = base_iterator<const ReservationSchedule, IterImpl, View>;
+    using const_iterator = base_iterator<const std::pair<const std::string, ReservationSchedule>, IterImpl, View>;
     using iterator = const_iterator;
 
     /// Returns an iterator to the first element of the View
@@ -52,11 +52,10 @@ public:
 
     class Implementation;
 
-    private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  virtual View query(Query query) = 0;
+  virtual View query(Query& query) = 0;
 
   // Virtual destructor
   virtual ~Viewer() = default;
