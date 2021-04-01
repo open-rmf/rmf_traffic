@@ -701,9 +701,9 @@ void Database::update_description(
 
   auto version = ++_pimpl->schedule_version;
   p_it->second.last_updated = version;
-  p_it->second.description = description_ptr;
+  *p_it->second.description = description_ptr;
 
-  _pimpl->descriptions[id] = description_ptr;
+  *_pimpl->descriptions[id] = description_ptr;
   _pimpl->update_participant_version[id] =
     Implementation::UpdateParticipantDescriptionInfo{
     version,
@@ -1176,58 +1176,6 @@ auto Database::changes(
       });
   }
 
-  std::vector<Change::RegisterParticipant> registered;
-  std::vector<Change::UnregisterParticipant> unregistered;
-  std::vector<Change::UpdateParticipantInfo> info_updates;
-  if (after)
-  {
-    const Version after_v = *after;
-
-    auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
-    for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
-    {
-      const auto p_it = _pimpl->states.find(add_it->second);
-      assert(p_it != _pimpl->states.end());
-      registered.emplace_back(p_it->first, **p_it->second.description);
-    }
-
-    auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
-    for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
-    {
-      // We should only unregister this if it was registered before the last
-      // update to this mirror
-      if (remove_it->second.original_version <= *after)
-        unregistered.emplace_back(remove_it->second.id);
-    }
-
-    for (auto& update_it : _pimpl->update_participant_version)
-    {
-      // Check which participants have been updated
-      auto id = update_it.first;
-      if (update_it.second.original_version <= after_v
-        && update_it.second.latest_update > after_v)
-      {
-        // Only send the update if it is not a newly registered
-        // participant and if there has been an update since
-        // the mirror was last updated.
-        const auto p_it = _pimpl->states.find(id);
-        if (p_it == _pimpl->states.end())
-          continue;
-
-        info_updates.emplace_back(id, **p_it->second.description);
-      }
-    }
-  }
-  else
-  {
-    // If this is a mirror's first pull from the database, then we should send
-    // all the participant information.
-    for (const auto& p : _pimpl->states)
-      registered.emplace_back(p.first, **p.second.description);
-
-    // We do not need to mention any participants that have unregistered.
-  }
-
   rmf_utils::optional<Change::Cull> cull;
   if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
   {
@@ -1235,9 +1183,6 @@ auto Database::changes(
   }
 
   return Patch(
-    std::move(unregistered),
-    std::move(registered),
-    std::move(info_updates),
     std::move(part_patches),
     cull,
     _pimpl->schedule_version);

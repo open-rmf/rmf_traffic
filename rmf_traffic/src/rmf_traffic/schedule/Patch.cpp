@@ -79,9 +79,6 @@ class Patch::Implementation
 {
 public:
 
-  std::vector<Change::UnregisterParticipant> unregistered;
-  std::vector<Change::RegisterParticipant> registered;
-  std::vector<Change::UpdateParticipantInfo> updated;
   std::vector<Participant> changes;
 
   rmf_utils::optional<Change::Cull> cull;
@@ -100,41 +97,17 @@ public:
 
 //==============================================================================
 Patch::Patch(
-  std::vector<Change::UnregisterParticipant> removed_participants,
-  std::vector<Change::RegisterParticipant> new_participants,
-  std::vector<Change::UpdateParticipantInfo> updated_participants,
   std::vector<Participant> changes,
   rmf_utils::optional<Change::Cull> cull,
   Version latest_version)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        std::move(removed_participants),
-        std::move(new_participants),
-        std::move(updated_participants),
         std::move(changes),
         cull,
         latest_version
       }))
 {
   // Do nothing
-}
-
-//==============================================================================
-const std::vector<Change::UpdateParticipantInfo>& Patch::updated() const
-{
-  return _pimpl->updated;
-}
-
-//==============================================================================
-const std::vector<Change::UnregisterParticipant>& Patch::unregistered() const
-{
-  return _pimpl->unregistered;
-}
-
-//==============================================================================
-const std::vector<Change::RegisterParticipant>& Patch::registered() const
-{
-  return _pimpl->registered;
 }
 
 //==============================================================================

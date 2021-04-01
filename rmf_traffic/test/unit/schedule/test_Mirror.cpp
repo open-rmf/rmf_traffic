@@ -101,6 +101,11 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   CHECK(mirror.update(changes) == changes.latest_version());
   CHECK(mirror.latest_version() == changes.latest_version());
 
+  rmf_traffic::schedule::ParticipantDescriptionsMap descriptions;
+  for (const auto id : db.participant_ids())
+    descriptions.insert_or_assign(id, *db.get_participant(id));
+  mirror.update_participants_info(descriptions);
+
   WHEN("A trajectory is added to the database")
   {
     rmf_traffic::Trajectory t3;
