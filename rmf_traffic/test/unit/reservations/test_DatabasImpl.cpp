@@ -7,6 +7,7 @@ using namespace rmf_traffic::chope;
 using namespace std::chrono_literals;
 
 // http://www.singlish.net/yaya-papaya/
+// Too arrogant to reallize the possibility that an offer is wrong
 class YayaPapayaNegotiator: public Negotiator
 {
 public:

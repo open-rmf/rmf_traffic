@@ -27,6 +27,9 @@ namespace reservations {
 class Database::Implementation
 {
 public:
+  //===========================================================================
+  // Storage Classes - These classes store the actual reservation 
+  // and the requests
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
   ResourceSchedules _resource_schedules;
@@ -151,7 +154,41 @@ public:
     return proposal;
   }
 
+  /// \returns all reservations which conflict with the start range. 
+  std::vector<ReservationId> get_all_overlapping_reservations(ReservationRequest& req)
+  {
+    auto sched = _resource_schedules[req.resource_name()];
+    
+    auto start_lower_bound = [=]() -> ResourceSchedule::const_iterator
+    {
+      if(!req.start_time().has_value()
+        || !req.start_time()->lower_bound())
+      {
+        return sched.lower_bound(this->current_time);
+      }
+      return sched.lower_bound(*req.start_time()->lower_bound());
+    }();
 
+    auto start_upper_bound = [=]() -> ResourceSchedule::const_iterator
+    {
+      if(!req.start_time().has_value()
+        || !req.start_time()->upper_bound())
+      {
+        return sched.end();
+      }
+      return sched.upper_bound(*req.start_time()->upper_bound());
+    }();
+    
+    for(
+      auto potential_insertion = start_lower_bound; 
+      potential_insertion != start_upper_bound; 
+      potential_insertion++)
+    {
+
+    }
+
+    //computing max start points    
+  }
   void add_reservation(Reservation& res, RequestId id)
   {
 
@@ -175,11 +212,29 @@ public:
     return counter++;
   }
 
+  std::vector<Plan> generate_plans()
+  {
+
+  }
+
+  bool approve_plans(std::vector<Plan>& plan)
+  {
+
+  }
+
+  void commit_plan(Plan& plan)
+  {
+
+  }
+
+
+
   void make_reservation(
     std::vector<ReservationRequest>& request,
     std::shared_ptr<Negotiator> nego)
   {
-    
+    auto req_id = add_request_queue(request, nego);
+
   }
   
 
