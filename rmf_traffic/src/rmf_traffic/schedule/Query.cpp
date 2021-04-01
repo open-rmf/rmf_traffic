@@ -489,7 +489,7 @@ bool operator==(
   const Query::Spacetime::Timespan& lhs,
   const Query::Spacetime::Timespan& rhs)
 {
-  return lhs.maps() == rhs.maps() &&
+  return (lhs.maps() == rhs.maps() || (lhs.all_maps() && rhs.all_maps())) &&
     *lhs.get_lower_time_bound() == *rhs.get_lower_time_bound() &&
     *lhs.get_upper_time_bound() == *rhs.get_upper_time_bound();
 }

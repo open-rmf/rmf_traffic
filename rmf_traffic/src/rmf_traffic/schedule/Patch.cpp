@@ -83,7 +83,7 @@ public:
   std::vector<Change::RegisterParticipant> registered;
   std::vector<Change::UpdateParticipantInfo> updated;
   std::vector<Participant> changes;
-  
+
   rmf_utils::optional<Change::Cull> cull;
   Version latest_version;
 

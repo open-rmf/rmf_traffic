@@ -83,7 +83,7 @@ SCENARIO("Test Query API", "[query]")
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({});
 
-      REQUIRE(query1 == query2);
+      CHECK(query1 == query2);
     }
 
     WHEN("Both queries have the same start and end times")
@@ -93,7 +93,7 @@ SCENARIO("Test Query API", "[query]")
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({}, &now, &now_plus_1min);
 
-      REQUIRE(query1 == query2);
+      CHECK(query1 == query2);
     }
 
     WHEN("The queries have different start times")
@@ -103,7 +103,7 @@ SCENARIO("Test Query API", "[query]")
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({}, &now_plus_30s, &now_plus_1min);
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
     }
 
     WHEN("The queries have different finish times")
@@ -113,7 +113,7 @@ SCENARIO("Test Query API", "[query]")
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({}, &now, &now_plus_1min);
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
     }
 
     WHEN("One query has a spacetime query")
@@ -125,7 +125,7 @@ SCENARIO("Test Query API", "[query]")
       query1.spacetime().regions()->push_back(
         rmf_traffic::Region{"test_map", now, now+10s, {}});
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
     }
 
     WHEN("Both queries have the same spacetime query")
@@ -139,7 +139,21 @@ SCENARIO("Test Query API", "[query]")
       query2.spacetime().regions()->push_back(
         rmf_traffic::Region{"test_map", now, now+10s, {}});
 
-      REQUIRE(query1 == query2);
+      CHECK(query1 == query2);
+    }
+
+    WHEN("Both queries are equal timespans for all maps, "
+      "but one has a map explicitly added")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({"test_map"}, &now, &now_plus_30s);
+      query1.spacetime().timespan()->all_maps(true);
+
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_30s);
+      query2.spacetime().timespan()->all_maps(true);
+
+      CHECK(query1 == query2);
     }
 
     WHEN("Both queries have different spacetime queries")
@@ -153,7 +167,7 @@ SCENARIO("Test Query API", "[query]")
       query2.spacetime().regions()->push_back(
         rmf_traffic::Region{"another_map", now, now+10s, {}});
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
     }
 
     WHEN("One query has a participant query")
@@ -164,7 +178,7 @@ SCENARIO("Test Query API", "[query]")
         rmf_traffic::schedule::make_query({});
       query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
     }
 
     WHEN("Both queries have the same participant query")
@@ -176,7 +190,7 @@ SCENARIO("Test Query API", "[query]")
       query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
       query2.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
 
-      REQUIRE(query1 == query2);
+      CHECK(query1 == query2);
     }
 
     WHEN("Both queries have different participant queries")
@@ -188,7 +202,7 @@ SCENARIO("Test Query API", "[query]")
       query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
       query2.participants() = rmf_traffic::schedule::Query::Participants::make_only({2, 3, 4});
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
 
       rmf_traffic::schedule::Query query3 =
         rmf_traffic::schedule::make_query({});
@@ -197,7 +211,7 @@ SCENARIO("Test Query API", "[query]")
       query3.participants() = rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
       query4.participants() = rmf_traffic::schedule::Query::Participants::make_all_except({2, 3, 4});
 
-      REQUIRE(query3 != query4);
+      CHECK(query3 != query4);
     }
 
     WHEN("Both queries have different participant query modes")
@@ -209,7 +223,7 @@ SCENARIO("Test Query API", "[query]")
       query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
       query2.participants() = rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
 
-      REQUIRE(query1 != query2);
+      CHECK(query1 != query2);
     }
   }
 

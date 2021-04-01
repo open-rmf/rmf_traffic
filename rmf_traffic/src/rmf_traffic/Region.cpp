@@ -238,6 +238,7 @@ bool operator==(
   {
     return false;
   }
+
   if (lhs.get_lower_time_bound() == nullptr)
   {
     if (rhs.get_lower_time_bound() != nullptr)
@@ -251,11 +252,13 @@ bool operator==(
     {
       return false;
     }
+
     if (*lhs.get_lower_time_bound() != *rhs.get_lower_time_bound())
     {
       return false;
     }
   }
+
   if (lhs.get_upper_time_bound() == nullptr)
   {
     if (rhs.get_upper_time_bound() != nullptr)
@@ -269,6 +272,7 @@ bool operator==(
     {
       return false;
     }
+
     if (*lhs.get_upper_time_bound() != *rhs.get_upper_time_bound())
     {
       return false;

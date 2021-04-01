@@ -165,7 +165,6 @@ public:
     ParticipantDescription description() const;
 
     class Implementation;
-
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
@@ -188,8 +187,6 @@ public:
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
-
-  
 };
 
 } // namespace schedule
