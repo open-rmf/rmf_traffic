@@ -455,7 +455,7 @@ public:
     for (const auto& p : proposal)
     {
       const ParticipantId participant = p.participant;
-      const auto& description =
+      const auto description =
         std::make_shared<std::shared_ptr<const ParticipantDescription>>(
           schedule_viewer->get_participant(participant));
       for (std::size_t i = 0; i < p.itinerary.size(); ++i)
