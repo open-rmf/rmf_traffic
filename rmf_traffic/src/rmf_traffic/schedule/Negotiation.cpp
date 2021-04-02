@@ -629,7 +629,7 @@ public:
     const Alternatives& alternatives) const
   {
     AlternativesTimelineMap output;
-    const auto& description =
+    const auto description =
       std::make_shared<std::shared_ptr<const ParticipantDescription>>(
         schedule_viewer->get_participant(participant));
 
