@@ -1132,7 +1132,7 @@ public:
           entry->participant,
           entry->route_id,
           entry->route,
-          entry->description
+          *entry->description
         });
     }
   }
