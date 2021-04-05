@@ -61,6 +61,14 @@ public:
   using ActiveReservationTracker = std::unordered_map<ReservationId, RequestId>;
   ActiveReservationTracker _active_reservation_tracker;
 
+  ///==========================================================================
+  /// Given an active reservation ID lookup the request id.
+  const ReservationRequest lookup_request(ReservationId res_id)
+  {
+    auto req_id = _active_reservation_tracker[res_id];
+    return _request_tracker[req_id].requests[_request_tracker[req_id].assigned_index];
+  }
+
   bool contains_indefinite_resolution(ResourceSchedule& sched)
   {
     auto res = sched.rbegin();
@@ -133,7 +141,7 @@ public:
       proposal.impacted_reservations.push_back(proposed_reservation);
       proposal.cost += (item_desired_time - *latest_start).count();
 
-      // Get the next_item
+      /// Get the next_item
       item = next_item;
       item_desired_time = item->first + push_back_duration;
       next_item = std::next(next_item);
@@ -143,15 +151,155 @@ public:
     if(latest_start.has_value() && 
       *latest_start < item_desired_time)
     {
-      // Violates the starting conditions mark this as a potential conflict
+      /// Violates the starting conditions mark this as a potential conflict
       _conflict_tracker[item->second.reservation_id()].insert(request_id);
       return std::nullopt;
     }
     auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
     proposal.impacted_reservations.push_back(proposed_reservation);
+    
+    /// TODO: change cost function
     proposal.cost += (item_desired_time - *latest_start).count();
 
     return proposal;
+  }
+
+  /// Determines the earliest starting time given a reservation
+  /// TODO: We can come up with some cacheing scheme to make
+  ///   Creating hash maps is a huge waste of time.
+  const std::unordered_map<ReservationId, std::optional<Time>> 
+    earliest_time_computation(ResourceSchedule& schedule)
+  {
+    std::unordered_map<ReservationId, std::optional<Time>> result;
+
+    for(auto it = schedule.begin(); it != schedule.end(); it++)
+    {
+      const auto& [time, reservation] = *it;
+      if(result.size() == 0)
+      {
+        auto request = lookup_request(reservation.reservation_id());
+        if(request.start_time().has_value())
+        {
+          result[reservation.reservation_id()] = request.start_time()->lower_bound();
+        }
+        else
+        {
+          result[reservation.reservation_id()] = std::nullopt;
+        }
+      }
+      else
+      {
+        auto prev_it = std::prev(it);
+        const auto& prev_reservation = prev_it->second;
+        auto prev_time = prev_it->first; 
+        
+        // Get the earliest end time of the previous reservation.
+        auto prev_earliest_end = [=]() -> std::optional<Time> 
+        {
+          if(!result.find(prev_reservation.reservation_id())->second.has_value())
+          {
+            return std::nullopt;
+          }
+
+          auto request_params = lookup_request(prev_reservation.reservation_id());
+          
+          if(!request_params.duration().has_value())
+          {
+            return request_params.finish_time();
+          }
+
+          return {*request_params.duration() + prev_time};
+        }();
+
+        auto request_params 
+          = lookup_request(reservation.reservation_id());
+
+        if(!request_params.start_time().has_value()
+          || !request_params.start_time()->lower_bound().has_value())
+        {
+          // This reservation has no lower bound.
+          // Other reservation must be earlier
+          result[reservation.reservation_id()] = prev_earliest_end;
+        }
+        else
+        {
+          if(prev_earliest_end.has_value())
+          {
+            result[reservation.reservation_id()] 
+              = request_params.start_time()->lower_bound();
+          }
+          else
+          {
+            result[reservation.reservation_id()] = 
+              std::max(*prev_earliest_end, *request_params.start_time()->lower_bound());
+          }
+        }     
+      }
+    }
+
+    return result;
+  }
+
+  const std::unordered_map<ReservationId, std::optional<Time>> latest_start_time_computation(ResourceSchedule& schedule)
+  {
+    std::unordered_map<ReservationId, std::optional<Time>> result;
+
+    for(auto it = schedule.rbegin(); it != schedule.rend(); it++)
+    {
+      const auto& [time, reservation] = *it;
+      if(result.size() == 0)
+      {
+        auto request = lookup_request(reservation.reservation_id());
+        if(request.start_time().has_value())
+        {
+          result[reservation.reservation_id()] = request.start_time()->upper_bound();
+        }
+        else
+        {
+          result[reservation.reservation_id()] = std::nullopt;
+        }
+      }
+      else
+      {
+        // Reverse iterator prev actually means next in this case
+        auto prev_it = std::prev(it);
+        const auto& prev_reservation = prev_it->second;
+        auto prev_time = prev_it->first; 
+        
+        // Get the latest start time of the next reservation.
+        auto get_latest_start = [=](const Reservation& res) -> std::optional<Time> 
+        {
+          auto request_params = lookup_request(res.reservation_id());
+          if(!request_params.start_time().has_value())
+            return std::nullopt;
+
+          return request_params.start_time()->upper_bound();
+        };
+
+        auto prev_latest_start = get_latest_start(prev_reservation);
+        auto curr_latest_start = get_latest_start(reservation);
+
+        if(!prev_latest_start.has_value())
+        {
+          result[reservation.reservation_id()] = curr_latest_start;
+        }
+        else 
+        {
+          if(!curr_latest_start.has_value())
+          {
+            result[reservation.reservation_id()] = prev_latest_start;
+          }
+          else
+          {
+            result[reservation.reservation_id()] 
+              = {std::min(*prev_latest_start, *curr_latest_start)};
+          }
+        }
+        
+      }
+    }
+
+    return result;
   }
 
   /// \returns all reservations which conflict with the start range. 
@@ -164,7 +312,7 @@ public:
       if(!req.start_time().has_value()
         || !req.start_time()->lower_bound())
       {
-        return sched.lower_bound(this->current_time);
+        return sched.begin();
       }
       return sched.lower_bound(*req.start_time()->lower_bound());
     }();
@@ -179,16 +327,57 @@ public:
       return sched.upper_bound(*req.start_time()->upper_bound());
     }();
     
+    auto earliest_start_times = earliest_time_computation(sched);
+    auto latest_start_time = latest_start_time_computation(sched);
+
     for(
       auto potential_insertion = start_lower_bound; 
       potential_insertion != start_upper_bound; 
       potential_insertion++)
     {
+      // Determine the maximum gap and see if we can insert our reservation here
+      if(potential_insertion == sched.begin())
+      {
+        auto res_id = potential_insertion->second.reservation_id();
 
+        auto earliest_start = [=]() -> Time 
+        {
+          if(!req.start_time().has_value()
+            || !req.start_time()->lower_bound().has_value())
+            return current_time;
+          return *req.start_time()->lower_bound();
+        }();
+        
+        // The end time should be max(start+duration, finish_time)
+        auto end_time = [=]() -> Time
+        {
+          auto duration_based_end = earliest_start + req.duration().value_or(0);
+          
+          if(!req.finish_time().has_value())
+            return duration_based_end;
+
+          return std::max(*req.finish_time(), duration_based_end);
+        }();  
+        
+        if(latest_start_time[res_id] <= end_time)
+        {
+          // Not possible to push back any further. Check some other slot.
+          continue;
+        }
+        //The only option in this case is to pushback
+        //We will push back the minimum amount so as to
+        //miminise conflicts. This will be the earliest_start plus the duration
+        auto plan = plan_push_back_reservations(sched,
+          potential_insertion->second.start_time(),
+          end_time);
+      }
+      else
+      {
+
+      }
     }
-
-    //computing max start points    
   }
+
   void add_reservation(Reservation& res, RequestId id)
   {
 
