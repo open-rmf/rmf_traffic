@@ -81,7 +81,8 @@ public:
 
   std::vector<Participant> changes;
 
-  rmf_utils::optional<Change::Cull> cull;
+  std::optional<Change::Cull> cull;
+  std::optional<Version> base_version;
   Version latest_version;
 
 };
@@ -96,14 +97,15 @@ public:
 };
 
 //==============================================================================
-Patch::Patch(
-  std::vector<Participant> changes,
+Patch::Patch(std::vector<Participant> changes,
   rmf_utils::optional<Change::Cull> cull,
+  std::optional<Version> base_version,
   Version latest_version)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(changes),
         cull,
+        base_version,
         latest_version
       }))
 {
@@ -135,6 +137,12 @@ const Change::Cull* Patch::cull() const
     return &_pimpl->cull.value();
 
   return nullptr;
+}
+
+//==============================================================================
+std::optional<Version> Patch::base_version() const
+{
+  return _pimpl->base_version;
 }
 
 //==============================================================================

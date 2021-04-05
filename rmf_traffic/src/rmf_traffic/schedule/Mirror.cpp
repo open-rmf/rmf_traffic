@@ -30,13 +30,7 @@ class Mirror::Implementation
 {
 public:
 
-  struct RouteEntry
-  {
-    ConstRoutePtr route;
-    ParticipantId participant;
-    RouteId route_id;
-    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
-  };
+  using RouteEntry = BaseRouteEntry;
   using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
 
   struct RouteStorage
@@ -283,7 +277,7 @@ std::shared_ptr<const Snapshot> Mirror::snapshot() const
   }
 
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(),
+    _pimpl->timeline.snapshot(&descriptions, nullptr),
     _pimpl->participant_ids,
     descriptions,
     _pimpl->latest_version);
@@ -353,21 +347,40 @@ void Mirror::update_participants_info(
 }
 
 //==============================================================================
-Version Mirror::update(const Patch& patch)
+bool Mirror::update(const Patch& patch)
 {
   if (_pimpl->latest_version >= patch.latest_version())
   {
     // This patch is older than or equal to the information this mirror already
     // has, so it can safely be ignored.
-    return _pimpl->latest_version;
+    return true;
+  }
+
+  if (patch.base_version().has_value())
+  {
+    if (*patch.base_version() != _pimpl->latest_version)
+      return false;
+  }
+  else
+  {
+    // If the patch is assuming that we're starting from a blank slate, then
+    // we'll simply erase all the itineraries we currently have and apply the
+    // patch on top of a blank slate.
+    for (auto& [_, state] : _pimpl->states)
+      state.storage.clear();
   }
 
   for (const auto& p : patch)
   {
     const ParticipantId participant = p.participant_id();
-    // Check if the mirror knows about this participant yet
-    const auto p_it = _pimpl->states.find(participant);
-    if (p_it == _pimpl->states.end())
+
+    // Check if the mirror knows about this participant yet, and insert a blank
+    // participant state if it does not.
+    const auto insertion = _pimpl->states.insert({participant, {}});
+    const auto p_it = insertion.first;
+    Implementation::ParticipantState& state = p_it->second;
+    const auto newly_inserted = insertion.second;
+    if (newly_inserted)
     {
       // Unknown participant; create an empty participant to store the route
       // information; a set of participant information has already been
@@ -375,18 +388,11 @@ Version Mirror::update(const Patch& patch)
       const auto empty_description =
         std::make_shared<std::shared_ptr<const ParticipantDescription>>(
           std::shared_ptr<const ParticipantDescription>());
-      const bool inserted = _pimpl->states.insert(
-        std::make_pair(
-          participant,
-          Implementation::ParticipantState{
-            {},
-            empty_description
-          })).second;
 
+      state.description = empty_description;
       _pimpl->descriptions.insert({participant, empty_description});
       _pimpl->participant_ids.insert(participant);
     }
-    Implementation::ParticipantState& state = _pimpl->states.at(participant);
 
     Implementation::erase_routes(participant, state, p.erasures());
 
@@ -422,7 +428,7 @@ Version Mirror::update(const Patch& patch)
   }
 
   _pimpl->latest_version = patch.latest_version();
-  return _pimpl->latest_version;
+  return true;
 }
 
 } // schedule

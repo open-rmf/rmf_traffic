@@ -97,11 +97,15 @@ public:
   ///   Information about how the database has culled old data since the last
   ///   update.
   ///
+  /// \param[in] base_version
+  ///   The base version of the database that this Patch builds on top of.
+  ///
   /// \param[in] latest_version
   ///   The lastest version of the database that this Patch represents.
   Patch(
     std::vector<Participant> changes,
     rmf_utils::optional<Change::Cull> cull,
+    std::optional<Version> base_version,
     Version latest_version);
 
   /// Returns an iterator to the first element of the Patch.
@@ -117,6 +121,12 @@ public:
 
   /// Get the cull information for this patch if a cull has occurred.
   const Change::Cull* cull() const;
+
+  /// Get the base version of the Database that this patch builds on.
+  ///
+  /// If this is a nullopt, then this patch does not need to build off of any
+  /// base version.
+  std::optional<Version> base_version() const;
 
   /// Get the latest version of the Database that informed this Patch.
   Version latest_version() const;

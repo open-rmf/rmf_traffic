@@ -84,14 +84,8 @@ public:
     RouteStorage predecessor;
   };
 
-  struct RouteEntry
+  struct RouteEntry : public BaseRouteEntry
   {
-    // ===== Mandatory fields for a Timeline Entry =====
-    ConstRoutePtr route;
-    ParticipantId participant;
-    RouteId route_id;
-    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
-
     // ===== Additional fields for this timeline entry =====
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
     // templates to automatically mix these custom fields with the required
@@ -99,6 +93,27 @@ public:
     Version schedule_version;
     TransitionPtr transition;
     std::weak_ptr<RouteEntry> successor;
+
+    RouteEntry(
+      ConstRoutePtr route_,
+      ParticipantId participant_,
+      RouteId route_id_,
+      std::shared_ptr<std::shared_ptr<const ParticipantDescription>> desc_,
+      Version schedule_version_,
+      TransitionPtr transition_,
+      std::weak_ptr<RouteEntry> successor_)
+    : BaseRouteEntry{
+        std::move(route_),
+        participant_,
+        route_id_,
+        std::move(desc_),
+      },
+      schedule_version(schedule_version_),
+      transition(std::move(transition_)),
+      successor(std::move(successor_))
+    {
+      // Do nothing
+    }
   };
 
   Timeline<RouteEntry> timeline;
@@ -956,6 +971,35 @@ public:
 };
 
 //==============================================================================
+// TODO(MXG): This class is redundant with MirrorViewRelevanceInspector
+class SnapshotViewRelevanceInspector
+  : public TimelineInspector<BaseRouteEntry>
+{
+public:
+
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+    const BaseRouteEntry* entry,
+    const std::function<bool(const BaseRouteEntry&)>& relevant) final
+  {
+    if (relevant(*entry))
+    {
+      routes.emplace_back(
+        Storage{
+          entry->participant,
+          entry->route_id,
+          entry->route,
+          *entry->description
+        });
+    }
+  }
+
+};
+
+//==============================================================================
 class ViewerAfterRelevanceInspector
   : public TimelineInspector<Database::Implementation::RouteEntry>
 {
@@ -1101,7 +1145,7 @@ Version Database::latest_version() const
 std::shared_ptr<const Snapshot> Database::snapshot() const
 {
   using SnapshotType =
-    SnapshotImplementation<Implementation::RouteEntry, ViewRelevanceInspector>;
+    SnapshotImplementation<BaseRouteEntry, SnapshotViewRelevanceInspector>;
 
   Database::Implementation::ParticipantDescriptions descriptions;
   for (const auto& [id, desc] : _pimpl->descriptions)
@@ -1112,8 +1156,14 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
     descriptions[id] = new_desc;
   }
 
+  const auto check_relevant = [](const Implementation::RouteEntry& entry)
+  {
+    // If this entry has no successor, then it is relevant to the snapshot.
+    return entry.successor.lock() == nullptr;
+  };
+
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(),
+    _pimpl->timeline.snapshot(&descriptions, check_relevant),
     _pimpl->participant_ids,
     descriptions,
     _pimpl->schedule_version);
@@ -1176,7 +1226,7 @@ auto Database::changes(
       });
   }
 
-  rmf_utils::optional<Change::Cull> cull;
+  std::optional<Change::Cull> cull;
   if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
   {
     cull = _pimpl->last_cull->cull;
@@ -1185,6 +1235,7 @@ auto Database::changes(
   return Patch(
     std::move(part_patches),
     cull,
+    after,
     _pimpl->schedule_version);
 }
 
