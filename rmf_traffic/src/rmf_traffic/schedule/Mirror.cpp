@@ -44,14 +44,14 @@ public:
   struct ParticipantState
   {
     std::unordered_map<RouteId, RouteStorage> storage;
-    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
+    std::shared_ptr<const ParticipantDescription> description;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
   // more efficient to create snapshots
   using ParticipantDescriptions =
     std::unordered_map<ParticipantId,
-      std::shared_ptr<std::shared_ptr<const ParticipantDescription>>
+      std::shared_ptr<const ParticipantDescription>
     >;
   ParticipantDescriptions descriptions;
 
@@ -107,6 +107,35 @@ public:
     }
   }
 
+  void add_route(
+    const ParticipantId participant,
+    ParticipantState& state,
+    const RouteId route_id,
+    const ConstRoutePtr& route)
+  {
+    auto insertion = state.storage.insert({route_id, RouteStorage()});
+    const bool inserted = insertion.second;
+    if (!inserted)
+    {
+      std::cerr << "[Mirror::update] Inserting a route [" << route_id
+                << "] which already exists for participant [" << participant
+                << "]" << std::endl;
+      // NOTE(MXG): We will continue anyway. The new route will simply
+      // overwrite the old one.
+    }
+
+    auto& entry_storage = insertion.first->second;
+    entry_storage.entry = std::make_shared<RouteEntry>(
+      RouteEntry{
+        std::move(route),
+        participant,
+        route_id,
+        state.description
+      });
+
+    entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+  }
+
   void add_routes(
     const ParticipantId participant,
     ParticipantState& state,
@@ -114,30 +143,11 @@ public:
   {
     for (const auto& item : add.items())
     {
-      const RouteId route_id = item.id;
-      auto insertion = state.storage.insert({route_id, RouteStorage()});
-      const bool inserted = insertion.second;
-      if (!inserted)
-      {
-        std::cerr << "[Mirror::update] Inserting a route [" << item.id
-                  << "] which already exists for participant [" << participant
-                  << "]" << std::endl;
-        // NOTE(MXG): We will continue anyway. The new route will simply
-        // overwrite the old one.
-      }
-
-      auto route = std::make_shared<Route>(*item.route);
-
-      auto& entry_storage = insertion.first->second;
-      entry_storage.entry = std::make_shared<RouteEntry>(
-        RouteEntry{
-          std::move(route),
-          participant,
-          route_id,
-          state.description
-        });
-
-      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+      add_route(
+        participant,
+        state,
+        item.id,
+        std::make_shared<const Route>(*item.route));
     }
   }
 };
@@ -167,7 +177,7 @@ public:
           entry->participant,
           entry->route_id,
           entry->route,
-          *entry->description
+          entry->description
         });
     }
   }
@@ -233,7 +243,7 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
   if (p == _pimpl->descriptions.end())
     return nullptr;
 
-  return *p->second;
+  return p->second;
 }
 
 //==============================================================================
@@ -267,19 +277,10 @@ std::shared_ptr<const Snapshot> Mirror::snapshot() const
       MirrorViewRelevanceInspector
     >;
 
-  Mirror::Implementation::ParticipantDescriptions descriptions;
-  for (const auto& [id, desc] : _pimpl->descriptions)
-  {
-    const auto new_desc =
-      std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-        std::make_shared<const ParticipantDescription>(**desc));
-    descriptions[id] = new_desc;
-  }
-
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(&descriptions, nullptr),
+    _pimpl->timeline.snapshot(nullptr),
     _pimpl->participant_ids,
-    descriptions,
+    _pimpl->descriptions,
     _pimpl->latest_version);
 }
 
@@ -314,10 +315,9 @@ void Mirror::update_participants_info(
     const auto p_it = _pimpl->states.find(id);
     if (p_it == _pimpl->states.end())
     {
-      // New participant - add
+      // This is a new participant. We need to add a new state entry for it.
       const auto description_ptr =
-        std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-          std::make_shared<const ParticipantDescription>(description));
+        std::make_shared<const ParticipantDescription>(description);
       const bool inserted = _pimpl->states.insert(
         std::make_pair(
           id,
@@ -339,9 +339,28 @@ void Mirror::update_participants_info(
     }
     else
     {
-      // Existing participant - overwrite the description
-      *p_it->second.description =
+      // This is an existing participant. We need to overwrite the description
+      // and then replace all the timeline entries with new ones that contain
+      // the new description.
+      p_it->second.description =
         std::make_shared<const ParticipantDescription>(description);
+
+      const auto participant_id = p_it->first;
+      auto& state = p_it->second;
+
+      // Make a copy of the routes before we clear them out
+      const auto old_storage = state.storage;
+
+      // Clear out the state's copy of the route information
+      p_it->second.storage.clear();
+
+      // Insert new routes that are equivalent to the old ones, but which have
+      // the updated description.
+      for (const auto& [route_id, route_storage] : old_storage)
+      {
+        const auto& route = route_storage.entry->route;
+        _pimpl->add_route(participant_id, state, route_id, route);
+      }
     }
   }
 }
@@ -386,8 +405,7 @@ bool Mirror::update(const Patch& patch)
       // information; a set of participant information has already been
       // requested as part of registering this mirror with the query.
       const auto empty_description =
-        std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-          std::shared_ptr<const ParticipantDescription>());
+        std::shared_ptr<const ParticipantDescription>();
 
       state.description = empty_description;
       _pimpl->descriptions.insert({participant, empty_description});

@@ -447,9 +447,7 @@ public:
     for (const auto& p : proposal)
     {
       const ParticipantId participant = p.participant;
-      const auto description =
-        std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-          schedule_viewer->get_participant(participant));
+      const auto description = schedule_viewer->get_participant(participant);
 
       for (std::size_t i = 0; i < p.itinerary.size(); ++i)
       {
@@ -467,7 +465,7 @@ public:
       }
     }
 
-    proposed_timeline = timeline_builder.snapshot(nullptr, nullptr);
+    proposed_timeline = timeline_builder.snapshot(nullptr);
 
     std::vector<ParticipantId> all_participants;
     all_participants.reserve(submitted_.size() + unsubmitted_.size());
@@ -622,9 +620,7 @@ public:
     const Alternatives& alternatives) const
   {
     AlternativesTimelineMap output;
-    const auto description =
-      std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-        schedule_viewer->get_participant(participant));
+    const auto description = schedule_viewer->get_participant(participant);
 
     for (const auto& alternative : alternatives)
     {
@@ -645,7 +641,7 @@ public:
         handles.push_back(timeline.insert(entry));
       }
 
-      output.emplace_back(timeline.snapshot(nullptr, nullptr));
+      output.emplace_back(timeline.snapshot(nullptr));
     }
 
     return output;
@@ -1125,7 +1121,7 @@ public:
           entry->participant,
           entry->route_id,
           entry->route,
-          *entry->description
+          entry->description
         });
     }
   }

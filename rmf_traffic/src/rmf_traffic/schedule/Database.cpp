@@ -98,7 +98,7 @@ public:
       ConstRoutePtr route_,
       ParticipantId participant_,
       RouteId route_id_,
-      std::shared_ptr<std::shared_ptr<const ParticipantDescription>> desc_,
+      std::shared_ptr<const ParticipantDescription> desc_,
       Version schedule_version_,
       TransitionPtr transition_,
       std::weak_ptr<RouteEntry> successor_)
@@ -125,7 +125,7 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
+    std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
     Version last_updated;
     RouteId last_route_id = std::numeric_limits<RouteId>::max();
@@ -137,7 +137,7 @@ public:
   // more efficient to create snapshots
   using ParticipantDescriptions =
     std::unordered_map<ParticipantId,
-      std::shared_ptr<std::shared_ptr<const ParticipantDescription>>
+      std::shared_ptr<const ParticipantDescription>
     >;
   ParticipantDescriptions descriptions;
 
@@ -155,17 +155,6 @@ public:
 
   using ParticipantRegistrationTime = std::map<Time, Version>;
   ParticipantRegistrationTime remove_participant_time;
-
-
-  // Keeps track of when the latest update was applied to each participant
-  struct UpdateParticipantDescriptionInfo
-  {
-    Version latest_update;
-    Version original_version;
-  };
-  using UpdateParticipantDescription =
-    std::unordered_map<ParticipantId, UpdateParticipantDescriptionInfo>;
-  UpdateParticipantDescription update_participant_version;
 
   // NOTE(MXG): We store this record of inconsistency ranges here as a single
   // group that covers all participants in order to make it easy for us to share
@@ -314,6 +303,42 @@ public:
       entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
           std::move(new_route),
+          participant,
+          id,
+          state.description,
+          schedule_version,
+          std::move(transition),
+          RouteEntryPtr()
+        });
+
+      entry_storage.entry->transition->predecessor.entry->successor =
+        entry_storage.entry;
+
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+    }
+  }
+
+  void apply_description_update(
+    ParticipantId participant,
+    ParticipantState& state)
+  {
+    ParticipantStorage& storage = state.storage;
+    for (const RouteId id : state.active_routes)
+    {
+      assert(storage.find(id) != storage.end());
+      auto& entry_storage = storage.at(id);
+
+      auto route = entry_storage.entry->route;
+
+      auto transition = std::make_unique<Transition>(
+        Transition{
+          std::nullopt,
+          std::move(entry_storage)
+        });
+
+      entry_storage.entry = std::make_unique<RouteEntry>(
+        RouteEntry{
+          std::move(route),
           participant,
           id,
           state.description,
@@ -670,9 +695,6 @@ Writer::Registration Database::register_participant(
 
   const auto description_ptr =
     std::make_shared<const ParticipantDescription>(std::move(description));
-  const auto description_ptr_ptr =
-    std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-      description_ptr);
 
   const auto p_it = _pimpl->states.insert(
     std::make_pair(
@@ -681,12 +703,12 @@ Writer::Registration Database::register_participant(
         {},
         std::move(tracker),
         {},
-        description_ptr_ptr,
+        description_ptr,
         version,
         version
       })).first;
 
-  _pimpl->descriptions.insert({id, description_ptr_ptr});
+  _pimpl->descriptions.insert({id, description_ptr});
 
   _pimpl->add_participant_version[version] = id;
 
@@ -716,14 +738,9 @@ void Database::update_description(
 
   auto version = ++_pimpl->schedule_version;
   p_it->second.last_updated = version;
-  *p_it->second.description = description_ptr;
-
-  *_pimpl->descriptions[id] = description_ptr;
-  _pimpl->update_participant_version[id] =
-    Implementation::UpdateParticipantDescriptionInfo{
-    version,
-    p_it->second.initial_schedule_version
-  };
+  p_it->second.description = description_ptr;
+  _pimpl->descriptions[id] = description_ptr;
+  _pimpl->apply_description_update(id, p_it->second);
 }
 
 //==============================================================================
@@ -860,28 +877,32 @@ public:
         {
           const auto* const transition = traverse->transition.get();
           assert(transition);
-          assert(transition->delay);
-          const auto& delay = *transition->delay;
-          const auto insertion = p_changes.delays.insert(
-            std::make_pair(
-              traverse->schedule_version,
-              Delay{
-                delay.duration
-              }));
-#ifndef NDEBUG
-          // When compiling in debug mode, if we see a duplicate insertion,
-          // let's make sure that the previously entered data matches what we
-          // wanted to enter just now.
-          if (!insertion.second)
+
+          if (transition->delay.has_value())
           {
-            const Delay& previous = insertion.first->second;
-            assert(previous.duration == delay.duration);
-          }
+            const auto& delay = *transition->delay;
+            const auto insertion = p_changes.delays.insert(
+              std::make_pair(
+                traverse->schedule_version,
+                Delay{
+                  delay.duration
+                }));
+#ifndef NDEBUG
+            // When compiling in debug mode, if we see a duplicate insertion,
+            // let's make sure that the previously entered data matches what we
+            // wanted to enter just now.
+            if (!insertion.second)
+            {
+              const Delay& previous = insertion.first->second;
+              assert(previous.duration == delay.duration);
+            }
 #else
-          // When compiling in release mode, cast the return value to void to
-          // suppress compiler warnings.
-          (void)(insertion);
+            // When compiling in release mode, cast the return value to void to
+            // suppress compiler warnings.
+            (void)(insertion);
 #endif // NDEBUG
+          }
+
           traverse = traverse->transition->predecessor.entry.get();
         }
       }
@@ -964,7 +985,7 @@ public:
           entry->participant,
           entry->route_id,
           entry->route,
-          *entry->description
+          entry->description
         });
     }
   }
@@ -992,7 +1013,7 @@ public:
           entry->participant,
           entry->route_id,
           entry->route,
-          *entry->description
+          entry->description
         });
     }
   }
@@ -1031,7 +1052,7 @@ public:
           entry->participant,
           entry->route_id,
           entry->route,
-          *entry->description
+          entry->description
         });
     }
   }
@@ -1114,7 +1135,7 @@ std::shared_ptr<const ParticipantDescription> Database::get_participant(
   if (state_it == _pimpl->descriptions.end())
     return nullptr;
 
-  return *state_it->second;
+  return state_it->second;
 }
 
 //==============================================================================
@@ -1147,15 +1168,6 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
   using SnapshotType =
     SnapshotImplementation<BaseRouteEntry, SnapshotViewRelevanceInspector>;
 
-  Database::Implementation::ParticipantDescriptions descriptions;
-  for (const auto& [id, desc] : _pimpl->descriptions)
-  {
-    const auto new_desc =
-      std::make_shared<std::shared_ptr<const ParticipantDescription>>(
-        std::make_shared<const ParticipantDescription>(**desc));
-    descriptions[id] = new_desc;
-  }
-
   const auto check_relevant = [](const Implementation::RouteEntry& entry)
   {
     // If this entry has no successor, then it is relevant to the snapshot.
@@ -1163,9 +1175,9 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
   };
 
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(&descriptions, check_relevant),
+    _pimpl->timeline.snapshot(check_relevant),
     _pimpl->participant_ids,
-    descriptions,
+    _pimpl->descriptions,
     _pimpl->schedule_version);
 }
 

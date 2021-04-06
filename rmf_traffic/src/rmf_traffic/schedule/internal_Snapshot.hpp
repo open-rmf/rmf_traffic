@@ -35,7 +35,7 @@ public:
   using ParticipantMap =
     std::unordered_map<
     ParticipantId,
-    std::shared_ptr<std::shared_ptr<const ParticipantDescription>>
+    std::shared_ptr<const ParticipantDescription>
     >;
 
   View query(const Query& parameters) const final
@@ -64,7 +64,7 @@ public:
     if (it == _participants.end())
       return nullptr;
 
-    return *it->second;
+    return it->second;
   }
 
   Version latest_version() const final
@@ -73,7 +73,7 @@ public:
   }
 
   SnapshotImplementation(
-    std::shared_ptr<const TimelineView<const RouteEntry>> timeline,
+    std::shared_ptr<const TimelineView<const BaseRouteEntry>> timeline,
     std::unordered_set<ParticipantId> ids,
     ParticipantMap participants,
     Version version)

@@ -223,7 +223,7 @@ protected:
     const auto relevant = [](const Entry&) -> bool { return true; };
     for (const auto& entry : *_all_bucket)
     {
-      if (!*entry->description)
+      if (!entry->description)
       {
         // This entry is still missing its participant description, so it
         // should be ignored for now.
@@ -253,7 +253,7 @@ protected:
       [&spacetime_data](const Entry& entry) -> bool
       {
         return rmf_traffic::internal::detect_conflicts(
-          (*entry.description)->profile(),
+          entry.description->profile(),
           entry.route->trajectory(),
           spacetime_data);
       };
@@ -380,7 +380,7 @@ protected:
       {
         const Entry* entry = entry_it->get();
 
-        if (!*entry->description)
+        if (!entry->description)
         {
           // This entry is still missing its participant description, so it
           // should be ignored for now.
@@ -430,7 +430,7 @@ struct BaseRouteEntry
   ConstRoutePtr route;
   ParticipantId participant;
   RouteId route_id;
-  std::shared_ptr<std::shared_ptr<const ParticipantDescription>> description;
+  std::shared_ptr<const ParticipantDescription> description;
 };
 
 //==============================================================================
@@ -449,9 +449,15 @@ public:
 
   static BaseBucketPtr clone_bucket(
     const Bucket& other,
-    const SharedParticipantDescriptionsMap* descriptions,
     const std::function<bool(const Entry& other)>& check_relevant)
   {
+    if constexpr(std::is_same<Entry, BaseRouteEntry>::value)
+    {
+      // If there is no need to check for relevance and we are using
+      if (!check_relevant)
+        return std::make_shared<BaseBucket>(other);
+    }
+
     BaseBucket output;
     output.reserve(other.size());
 
@@ -463,12 +469,7 @@ public:
           continue;
       }
 
-      auto copy = std::make_shared<BaseRouteEntry>(*other_entry);
-
-      if (descriptions)
-        copy->description = descriptions->at(copy->participant);
-
-      output.emplace_back(std::move(copy));
+      output.emplace_back(std::make_shared<BaseRouteEntry>(*other_entry));
     }
 
     return std::make_shared<BaseBucket>(std::move(output));
@@ -568,8 +569,9 @@ public:
 
   /// Create an immutable snapshot of the current timeline. A single instance of
   /// the snapshot can be safely used by multiple threads simultaneously.
+  ///
+  /// Filter out entries based on which are relevant.
   std::shared_ptr<const TimelineView<const BaseRouteEntry>> snapshot(
-    const SharedParticipantDescriptionsMap* desc,
     const std::function<bool(const Entry& other)>& check_relevant) const
   {
     // TODO(MXG): Consider whether we could use plain std::vector<Bucket>
@@ -587,21 +589,29 @@ public:
 
     // Make a deep copy of the buckets so that adding/removing entries from the
     // source bucket does not impact the snapshot
-    result->_timelines.reserve(this->_timelines.size());
-    for (auto& [map, time_scope] : this->_timelines)
+    if constexpr (std::is_same<Entry, BaseRouteEntry>::value)
     {
-      auto& out_time_scope = result->_timelines.insert({map, {}}).first->second;
-      for (auto& [time, bucket] : time_scope)
+      result->_timelines = this->_timelines;
+      for (auto& [map, time_scope] : result->_timelines)
       {
-        BaseBucketPtr out_bucket = clone_bucket(*bucket, desc, check_relevant);
-        out_time_scope.insert(
-          out_time_scope.end(),
-          {time, out_bucket});
+        for (auto& [time, bucket] : time_scope)
+          bucket = clone_bucket(*bucket, check_relevant);
+      }
+    }
+    else
+    {
+      result->_timelines.reserve(this->_timelines.size());
+      for (const auto& [map, time_scope] : this->_timelines)
+      {
+        auto& out_time_scope =
+          result->_timelines.insert({map, {}}).first->second;
+
+        for (const auto& [time, bucket] : time_scope)
+          out_time_scope.insert({time, clone_bucket(*bucket, check_relevant)});
       }
     }
 
-    result->_all_bucket =
-      clone_bucket(*this->_all_bucket, desc, check_relevant);
+    result->_all_bucket = clone_bucket(*this->_all_bucket, check_relevant);
 
     return result;
   }
