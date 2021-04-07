@@ -98,7 +98,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   rmf_traffic::schedule::Mirror mirror;
   // updating mirror
   changes = db.changes(query_all, rmf_utils::nullopt);
-  CHECK(mirror.update(changes) == changes.latest_version());
+  CHECK(mirror.update(changes));
   CHECK(mirror.latest_version() == changes.latest_version());
 
   rmf_traffic::schedule::ParticipantDescriptionsMap descriptions;
@@ -183,7 +183,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       db.delay(p1.id(), 20s, iv1++);
       CHECK(db.latest_version() == ++dbv);
       changes = db.changes(query_all, mirror.latest_version());
-      CHECK(mirror.update(changes) == changes.latest_version());
+      CHECK(mirror.update(changes));
       CHECK(mirror.latest_version() == db.latest_version());
 
       view = mirror.query(query_all);
@@ -197,7 +197,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     {
       db.cull(time + 11s);
       changes = db.changes(query_all, mirror.latest_version());
-      CHECK(mirror.update(changes) == changes.latest_version());
+      CHECK(mirror.update(changes));
       CHECK(mirror.latest_version() == db.latest_version());
 
       view = mirror.query(query_all);

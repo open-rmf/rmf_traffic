@@ -107,7 +107,7 @@ public:
         participant_,
         route_id_,
         std::move(desc_),
-      },
+    },
       schedule_version(schedule_version_),
       transition(std::move(transition_)),
       successor(std::move(successor_))
@@ -1169,10 +1169,10 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
     SnapshotImplementation<BaseRouteEntry, SnapshotViewRelevanceInspector>;
 
   const auto check_relevant = [](const Implementation::RouteEntry& entry)
-  {
-    // If this entry has no successor, then it is relevant to the snapshot.
-    return entry.successor.lock() == nullptr;
-  };
+    {
+      // If this entry has no successor, then it is relevant to the snapshot.
+      return entry.successor.lock() == nullptr;
+    };
 
   return std::make_shared<SnapshotType>(
     _pimpl->timeline.snapshot(check_relevant),
@@ -1220,13 +1220,24 @@ auto Database::changes(
   std::vector<Patch::Participant> part_patches;
   for (const auto& p : changes)
   {
+    const auto& changeset = p.second;
+
     std::vector<Change::Delay> delays;
-    for (const auto& d : p.second.delays)
+    for (const auto& d : changeset.delays)
     {
       delays.emplace_back(
         Change::Delay{
           d.second.duration
         });
+    }
+
+    if (changeset.erasures.empty()
+      && delays.empty()
+      && changeset.additions.empty())
+    {
+      // There aren't actually any changes for this participant, so we will
+      // leave it out of the patch.
+      continue;
     }
 
     part_patches.emplace_back(

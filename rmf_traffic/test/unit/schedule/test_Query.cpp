@@ -176,7 +176,8 @@ SCENARIO("Test Query API", "[query]")
         rmf_traffic::schedule::make_query({});
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({});
-      query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
 
       CHECK(query1 != query2);
     }
@@ -187,8 +188,10 @@ SCENARIO("Test Query API", "[query]")
         rmf_traffic::schedule::make_query({});
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({});
-      query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
-      query2.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query2.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
 
       CHECK(query1 == query2);
     }
@@ -199,8 +202,10 @@ SCENARIO("Test Query API", "[query]")
         rmf_traffic::schedule::make_query({});
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({});
-      query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
-      query2.participants() = rmf_traffic::schedule::Query::Participants::make_only({2, 3, 4});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query2.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({2, 3, 4});
 
       CHECK(query1 != query2);
 
@@ -208,8 +213,10 @@ SCENARIO("Test Query API", "[query]")
         rmf_traffic::schedule::make_query({});
       rmf_traffic::schedule::Query query4 =
         rmf_traffic::schedule::make_query({});
-      query3.participants() = rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
-      query4.participants() = rmf_traffic::schedule::Query::Participants::make_all_except({2, 3, 4});
+      query3.participants() =
+        rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
+      query4.participants() =
+        rmf_traffic::schedule::Query::Participants::make_all_except({2, 3, 4});
 
       CHECK(query3 != query4);
     }
@@ -220,8 +227,10 @@ SCENARIO("Test Query API", "[query]")
         rmf_traffic::schedule::make_query({});
       rmf_traffic::schedule::Query query2 =
         rmf_traffic::schedule::make_query({});
-      query1.participants() = rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
-      query2.participants() = rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query2.participants() =
+        rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
 
       CHECK(query1 != query2);
     }

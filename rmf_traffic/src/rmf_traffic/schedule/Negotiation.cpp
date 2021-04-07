@@ -442,7 +442,6 @@ public:
   {
     std::vector<std::shared_ptr<void>> handles;
     Timeline<BaseRouteEntry> timeline_builder;
-    SharedParticipantDescriptionsMap descriptions;
 
     for (const auto& p : proposal)
     {

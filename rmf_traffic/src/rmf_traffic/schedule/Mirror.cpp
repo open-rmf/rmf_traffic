@@ -333,8 +333,8 @@ void Mirror::update_participants_info(
       if (!inserted)
       {
         std::cerr << "[Mirror::update_participants_info] Duplicate participant "
-                  "ID [" << id << "] while trying to register a new participant"
-                  << std::endl;
+                  << "ID [" << id << "] while trying to register a new "
+                  << "participant" << std::endl;
       }
     }
     else

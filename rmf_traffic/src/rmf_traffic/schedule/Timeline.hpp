@@ -43,13 +43,6 @@ const Duration PartialBucketDuration = std::chrono::seconds(50);
 } // anonymous namespace
 
 //==============================================================================
-using SharedParticipantDescriptionsMap =
-  const std::unordered_map<
-    ParticipantId,
-    std::shared_ptr<std::shared_ptr<const ParticipantDescription>>
-  >;
-
-//==============================================================================
 struct ParticipantFilter
 {
   static std::unordered_set<ParticipantId> convert(
@@ -451,7 +444,7 @@ public:
     const Bucket& other,
     const std::function<bool(const Entry& other)>& check_relevant)
   {
-    if constexpr(std::is_same<Entry, BaseRouteEntry>::value)
+    if constexpr (std::is_same<Entry, BaseRouteEntry>::value)
     {
       // If there is no need to check for relevance and we are using
       if (!check_relevant)

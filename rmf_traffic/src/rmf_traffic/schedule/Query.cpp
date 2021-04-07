@@ -773,7 +773,7 @@ bool operator==(
     return false;
   }
 
-  switch(lhs.get_mode())
+  switch (lhs.get_mode())
   {
     case Query::Participants::Mode::All:
       return *lhs.all() == *rhs.all();
