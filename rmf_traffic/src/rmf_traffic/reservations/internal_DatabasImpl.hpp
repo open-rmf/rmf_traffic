@@ -28,12 +28,12 @@ class Database::Implementation
 {
 public:
   //===========================================================================
-  // Storage Classes - These classes store the actual reservation 
+  // Storage Classes - These classes store the actual reservation
   // and the requests
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
   ResourceSchedules _resource_schedules;
-  
+
   using ReservationMapping = std::unordered_map<ReservationId, std::string>;
   ReservationMapping _reservation_mapping;
 
@@ -83,9 +83,9 @@ public:
     RequestId req_id = _active_reservation_tracker[id];
     auto status = _request_tracker[req_id];
     auto& start_constraints = status.requests[status.assigned_index];
-    
+
     if(!start_constraints.start_time().has_value() ||
-      !start_constraints.start_time()->upper_bound().has_value()) 
+      !start_constraints.start_time()->upper_bound().has_value())
       return std::nullopt;
 
     start_constraints.start_time()->upper_bound();
@@ -129,7 +129,7 @@ public:
     )
     {
       auto latest_start = latest_start_time(item->second.reservation_id());
-      if(latest_start.has_value() && 
+      if(latest_start.has_value() &&
         *latest_start < item_desired_time)
       {
         // Violates the starting conditions mark this as a potential conflict
@@ -160,12 +160,11 @@ public:
     
     /// TODO: change cost function
     proposal.cost += (item_desired_time - *latest_start).count();
-
     return proposal;
   }
 
   /// Determines the earliest starting time given a reservation
-  /// TODO: We can come up with some cacheing scheme to make
+  /// TODO: We can come up with some cacheing scheme to make things faster
   ///   Creating hash maps is a huge waste of time.
   const std::unordered_map<ReservationId, std::optional<Time>> 
     earliest_time_computation(ResourceSchedule& schedule)
@@ -303,7 +302,9 @@ public:
   }
 
   /// \returns all reservations which conflict with the start range. 
-  std::vector<ReservationId> get_all_overlapping_reservations(ReservationRequest& req)
+  std::vector<ReservationId> get_all_overlapping_reservations(
+    ReservationRequest& req,
+    RequestId reqId)
   {
     auto sched = _resource_schedules[req.resource_name()];
     
@@ -351,7 +352,8 @@ public:
         // The end time should be max(start+duration, finish_time)
         auto end_time = [=]() -> Time
         {
-          auto duration_based_end = earliest_start + req.duration().value_or(0);
+          auto duration_based_end
+            = earliest_start + req.duration().value_or(Duration{0});
           
           if(!req.finish_time().has_value())
             return duration_based_end;
@@ -369,10 +371,13 @@ public:
         //miminise conflicts. This will be the earliest_start plus the duration
         auto plan = plan_push_back_reservations(sched,
           potential_insertion->second.start_time(),
-          end_time);
+          end_time, reqId);
       }
       else
       {
+        // For now we pick the slot with the least conflict 
+        // and attempt insertion there
+        
 
       }
     }
