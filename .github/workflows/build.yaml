@@ -20,9 +20,12 @@ jobs:
             rmf_traffic
           vcs-repo-file-url: |
             https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
-          colcon-defaults:
-            build:
-              mixin: [coverage-gcc]
+          colcon-defaults: |
+            {
+              "build": {
+                "mixin": ["coverage-gcc"]
+              }
+            }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
