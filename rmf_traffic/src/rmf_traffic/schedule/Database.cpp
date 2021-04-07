@@ -84,14 +84,8 @@ public:
     RouteStorage predecessor;
   };
 
-  struct RouteEntry
+  struct RouteEntry : public BaseRouteEntry
   {
-    // ===== Mandatory fields for a Timeline Entry =====
-    ConstRoutePtr route;
-    ParticipantId participant;
-    RouteId route_id;
-    std::shared_ptr<const ParticipantDescription> description;
-
     // ===== Additional fields for this timeline entry =====
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
     // templates to automatically mix these custom fields with the required
@@ -99,6 +93,27 @@ public:
     Version schedule_version;
     TransitionPtr transition;
     std::weak_ptr<RouteEntry> successor;
+
+    RouteEntry(
+      ConstRoutePtr route_,
+      ParticipantId participant_,
+      RouteId route_id_,
+      std::shared_ptr<const ParticipantDescription> desc_,
+      Version schedule_version_,
+      TransitionPtr transition_,
+      std::weak_ptr<RouteEntry> successor_)
+    : BaseRouteEntry{
+        std::move(route_),
+        participant_,
+        route_id_,
+        std::move(desc_),
+    },
+      schedule_version(schedule_version_),
+      transition(std::move(transition_)),
+      successor(std::move(successor_))
+    {
+      // Do nothing
+    }
   };
 
   Timeline<RouteEntry> timeline;
@@ -140,17 +155,6 @@ public:
 
   using ParticipantRegistrationTime = std::map<Time, Version>;
   ParticipantRegistrationTime remove_participant_time;
-
-
-  // Keeps track of when the latest update was applied to each participant
-  struct UpdateParticipantDescriptionInfo
-  {
-    Version latest_update;
-    Version original_version;
-  };
-  using UpdateParticipantDescription =
-    std::unordered_map<ParticipantId, UpdateParticipantDescriptionInfo>;
-  UpdateParticipantDescription update_participant_version;
 
   // NOTE(MXG): We store this record of inconsistency ranges here as a single
   // group that covers all participants in order to make it easy for us to share
@@ -299,6 +303,42 @@ public:
       entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
           std::move(new_route),
+          participant,
+          id,
+          state.description,
+          schedule_version,
+          std::move(transition),
+          RouteEntryPtr()
+        });
+
+      entry_storage.entry->transition->predecessor.entry->successor =
+        entry_storage.entry;
+
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+    }
+  }
+
+  void apply_description_update(
+    ParticipantId participant,
+    ParticipantState& state)
+  {
+    ParticipantStorage& storage = state.storage;
+    for (const RouteId id : state.active_routes)
+    {
+      assert(storage.find(id) != storage.end());
+      auto& entry_storage = storage.at(id);
+
+      auto route = entry_storage.entry->route;
+
+      auto transition = std::make_unique<Transition>(
+        Transition{
+          std::nullopt,
+          std::move(entry_storage)
+        });
+
+      entry_storage.entry = std::make_unique<RouteEntry>(
+        RouteEntry{
+          std::move(route),
           participant,
           id,
           state.description,
@@ -654,7 +694,7 @@ Writer::Registration Database::register_participant(
   const Version version = ++_pimpl->schedule_version;
 
   const auto description_ptr =
-    std::make_shared<ParticipantDescription>(std::move(description));
+    std::make_shared<const ParticipantDescription>(std::move(description));
 
   const auto p_it = _pimpl->states.insert(
     std::make_pair(
@@ -699,13 +739,8 @@ void Database::update_description(
   auto version = ++_pimpl->schedule_version;
   p_it->second.last_updated = version;
   p_it->second.description = description_ptr;
-
   _pimpl->descriptions[id] = description_ptr;
-  _pimpl->update_participant_version[id] =
-    Implementation::UpdateParticipantDescriptionInfo{
-    version,
-    p_it->second.initial_schedule_version
-  };
+  _pimpl->apply_description_update(id, p_it->second);
 }
 
 //==============================================================================
@@ -842,28 +877,32 @@ public:
         {
           const auto* const transition = traverse->transition.get();
           assert(transition);
-          assert(transition->delay);
-          const auto& delay = *transition->delay;
-          const auto insertion = p_changes.delays.insert(
-            std::make_pair(
-              traverse->schedule_version,
-              Delay{
-                delay.duration
-              }));
-#ifndef NDEBUG
-          // When compiling in debug mode, if we see a duplicate insertion,
-          // let's make sure that the previously entered data matches what we
-          // wanted to enter just now.
-          if (!insertion.second)
+
+          if (transition->delay.has_value())
           {
-            const Delay& previous = insertion.first->second;
-            assert(previous.duration == delay.duration);
-          }
+            const auto& delay = *transition->delay;
+            const auto insertion = p_changes.delays.insert(
+              std::make_pair(
+                traverse->schedule_version,
+                Delay{
+                  delay.duration
+                }));
+#ifndef NDEBUG
+            // When compiling in debug mode, if we see a duplicate insertion,
+            // let's make sure that the previously entered data matches what we
+            // wanted to enter just now.
+            if (!insertion.second)
+            {
+              const Delay& previous = insertion.first->second;
+              assert(previous.duration == delay.duration);
+            }
 #else
-          // When compiling in release mode, cast the return value to void to
-          // suppress compiler warnings.
-          (void)(insertion);
+            // When compiling in release mode, cast the return value to void to
+            // suppress compiler warnings.
+            (void)(insertion);
 #endif // NDEBUG
+          }
+
           traverse = traverse->transition->predecessor.entry.get();
         }
       }
@@ -950,6 +989,35 @@ public:
         });
     }
   }
+};
+
+//==============================================================================
+// TODO(MXG): This class is redundant with MirrorViewRelevanceInspector
+class SnapshotViewRelevanceInspector
+  : public TimelineInspector<BaseRouteEntry>
+{
+public:
+
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+    const BaseRouteEntry* entry,
+    const std::function<bool(const BaseRouteEntry&)>& relevant) final
+  {
+    if (relevant(*entry))
+    {
+      routes.emplace_back(
+        Storage{
+          entry->participant,
+          entry->route_id,
+          entry->route,
+          entry->description
+        });
+    }
+  }
+
 };
 
 //==============================================================================
@@ -1098,10 +1166,16 @@ Version Database::latest_version() const
 std::shared_ptr<const Snapshot> Database::snapshot() const
 {
   using SnapshotType =
-    SnapshotImplementation<Implementation::RouteEntry, ViewRelevanceInspector>;
+    SnapshotImplementation<BaseRouteEntry, SnapshotViewRelevanceInspector>;
+
+  const auto check_relevant = [](const Implementation::RouteEntry& entry)
+    {
+      // If this entry has no successor, then it is relevant to the snapshot.
+      return entry.successor.lock() == nullptr;
+    };
 
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(),
+    _pimpl->timeline.snapshot(check_relevant),
     _pimpl->participant_ids,
     _pimpl->descriptions,
     _pimpl->schedule_version);
@@ -1146,13 +1220,24 @@ auto Database::changes(
   std::vector<Patch::Participant> part_patches;
   for (const auto& p : changes)
   {
+    const auto& changeset = p.second;
+
     std::vector<Change::Delay> delays;
-    for (const auto& d : p.second.delays)
+    for (const auto& d : changeset.delays)
     {
       delays.emplace_back(
         Change::Delay{
           d.second.duration
         });
+    }
+
+    if (changeset.erasures.empty()
+      && delays.empty()
+      && changeset.additions.empty())
+    {
+      // There aren't actually any changes for this participant, so we will
+      // leave it out of the patch.
+      continue;
     }
 
     part_patches.emplace_back(
@@ -1164,70 +1249,16 @@ auto Database::changes(
       });
   }
 
-  std::vector<Change::RegisterParticipant> registered;
-  std::vector<Change::UnregisterParticipant> unregistered;
-  std::vector<Change::UpdateParticipantInfo> info_updates;
-  if (after)
-  {
-    const Version after_v = *after;
-
-    auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
-    for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
-    {
-      const auto p_it = _pimpl->states.find(add_it->second);
-      assert(p_it != _pimpl->states.end());
-      registered.emplace_back(p_it->first, *p_it->second.description);
-    }
-
-    auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
-    for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
-    {
-      // We should only unregister this if it was registered before the last
-      // update to this mirror
-      if (remove_it->second.original_version <= *after)
-        unregistered.emplace_back(remove_it->second.id);
-    }
-
-    for (auto& update_it : _pimpl->update_participant_version)
-    {
-      // Check which participants have been updated
-      auto id = update_it.first;
-      if (update_it.second.original_version <= after_v
-        && update_it.second.latest_update > after_v)
-      {
-        // Only send the update if it is not a newly registered
-        // participant and if there has been an update since
-        // the mirror was last updated.
-        const auto p_it = _pimpl->states.find(id);
-        if (p_it == _pimpl->states.end())
-          continue;
-
-        info_updates.emplace_back(id, *p_it->second.description);
-      }
-    }
-  }
-  else
-  {
-    // If this is a mirror's first pull from the database, then we should send
-    // all the participant information.
-    for (const auto& p : _pimpl->states)
-      registered.emplace_back(p.first, *p.second.description);
-
-    // We do not need to mention any participants that have unregistered.
-  }
-
-  rmf_utils::optional<Change::Cull> cull;
+  std::optional<Change::Cull> cull;
   if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
   {
     cull = _pimpl->last_cull->cull;
   }
 
   return Patch(
-    std::move(unregistered),
-    std::move(registered),
-    std::move(info_updates),
     std::move(part_patches),
     cull,
+    after,
     _pimpl->schedule_version);
 }
 
