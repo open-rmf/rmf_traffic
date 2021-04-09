@@ -91,6 +91,19 @@ public:
     start_constraints.start_time()->upper_bound();
   }
 
+  std::optional<Time> earliest_start_time(ReservationId id)
+  {
+    RequestId req_id = _active_reservation_tracker[id];
+    auto status = _request_tracker[req_id];
+    auto& start_constraints = status.requests[status.assigned_index];
+
+    if(!start_constraints.start_time().has_value() ||
+      !start_constraints.start_time()->lower_bound().has_value())
+      return std::nullopt;
+
+    start_constraints.start_time()->lower_bound();
+  }
+
   rmf_traffic::Time current_time;
 
   class Plan
@@ -111,6 +124,9 @@ public:
       rmf_traffic::Time desired_time,
       RequestId request_id)
   {
+
+    assert(desired_time >  start_time);
+
     auto item = sched.lower_bound(start_time);
     auto next_item = std::next(item);
     auto item_desired_time = desired_time;
@@ -148,7 +164,7 @@ public:
     }
 
     auto latest_start = latest_start_time(item->second.reservation_id());
-    if(latest_start.has_value() && 
+    if(latest_start.has_value() &&
       *latest_start < item_desired_time)
     {
       /// Violates the starting conditions mark this as a potential conflict
@@ -157,10 +173,67 @@ public:
     }
     auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
     proposal.impacted_reservations.push_back(proposed_reservation);
-    
+
     /// TODO: change cost function
     proposal.cost += (item_desired_time - *latest_start).count();
     return proposal;
+  }
+
+  /// \brief Gives a list of reservations that are impacted when we perform a push back
+  /// \param sched is the ResourceSchedule to operate on
+  /// \param start_time is the time after which all the reservations will be pushed back
+  /// \param desired_time is the time which the reservation should be moved to .
+  /// \returns a Plan if a valid plan exists. IF a valid bring forward exists.
+  std::optional<Plan> 
+    plan_bring_forward_reservations(ResourceSchedule& sched,
+      rmf_traffic::Time start_time,
+      rmf_traffic::Time desired_time,
+      RequestId request_id)
+  {
+
+    assert(desired_time < start_time);
+
+    auto item = sched.lower_bound(start_time);
+    auto prev_item = std::prev(item);
+
+    auto duration_to_shift = start_time - desired_time;
+
+    auto item_desired_start = desired_time;
+
+    Plan proposal;
+
+    while(
+      item != sched.begin() &&
+      prev_item->second.actual_finish_time() > item_desired_start)
+    {
+      auto earliest_start = earliest_start_time(item->second.reservation_id());
+      if(earliest_start.has_value() &&
+        *earliest_start > item_desired_time)
+      {
+        /// Violates the starting conditions mark this as a potential conflict
+        _conflict_tracker[item->second.reservation_id()].insert(request_id);
+        return std::nullopt;
+      }
+      auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
+      proposal.impacted_reservations.push_back(proposed_reservation);
+
+      /// Get the next_item
+      item = prev_item;
+      item_desired_time = item->first - duration_to_shift;
+      prev_item = std::prev(prev_item);
+    }
+
+    auto earliest_start = earliest_start_time(item->second.reservation_id());
+    if(earliest_start.has_value() &&
+      *earliest_start > item_desired_time)
+    {
+      /// Violates the starting conditions mark this as a potential conflict
+      _conflict_tracker[item->second.reservation_id()].insert(request_id);
+      return std::nullopt;
+    }
+    auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
+    proposal.impacted_reservations.push_back(proposed_reservation);
+    return {proposal}
   }
 
   /// Determines the earliest starting time given a reservation
@@ -359,7 +432,7 @@ public:
             return duration_based_end;
 
           return std::max(*req.finish_time(), duration_based_end);
-        }();  
+        }();
         
         if(latest_start_time[res_id] <= end_time)
         {
@@ -378,7 +451,6 @@ public:
         // For now we pick the slot with the least conflict 
         // and attempt insertion there
         
-
       }
     }
   }
@@ -406,12 +478,7 @@ public:
     return counter++;
   }
 
-  std::vector<Plan> generate_plans()
-  {
-
-  }
-
-  bool approve_plans(std::vector<Plan>& plan)
+  bool approve_plan(Plan& plan)
   {
 
   }
