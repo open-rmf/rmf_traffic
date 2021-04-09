@@ -27,6 +27,7 @@
 #include <fcl/collision_object.h>
 #endif
 
+#include <functional>
 #include <vector>
 
 namespace rmf_traffic {
@@ -63,6 +64,8 @@ public:
 
   double _characteristic_length;
 
+  std::function<bool(const Shape& other)> _compare_equality;
+
   static const CollisionGeometries& get_collisions(const FinalShape& shape)
   {
     return shape._pimpl->_collisions;
@@ -71,13 +74,15 @@ public:
   static FinalShape make_final_shape(
     rmf_utils::impl_ptr<const Shape> shape,
     CollisionGeometries collisions,
-    double characteristic_length)
+    double characteristic_length,
+    std::function<bool(const Shape& other)> compare_equality)
   {
     FinalShape result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
       Implementation{std::move(shape),
         std::move(collisions),
-        std::move(characteristic_length)});
+        std::move(characteristic_length),
+        std::move(compare_equality)});
     return result;
   }
 
@@ -96,16 +101,33 @@ public:
   static FinalConvexShape make_final_shape(
     rmf_utils::impl_ptr<const Shape> shape,
     CollisionGeometries collisions,
-    double characteristic_length)
+    double characteristic_length,
+    std::function<bool(const Shape& other)> compare_equality)
   {
     FinalConvexShape result;
     result._pimpl = rmf_utils::make_impl<FinalShape::Implementation>(
       FinalShape::Implementation{std::move(shape),
         std::move(collisions),
-        characteristic_length});
+        characteristic_length,
+        std::move(compare_equality)});
     return result;
   }
 };
+
+//==============================================================================
+template<typename T>
+std::function<bool(const Shape& other)> make_equality_comparator(
+  const T& myself)
+{
+  return [&myself](const Shape& other)
+    {
+      if (const auto* other_derived = dynamic_cast<const T*>(&other))
+      {
+        return myself == *other_derived;
+      }
+      return false;
+    };
+}
 
 } // namespace geometry
 } // namespace rmf_traffic

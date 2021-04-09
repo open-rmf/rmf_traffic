@@ -26,6 +26,7 @@
 #include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
+#include <rmf_traffic/agv/LaneClosure.hpp>
 
 #include <map>
 
@@ -64,6 +65,7 @@ struct Traversal
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
   std::vector<std::string> maps;
+  std::vector<std::size_t> traversed_lanes;
   double best_time;
 
   struct Alternative
@@ -128,10 +130,12 @@ public:
   static std::shared_ptr<const Supergraph> make(
     Graph::Implementation original,
     VehicleTraits traits,
+    LaneClosure lane_closures,
     const Interpolate::Options::Implementation& interpolate);
 
   const Graph::Implementation& original() const;
   const VehicleTraits& traits() const;
+  const LaneClosure& closures() const;
   const Interpolate::Options::Implementation& options() const;
 
   struct FloorChange
@@ -193,10 +197,12 @@ private:
   Supergraph(
     Graph::Implementation original,
     VehicleTraits traits,
+    LaneClosure lane_closures,
     const Interpolate::Options::Implementation& interpolate);
 
   Graph::Implementation _original;
   VehicleTraits _traits;
+  LaneClosure _lane_closures;
   Interpolate::Options::Implementation _interpolate;
   FloorChangeMap _floor_changes;
   std::shared_ptr<const CacheManager<TraversalCache>> _traversals;

@@ -214,6 +214,7 @@ public:
             NodeInfo{
               finishing_entry_opt,
               traversal.finish_waypoint_index,
+              traversal.traversed_lanes,
               next_position,
               target_yaw,
               *remaining_cost_estimate + exit_event_duration,
@@ -242,6 +243,7 @@ public:
               NodeInfo{
                 finish_entry,
                 traversal.finish_waypoint_index,
+                traversal.traversed_lanes,
                 next_position,
                 target_yaw,
                 *remaining_cost_estimate,
@@ -253,10 +255,6 @@ public:
               new_node
             });
         }
-
-        double entry_cost = 0.0;
-        if (oriented_top != top)
-          entry_cost = oriented_top->info.cost_from_parent;
 
         queue.push(std::move(new_node));
       }
@@ -271,8 +269,6 @@ public:
 
     const Eigen::Vector2d p = top->info.position;
     const double target_yaw = _goal_yaw.value();
-    const Eigen::Vector3d start_position =
-    {p.x(), p.y(), top->info.yaw.value()};
 
     // We assume we will get back a valid factory, because if no rotation is
     // needed, then the planner should have accepted this node earlier.
@@ -287,6 +283,7 @@ public:
         NodeInfo{
           _goal_entry,
           top->info.waypoint,
+          {},
           p,
           target_yaw,
           0.0,
@@ -392,6 +389,7 @@ public:
             Side::Start
           },
           target_waypoint_index,
+          {},
           p,
           finish_yaw,
           remaining_cost_estimate + event_duration,
@@ -427,6 +425,7 @@ public:
         NodeInfo{
           std::nullopt,
           target_waypoint_index,
+          {},
           oriented_node->info.position,
           oriented_node->info.yaw,
           remaining_cost_estimate,
@@ -540,6 +539,7 @@ auto DifferentialDriveHeuristic::generate(
             key.start_side
           },
           start_waypoint_index,
+          {},
           start_p,
           yaw,
           *start_heuristic,

@@ -76,6 +76,7 @@ struct TraversalNode
 
   // TODO(MXG): Can std::string_view be used to make this more memory efficient?
   std::vector<std::string> map_names;
+  std::vector<std::size_t> traversed_lanes;
 
   std::array<std::optional<double>, 2> orientations;
   bool standstill = false;
@@ -111,6 +112,7 @@ void node_to_traversals(
   traversal.best_time = 0.0;
   traversal.maps = std::vector<std::string>(
     node.map_names.begin(), node.map_names.end());
+  traversal.traversed_lanes = node.traversed_lanes;
 
 //  std::cout << "Traversal [" << traversal.initial_lane_index << "] -> ("
 //            << traversal.finish_lane_index << "): entry event {"
@@ -214,11 +216,18 @@ void perform_traversal(
   const TraversalNode* parent,
   const std::size_t lane_index,
   const Graph::Implementation& graph,
+  const LaneClosure& closures,
   const TraversalGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
+  if (closures.is_closed(lane_index))
+  {
+    // If the lane is closed, then we must not traverse it.
+    return;
+  }
+
   const auto& lane = graph.lanes[lane_index];
   const auto& entry = lane.entry();
   const auto& exit = lane.exit();
@@ -253,6 +262,7 @@ void perform_traversal(
     node.initial_lane_index = parent->initial_lane_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
+    node.traversed_lanes = parent->traversed_lanes;
 
     if (parent->entry_event)
       node.entry_event = parent->entry_event->clone();
@@ -266,6 +276,7 @@ void perform_traversal(
       node.entry_event = entry_event->clone();
   }
 
+  node.traversed_lanes.push_back(lane_index);
   node.finish_p = p1;
 
   add_if_missing(node.map_names, wp0.get_map_name());
@@ -359,24 +370,28 @@ void expand_traversal(
   const TraversalNode& parent,
   const std::size_t lane_index,
   const Graph::Implementation& graph,
+  const LaneClosure& closures,
   const TraversalGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
-  perform_traversal(&parent, lane_index, graph, kin, queue, output, visited);
+  perform_traversal(
+    &parent, lane_index, graph, closures, kin, queue, output, visited);
 }
 
 //==============================================================================
 void initiate_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
+  const LaneClosure& closures,
   const TraversalGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
-  perform_traversal(nullptr, lane_index, graph, kin, queue, output, visited);
+  perform_traversal(
+    nullptr, lane_index, graph, closures, kin, queue, output, visited);
 }
 
 } // anonymous namespace
@@ -487,6 +502,7 @@ ConstTraversalsPtr TraversalGenerator::generate(
 
   const std::size_t waypoint_index = key;
   const auto& graph = supergraph->original();
+  const auto& closures = supergraph->closures();
   const auto& initial_lanes = graph.lanes_from[waypoint_index];
   std::vector<TraversalNode> queue;
   std::vector<Traversal> output;
@@ -494,7 +510,7 @@ ConstTraversalsPtr TraversalGenerator::generate(
   visited.insert(waypoint_index);
 
   for (const auto l : initial_lanes)
-    initiate_traversal(l, graph, _kinematics, queue, output, visited);
+    initiate_traversal(l, graph, closures, _kinematics, queue, output, visited);
 
   while (!queue.empty())
   {
@@ -503,7 +519,10 @@ ConstTraversalsPtr TraversalGenerator::generate(
 
     const auto& lanes = graph.lanes_from[top.finish_waypoint_index];
     for (const auto l : lanes)
-      expand_traversal(top, l, graph, _kinematics, queue, output, visited);
+    {
+      expand_traversal(
+        top, l, graph, closures, _kinematics, queue, output, visited);
+    }
   }
 
   auto new_traversals = std::make_shared<Traversals>(std::move(output));
@@ -516,10 +535,13 @@ ConstTraversalsPtr TraversalGenerator::generate(
 std::shared_ptr<const Supergraph> Supergraph::make(
   Graph::Implementation original,
   VehicleTraits traits,
+  LaneClosure lane_closures,
   const Interpolate::Options::Implementation& interpolate)
 {
   auto supergraph = std::shared_ptr<Supergraph>(
-    new Supergraph(std::move(original), std::move(traits), interpolate));
+    new Supergraph(
+      std::move(original), std::move(traits),
+      std::move(lane_closures), interpolate));
 
   supergraph->_traversals =
     CacheManager<TraversalCache>::make(
@@ -548,6 +570,12 @@ const Graph::Implementation& Supergraph::original() const
 const VehicleTraits& Supergraph::traits() const
 {
   return _traits;
+}
+
+//==============================================================================
+const LaneClosure& Supergraph::closures() const
+{
+  return _lane_closures;
 }
 
 //==============================================================================
@@ -887,9 +915,11 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 Supergraph::Supergraph(
   Graph::Implementation original,
   VehicleTraits traits,
+  LaneClosure lane_closures,
   const Interpolate::Options::Implementation& interpolate)
 : _original(std::move(original)),
   _traits(std::move(traits)),
+  _lane_closures(std::move(lane_closures)),
   _interpolate(interpolate),
   _floor_changes(find_floor_changes(_original))
 {

@@ -89,17 +89,6 @@ public:
   /// Constructor. Mirrors should evaluate the fields of the Patch class in the
   /// order of these constructor arguments.
   ///
-  /// \param[in] removed_participants
-  ///   Information about which participants have been unregistered since the
-  ///   last update.
-  ///
-  /// \param[in] new_participants
-  ///   Information about which participants have been registered since the last
-  ///   update.
-  ///
-  /// \param[in] updated_participants
-  ///   Information about changes in the footprint of the participant
-  ///
   /// \param[in] changes
   ///   Information about how the participants have changed since the last
   ///   update.
@@ -108,38 +97,16 @@ public:
   ///   Information about how the database has culled old data since the last
   ///   update.
   ///
+  /// \param[in] base_version
+  ///   The base version of the database that this Patch builds on top of.
+  ///
   /// \param[in] latest_version
   ///   The lastest version of the database that this Patch represents.
   Patch(
-    std::vector<Change::UnregisterParticipant> removed_participants,
-    std::vector<Change::RegisterParticipant> new_participants,
-    std::vector<Change::UpdateParticipantInfo> updated_participants,
     std::vector<Participant> changes,
     rmf_utils::optional<Change::Cull> cull,
+    std::optional<Version> base_version,
     Version latest_version);
-
-  // TODO(MXG): Consider using a persistent reliable topic to broadcast the
-  // active participant information instead of making it part of the patch.
-  // Ideally this information would not need to change frequently, so it doesn't
-  // necessarily need to be in the Patch scheme. The addition and loss of
-  // participants is significant enough that we should guarantee it's always
-  // transmitted correctly.
-  //
-  // The current scheme makes an assumption that remote mirrors will always
-  // either sync up before unregistered participant information is culled, or
-  // else they will perform a complete refresh. This might be a point of
-  // vulnerability if a remote mirror is not being managed correctly.
-
-  /// Get a list of which participants have been unregistered. This should be
-  /// evaluated first in the patch.
-  const std::vector<Change::UnregisterParticipant>& unregistered() const;
-
-  /// Get a list of new participants that have been registered. This should be
-  /// evaluated after the unregistered participants.
-  const std::vector<Change::RegisterParticipant>& registered() const;
-
-  /// Get a list of updates to the participants.
-  const std::vector<Change::UpdateParticipantInfo>& updated() const;
 
   /// Returns an iterator to the first element of the Patch.
   const_iterator begin() const;
@@ -154,6 +121,12 @@ public:
 
   /// Get the cull information for this patch if a cull has occurred.
   const Change::Cull* cull() const;
+
+  /// Get the base version of the Database that this patch builds on.
+  ///
+  /// If this is a nullopt, then this patch does not need to build off of any
+  /// base version.
+  std::optional<Version> base_version() const;
 
   /// Get the latest version of the Database that informed this Patch.
   Version latest_version() const;

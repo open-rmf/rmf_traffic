@@ -159,6 +159,7 @@ struct DifferentialDriveMapTypes
     std::optional<Entry> entry;
 
     std::size_t waypoint;
+    std::vector<std::size_t> approach_lanes;
     Eigen::Vector2d position;
     std::optional<double> yaw;
 

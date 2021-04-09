@@ -21,6 +21,7 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <functional>
 #include <memory>
 
 namespace rmf_traffic {
@@ -83,6 +84,12 @@ public:
   double get_characteristic_length() const;
 
   virtual ~FinalShape() = default;
+
+  /// Equality operator
+  bool operator==(const FinalShape& other) const;
+
+  /// Non-equality operator
+  bool operator!=(const FinalShape& other) const;
 
   class Implementation;
 protected:

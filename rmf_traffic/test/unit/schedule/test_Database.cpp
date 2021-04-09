@@ -88,9 +88,6 @@ SCENARIO("Test Database Conflicts")
 
     // query for the changes after version 0
     changes = db.changes(query_all, 0);
-    CHECK(changes.registered().size() == 1);
-    CHECK(changes.unregistered().size() == 0);
-    CHECK(changes.updated().size() == 0);
 
     REQUIRE(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1.id());
@@ -113,9 +110,6 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 1);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 2);
@@ -126,9 +120,6 @@ SCENARIO("Test Database Conflicts")
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 1);
@@ -149,9 +140,6 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 1);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 2);
@@ -162,9 +150,6 @@ SCENARIO("Test Database Conflicts")
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
@@ -191,9 +176,6 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 1);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 2);
@@ -204,9 +186,6 @@ SCENARIO("Test Database Conflicts")
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 1);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
@@ -220,9 +199,6 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 1);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 1);
@@ -234,9 +210,6 @@ SCENARIO("Test Database Conflicts")
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
@@ -255,18 +228,12 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 1);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
@@ -291,18 +258,12 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 1);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       REQUIRE(changes.cull());
       CHECK(changes.cull()->time() == cull_time);
@@ -320,18 +281,12 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 1);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
@@ -345,9 +300,6 @@ SCENARIO("Test Database Conflicts")
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       REQUIRE(changes.cull());
       CHECK(changes.cull()->time() == cull_time);
@@ -355,9 +307,6 @@ SCENARIO("Test Database Conflicts")
 
       // query the diff minus two
       changes = db.changes(query_all, db.latest_version()-1);
-      CHECK(changes.registered().size() == 0);
-      CHECK(changes.unregistered().size() == 0);
-      CHECK(changes.updated().size() == 0);
       CHECK(changes.size() == 0);
       REQUIRE(changes.cull());
       CHECK(changes.cull()->time() == cull_time);

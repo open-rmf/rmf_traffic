@@ -115,6 +115,30 @@ public:
 };
 
 //==============================================================================
+/// Equality operator for SimplePolygon objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator==(
+  const SimplePolygon& lhs,
+  const SimplePolygon& rhs);
+
+//==============================================================================
+/// Non-equality operator for SimplePolygon objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator!=(
+  const SimplePolygon& lhs,
+  const SimplePolygon& rhs);
+
+//==============================================================================
 /// \brief If an invalid simple polygon (a polygon having self-intersections or
 /// having less than 3 vertices) is passed into a schedule, this exception will
 /// be raised.

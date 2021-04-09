@@ -228,4 +228,77 @@ template class bidirectional_iterator<
 
 } // namespace detail
 
+//==============================================================================
+bool operator==(
+  const Region& lhs,
+  const Region& rhs)
+{
+  if (lhs.get_map() != rhs.get_map() ||
+    lhs.num_spaces() != rhs.num_spaces())
+  {
+    return false;
+  }
+
+  if (lhs.get_lower_time_bound() == nullptr)
+  {
+    if (rhs.get_lower_time_bound() != nullptr)
+    {
+      return false;
+    }
+  }
+  else
+  {
+    if (rhs.get_lower_time_bound() == nullptr)
+    {
+      return false;
+    }
+
+    if (*lhs.get_lower_time_bound() != *rhs.get_lower_time_bound())
+    {
+      return false;
+    }
+  }
+
+  if (lhs.get_upper_time_bound() == nullptr)
+  {
+    if (rhs.get_upper_time_bound() != nullptr)
+    {
+      return false;
+    }
+  }
+  else
+  {
+    if (rhs.get_upper_time_bound() == nullptr)
+    {
+      return false;
+    }
+
+    if (*lhs.get_upper_time_bound() != *rhs.get_upper_time_bound())
+    {
+      return false;
+    }
+  }
+
+  auto lhs_it = lhs.begin();
+  auto rhs_it = rhs.begin();
+  while (lhs_it != lhs.end())
+  {
+    if (*lhs_it != *rhs_it)
+    {
+      return false;
+    }
+    ++lhs_it;
+    ++rhs_it;
+  }
+  return true;
+}
+
+//==============================================================================
+bool operator!=(
+  const Region& lhs,
+  const Region& rhs)
+{
+  return !(lhs == rhs);
+}
+
 } // namespace rmf_traffic
