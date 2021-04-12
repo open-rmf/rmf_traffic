@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef SRC__RMF_TRAFFIC__RESERVATIONS__INTERNAL_DATABASE 
-#define SRC__RMF_TRAFFIC__RESERVATIONS__INTERNAL_DATABASE 
+#ifndef SRC__RMF_TRAFFIC__RESERVATIONS__INTERNAL_DATABASE
+#define SRC__RMF_TRAFFIC__RESERVATIONS__INTERNAL_DATABASE
 #include <rmf_traffic/reservations/Database.hpp>
 #include <set>
 #include <map>
@@ -208,32 +208,32 @@ public:
     {
       auto earliest_start = earliest_start_time(item->second.reservation_id());
       if(earliest_start.has_value() &&
-        *earliest_start > item_desired_time)
+        *earliest_start > item_desired_start)
       {
         /// Violates the starting conditions mark this as a potential conflict
         _conflict_tracker[item->second.reservation_id()].insert(request_id);
         return std::nullopt;
       }
-      auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
+      auto proposed_reservation = item->second.propose_new_start_time(item_desired_start);
       proposal.impacted_reservations.push_back(proposed_reservation);
 
       /// Get the next_item
       item = prev_item;
-      item_desired_time = item->first - duration_to_shift;
+      item_desired_start = item->first - duration_to_shift;
       prev_item = std::prev(prev_item);
     }
 
     auto earliest_start = earliest_start_time(item->second.reservation_id());
     if(earliest_start.has_value() &&
-      *earliest_start > item_desired_time)
+      *earliest_start > item_desired_start)
     {
       /// Violates the starting conditions mark this as a potential conflict
       _conflict_tracker[item->second.reservation_id()].insert(request_id);
       return std::nullopt;
     }
-    auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
+    auto proposed_reservation = item->second.propose_new_start_time(item_desired_start);
     proposal.impacted_reservations.push_back(proposed_reservation);
-    return {proposal}
+    return {proposal};
   }
 
   /// Determines the earliest starting time given a reservation
@@ -263,8 +263,8 @@ public:
       {
         auto prev_it = std::prev(it);
         const auto& prev_reservation = prev_it->second;
-        auto prev_time = prev_it->first; 
-        
+        auto prev_time = prev_it->first;
+
         // Get the earliest end time of the previous reservation.
         auto prev_earliest_end = [=]() -> std::optional<Time> 
         {
@@ -274,7 +274,7 @@ public:
           }
 
           auto request_params = lookup_request(prev_reservation.reservation_id());
-          
+
           if(!request_params.duration().has_value())
           {
             return request_params.finish_time();
@@ -372,6 +372,50 @@ public:
     }
 
     return result;
+  }
+
+  static std::vector<std::optional<Duration>> nth_conflict_times_bring_forward(
+    ResourceSchedule& sched,
+    ResourceSchedule::iterator iter,
+    Time desired_time,
+    Time time_limit
+  )
+  {
+    int conflicts = 0;
+    
+    std::vector<std::optional<Duration>> conflict_table;
+    Duration conflict_duration = desired_time - *iter->second.actual_finish_time();
+    conflict_table.push_back({conflict_duration});
+    while(iter->first > time_limit)
+    {
+      if(iter==sched.begin())
+      {
+        break;
+      }
+      auto _prev_res = std::prev(iter);
+      auto gap = iter->first - *_prev_res->second.actual_finish_time();
+      //TODO: consider other constraints
+      conflict_duration += gap;
+      if(gap.count() == 0)
+      {
+        // There is no gap so it is not possible to have n conflicts
+        conflict_table[conflict_table.size() - 1] = {};
+      }
+      conflict_table.push_back({conflict_duration});
+      iter = _prev_res;
+    }
+    return conflict_table;
+  }
+
+  Time least_conflicts(
+    ReservationRequest::TimeRange time_range,
+    Duration duration,
+    ResourceSchedule& sched,
+    ResourceSchedule::iterator iter,
+    Time earliest_start_time,
+    Time latest_start_time)
+  {
+    
   }
 
   /// \returns all reservations which conflict with the start range. 

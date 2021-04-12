@@ -38,7 +38,7 @@ public:
   }
 };
 
-SCENARIO("Reservation test")
+/*SCENARIO("Reservation test")
 {
   auto negotiator = std::make_shared<YayaPapayaNegotiator>();
   Database::Implementation impl;  
@@ -75,6 +75,51 @@ SCENARIO("Reservation test")
           }
         }
       }
+    }
+  }
+}*/
+#include <iostream>2
+SCENARIO("test conflict optimizer")
+{
+  Database::Implementation::ResourceSchedule schedule;
+
+  WHEN(
+    "There are two reservations with a gap of 30min and a request at 10min l8r")
+  {
+    using namespace std::literals::chrono_literals;
+    auto now = std::chrono::steady_clock::now();
+    auto next_res_start = now+1h;
+    auto res1 = Reservation::make_reservation(
+      now,
+      "rubbish",
+      0,
+      {30min},
+      std::nullopt);
+    
+    auto res2 = Reservation::make_reservation(
+      next_res_start,
+      "rubbish",
+      0,
+      {30min},
+      std::nullopt);
+    
+    schedule.insert({now, res1});
+    schedule.insert({res2.start_time(), res2});
+
+    auto req_time = *res2.actual_finish_time() + 10min;
+    auto it = ++schedule.begin();
+    THEN("First conflict occurs at 10 minutes second conflict happens at 30min")
+    {
+      auto res = Database::Implementation::nth_conflict_times_bring_forward(
+        schedule,
+        it,
+        req_time,
+        now - 1h
+      );
+
+      REQUIRE(res.size() == 2);
+      REQUIRE(*res[0] == 10min);
+      REQUIRE(*res[1] == 40min);
     }
   }
 }
