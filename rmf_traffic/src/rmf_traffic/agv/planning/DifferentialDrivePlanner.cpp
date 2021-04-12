@@ -820,7 +820,7 @@ public:
   {
     if (const auto node = expand_hold(top, _holding_time, 1.0))
     {
-      if (_should_expand_to(top))
+      if (_should_expand_to(node))
         queue.push(node);
     }
   }
@@ -1817,7 +1817,8 @@ public:
             node->waypoint,
             node->yaw,
             node->event,
-            std::nullopt
+            std::nullopt,
+            next_id++
           });
 
         _to_debug[node] = new_debug_node;
@@ -1836,6 +1837,8 @@ public:
     std::vector<agv::Planner::Start> starts_;
     agv::Planner::Goal goal_;
     agv::Planner::Options options_;
+
+    std::size_t next_id = 0;
 
     Debugger(
       std::vector<agv::Planner::Start> starts,
@@ -1900,6 +1903,9 @@ public:
     Interface::Debugger& input_debugger) const
   {
     Debugger& debugger = static_cast<Debugger&>(input_debugger);
+
+    if (debugger.queue_.empty())
+      return std::nullopt;
 
     auto top = debugger.convert(debugger.queue_.top());
     debugger.queue_.pop();

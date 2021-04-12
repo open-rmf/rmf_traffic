@@ -65,6 +65,10 @@ public:
     /// If this is a starting node, then this will be the index.
     rmf_utils::optional<std::size_t> start_set_index;
 
+    /// A unique ID that sticks with this node for its entire lifetime.
+    /// This will also (roughly) reflect the order of node creation.
+    std::size_t id;
+
     struct Compare
     {
       bool operator()(const ConstNodePtr& a, const ConstNodePtr& b)
