@@ -1139,10 +1139,10 @@ public:
       }
 
       const Entry finish_key = Entry{
-          traversal.initial_lane_index,
-          orientation,
-          Side::Finish
-        };
+        traversal.initial_lane_index,
+        orientation,
+        Side::Finish
+      };
 
       node = std::make_shared<SearchNode>(
         SearchNode{
@@ -1972,7 +1972,7 @@ private:
     DifferentialDriveMapTypes::Entry,
     TimeSet,
     DifferentialDriveMapTypes::EntryHash
-    >;
+  >;
 
   mutable VisitMap _already_expanded;
 
