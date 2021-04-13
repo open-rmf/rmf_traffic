@@ -118,7 +118,10 @@ public:
 DatabaseRectificationRequesterFactory::DatabaseRectificationRequesterFactory(
   std::shared_ptr<Database> database)
 : _pimpl(rmf_utils::make_unique_impl<Implementation>(
-    Implementation{std::make_shared<std::shared_ptr<Database>>(database), {}}))
+      Implementation{
+        std::make_shared<std::shared_ptr<Database>>(database),
+        {}
+      }))
 {
   // Do nothing
 }

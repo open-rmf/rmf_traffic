@@ -490,9 +490,9 @@ SCENARIO("Testing specialized mirrors")
 }
 
 //==============================================================================
-class FailoverWriter
-  : public rmf_traffic::schedule::Writer,
-    public std::enable_shared_from_this<FailoverWriter>
+class FailoverWriter :
+  public rmf_traffic::schedule::Writer,
+  public std::enable_shared_from_this<FailoverWriter>
 {
 public:
 
@@ -500,8 +500,8 @@ public:
     rmf_traffic::schedule::DatabaseRectificationRequesterFactory;
 
   FailoverWriter()
-    : _database(std::make_shared<rmf_traffic::schedule::Database>()),
-      _rectifiers(std::make_shared<RectFactory>(_database))
+  : _database(std::make_shared<rmf_traffic::schedule::Database>()),
+    _rectifiers(std::make_shared<RectFactory>(_database))
   {
     // Do nothing
   }
@@ -648,7 +648,7 @@ SCENARIO("Test forking off of mirrors")
     "participant",
     "test_Mirror",
     rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-      rmf_traffic::Profile{shape}
+    rmf_traffic::Profile{shape}
   };
 
   auto p0 = writer->make_participant(description);
@@ -782,7 +782,7 @@ SCENARIO("Test forking off of mirrors")
   writer->rectify();
 
   CHECK(rmf_traffic::schedule::Database::Debug::get_itinerary(
-          writer->database(), p0.id())->empty());
+      writer->database(), p0.id())->empty());
 
   // TODO(MXG): This could use more testing. For example, what happens when
   // other mirrors were following the database and then it fails over while

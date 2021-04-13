@@ -297,18 +297,25 @@ Mirror::Mirror()
 void Mirror::update_participants_info(
   const ParticipantDescriptionsMap& participants)
 {
-  // First remove any participants that are no longer around
+  // First remove any participants that are no longer around.
+  // We create a removed_ids list to start, because otherwise we would be
+  // iterating through _pimpl->states while also erasing elements from it, which
+  // results in undefined behavior and may cause a segmentation fault.
+  std::unordered_set<ParticipantId> removed_ids;
   for ([[maybe_unused]] const auto& [id, state]: _pimpl->states)
   {
     const auto p_it = participants.find(id);
     if (p_it == participants.end())
-    {
-      // This participant is not in the updated list of participants, so remove
-      // the mirror's copy of it
-      _pimpl->states.erase(id);
-      _pimpl->descriptions.erase(id);
-      _pimpl->participant_ids.erase(id);
-    }
+      removed_ids.insert(id);
+  }
+
+  for (const auto id : removed_ids)
+  {
+    // This participant is not in the updated list of participants, so remove
+    // the mirror's copy of it
+    _pimpl->states.erase(id);
+    _pimpl->descriptions.erase(id);
+    _pimpl->participant_ids.erase(id);
   }
 
   // Next add-or-update all participants that are currently present

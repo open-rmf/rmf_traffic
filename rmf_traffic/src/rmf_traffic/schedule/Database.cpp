@@ -434,10 +434,12 @@ public:
     const auto insertion = participant_ids.insert(new_id);
     if (!insertion.second)
     {
+      // *INDENT-OFF*
       throw std::runtime_error(
         "[Database::Implementation::add_new_participant_id] Re-adding "
         "participant ID [" + std::to_string(new_id) + "]. This should not be "
         "possible! Please report this bug.");
+      // *INDENT-ON*
     }
   }
 
