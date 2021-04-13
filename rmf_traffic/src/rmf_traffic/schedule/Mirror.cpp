@@ -249,12 +249,20 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
 }
 
 //==============================================================================
-rmf_utils::optional<Itinerary> Mirror::get_itinerary(
+std::optional<Itinerary> Mirror::get_itinerary(
   std::size_t participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
+  {
+    // If we don't have a state, it's possible that we have a description for
+    // this participant but never received a state. In that case we should
+    // return an empty itinerary, not a nullopt.
+    if (_pimpl->participant_ids.count(participant_id) > 0)
+      return {};
+
     return rmf_utils::nullopt;
+  }
 
   const auto& state = p->second;
   Itinerary itinerary;
