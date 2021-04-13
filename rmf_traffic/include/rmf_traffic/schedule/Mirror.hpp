@@ -83,6 +83,11 @@ public:
   /// patch does not match
   bool update(const Patch& patch);
 
+  /// Fork a new database off of this Mirror. The state of the new database
+  /// will match the state that the upstream Database had at the time it sent
+  /// the latest Patch.
+  Database fork() const;
+
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or
   // erasing a trajectory that was never received in the first place.

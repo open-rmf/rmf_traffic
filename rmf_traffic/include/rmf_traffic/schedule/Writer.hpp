@@ -40,6 +40,11 @@ public:
   };
 
   using Input = std::vector<Item>;
+  using ParticipantId = rmf_traffic::schedule::ParticipantId;
+  using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
+  using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
+  using Duration = rmf_traffic::Duration;
+  using RouteId = rmf_traffic::RouteId;
 
   /// Set a brand new itinerary for a participant. This will replace any
   /// itinerary that is already in the schedule for the participant.

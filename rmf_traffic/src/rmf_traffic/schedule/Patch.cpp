@@ -27,6 +27,7 @@ class Patch::Participant::Implementation
 public:
 
   ParticipantId id;
+  ItineraryVersion itinerary_version;
   Change::Erase erasures;
   std::vector<Change::Delay> delays;
   Change::Add additions;
@@ -36,12 +37,14 @@ public:
 //==============================================================================
 Patch::Participant::Participant(
   ParticipantId id,
+  ItineraryVersion itinerary_version,
   Change::Erase erasures,
   std::vector<Change::Delay> delays,
   Change::Add additions)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         id,
+        itinerary_version,
         std::move(erasures),
         std::move(delays),
         std::move(additions)
@@ -54,6 +57,12 @@ Patch::Participant::Participant(
 ParticipantId Patch::Participant::participant_id() const
 {
   return _pimpl->id;
+}
+
+//==============================================================================
+ItineraryVersion Patch::Participant::itinerary_version() const
+{
+  return _pimpl->itinerary_version;
 }
 
 //==============================================================================
