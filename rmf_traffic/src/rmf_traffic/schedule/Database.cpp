@@ -21,10 +21,9 @@
 #include "ViewerInternal.hpp"
 #include "debug_Database.hpp"
 #include "internal_Snapshot.hpp"
+#include "internal_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
-
-#include <rmf_traffic/schedule/Database.hpp>
 
 #include <rmf_utils/Modular.hpp>
 
@@ -175,6 +174,15 @@ public:
   std::unordered_set<ParticipantId> participant_ids;
 
   Version schedule_version = 0;
+
+  /// When the Database forked off of a Mirror, this struct will contain
+  /// information about how the mirror was initialized
+  struct ForkInitializationInfo
+  {
+    Version initial_version;
+    Time initial_version_maximum_time;
+  };
+  std::optional<ForkInitializationInfo> fork_info;
 
   struct CullInfo
   {
@@ -418,6 +426,28 @@ public:
     // *INDENT-ON*
   }
 
+  void add_new_participant_id(ParticipantId new_id)
+  {
+    if (rmf_utils::modular(_next_participant_id).less_than_or_equal(new_id))
+      _next_participant_id = new_id + 1;
+
+    const auto insertion = participant_ids.insert(new_id);
+    if (!insertion.second)
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[Database::Implementation::add_new_participant_id] Re-adding "
+        "participant ID [" + std::to_string(new_id) + "]. This should not be "
+        "possible! Please report this bug.");
+      // *INDENT-ON*
+    }
+  }
+
+  static Implementation& get(Database& database)
+  {
+    return *database._pimpl;
+  }
+
 private:
   ParticipantId _next_participant_id = 0;
 };
@@ -441,7 +471,7 @@ std::size_t Database::Debug::current_removed_participant_count(
 }
 
 //==============================================================================
-rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
+std::optional<Writer::Input> Database::Debug::get_itinerary(
   const Database& database,
   const ParticipantId participant)
 {
@@ -683,23 +713,22 @@ void Database::erase(
     state.active_routes.erase(id);
 }
 
-//==============================================================================
-Writer::Registration Database::register_participant(
+Writer::Registration register_participant_impl(
+  Database::Implementation& pimpl,
+  ParticipantId id,
   ParticipantDescription description)
 {
-  const ParticipantId id = _pimpl->get_next_participant_id();
+  const Version version = ++pimpl.schedule_version;
   auto tracker = Inconsistencies::Implementation::register_participant(
-    _pimpl->inconsistencies, id);
-
-  const Version version = ++_pimpl->schedule_version;
+    pimpl.inconsistencies, id);
 
   const auto description_ptr =
     std::make_shared<const ParticipantDescription>(std::move(description));
 
-  const auto p_it = _pimpl->states.insert(
+  const auto p_it = pimpl.states.insert(
     std::make_pair(
       id,
-      Implementation::ParticipantState{
+      Database::Implementation::ParticipantState{
         {},
         std::move(tracker),
         {},
@@ -708,15 +737,65 @@ Writer::Registration Database::register_participant(
         version
       })).first;
 
-  _pimpl->descriptions.insert({id, description_ptr});
+  pimpl.descriptions.insert({id, description_ptr});
 
-  _pimpl->add_participant_version[version] = id;
+  pimpl.add_participant_version[version] = id;
 
   const auto& state = p_it->second;
-  return Registration(
+  return Database::Registration(
     id, state.tracker->last_known_version(), state.last_route_id);
 }
 
+//==============================================================================
+Writer::Registration Database::register_participant(
+  ParticipantDescription description)
+{
+  const ParticipantId id = _pimpl->get_next_participant_id();
+  return register_participant_impl(*_pimpl, id, std::move(description));
+}
+
+//==============================================================================
+void internal_register_participant(
+  Database& database,
+  ParticipantId id,
+  ParticipantDescription description)
+{
+  auto& impl = Database::Implementation::get(database);
+  impl.add_new_participant_id(id);
+  register_participant_impl(impl, id, std::move(description));
+}
+
+//==============================================================================
+void set_initial_fork_version(
+  Database& database,
+  Version version)
+{
+  auto& impl = Database::Implementation::get(database);
+  impl.schedule_version = version;
+
+  std::optional<Time> maximum_time;
+  for (const auto& [_, state] : impl.states)
+  {
+    for (const auto& [_, storage] : state.storage)
+    {
+      const auto& route = storage.entry->route;
+      const auto* finish = route->trajectory().finish_time();
+      if (finish)
+      {
+        if (!maximum_time.has_value() || *maximum_time < *finish)
+          maximum_time = *finish;
+      }
+    }
+  }
+
+  if (maximum_time.has_value())
+  {
+    impl.fork_info = Database::Implementation::ForkInitializationInfo{
+      version,
+      *maximum_time
+    };
+  }
+}
 
 //==============================================================================
 void Database::update_description(
@@ -1199,8 +1278,18 @@ auto Database::changes(
   const Query& parameters,
   rmf_utils::optional<Version> after) const -> Patch
 {
+  if (after.has_value() && _pimpl->fork_info.has_value())
+  {
+    // If a specific version is being asked for, but that version predates the
+    // initial version of this forked database, then we will instead simply send
+    // a changeset that will bring the mirrors up to date no matter what their
+    // current version is.
+    if (*after < _pimpl->fork_info->initial_version)
+      return changes(parameters, std::nullopt);
+  }
+
   std::unordered_map<ParticipantId, ParticipantChanges> changes;
-  if (after)
+  if (after.has_value())
   {
     PatchRelevanceInspector inspector(*after);
     _pimpl->timeline.inspect(
@@ -1221,6 +1310,7 @@ auto Database::changes(
   for (const auto& p : changes)
   {
     const auto& changeset = p.second;
+    const auto& state = _pimpl->states.at(p.first);
 
     std::vector<Change::Delay> delays;
     for (const auto& d : changeset.delays)
@@ -1243,6 +1333,7 @@ auto Database::changes(
     part_patches.emplace_back(
       Patch::Participant{
         p.first,
+        state.tracker->last_known_version(),
         Change::Erase(std::move(p.second.erasures)),
         std::move(delays),
         Change::Add(std::move(p.second.additions))
@@ -1321,6 +1412,14 @@ Version Database::cull(Time time)
     Change::Cull(time),
     _pimpl->schedule_version
   };
+
+  if (_pimpl->fork_info.has_value())
+  {
+    // If the initial state of the fork is being culled, then we can erase this
+    // fork initialization information.
+    if (_pimpl->fork_info->initial_version_maximum_time < time)
+      _pimpl->fork_info = std::nullopt;
+  }
 
   return _pimpl->schedule_version;
 }

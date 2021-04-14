@@ -45,6 +45,10 @@ public:
     /// \param[in] id
     ///   The ID of the participant that is being changed
     ///
+    /// \param[in] itinerary_version
+    ///   The version of this participant's itinerary that results from applying
+    ///   this patch
+    ///
     /// \param[in] erasures
     ///   The information about which routes to erase
     ///
@@ -55,12 +59,16 @@ public:
     ///   The information about which routes to add
     Participant(
       ParticipantId id,
+      ItineraryVersion itinerary_version,
       Change::Erase erasures,
       std::vector<Change::Delay> delays,
       Change::Add additions);
 
     /// The ID of the participant that this set of changes will patch.
     ParticipantId participant_id() const;
+
+    /// The itinerary version that results from this patch
+    ItineraryVersion itinerary_version() const;
 
     /// The route erasures to perform.
     ///
