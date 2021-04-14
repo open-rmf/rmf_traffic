@@ -638,6 +638,19 @@ private:
 //==============================================================================
 SCENARIO("Test forking off of mirrors")
 {
+  // In this test, we create a writer which has the ability to "fail over",
+  // meaning its back end database can be deleted and replaced with a new
+  // database that forked off of a mirror that was keeping in sync with the
+  // database. This writer also has packet loss issues that can be toggled on
+  // and off.
+  //
+  // Given this writer, we will perform arbitrary operations on a participant
+  // and intermittently toggle packet loss on and off, as well as trigger the
+  // failover mechanism occasionally. Each time we do a failover, we will test
+  // to make sure that the new back end database can continue staying in sync
+  // with the participant, and that the new database agrees with the participant
+  // about its current state.
+
   using namespace std::chrono_literals;
   const auto writer = std::make_shared<FailoverWriter>();
 
@@ -714,6 +727,8 @@ SCENARIO("Test forking off of mirrors")
   writer->failover();
 
   {
+    // This block tests to make sure the new Database's itinerary information
+    // perfectly matches the participant's intended itinerary information.
     const auto itinerary = convert_itinerary(
       *rmf_traffic::schedule::Database::Debug::get_itinerary(
         writer->database(), p0.id()));

@@ -84,8 +84,8 @@ public:
   bool update(const Patch& patch);
 
   /// Fork a new database off of this Mirror. The state of the new database
-  /// will match the state that the upstream Database had at the time it sent
-  /// the latest Patch.
+  /// will match the last state of the upstream database that this Mirror knows
+  /// about.
   Database fork() const;
 
   // TODO(MXG): Consider a feature to log and report any possible
