@@ -1,6 +1,4 @@
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Changelog for package rmf_traffic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+## Changelog for package rmf_traffic
 
 1.3.0 (2021-XX-XX)
 ------------------
