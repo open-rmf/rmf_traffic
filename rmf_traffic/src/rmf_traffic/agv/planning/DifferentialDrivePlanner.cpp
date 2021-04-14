@@ -22,6 +22,7 @@
 #include "a_star.hpp"
 
 #include <rmf_utils/math.hpp>
+#include <set>
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #include <iostream>
@@ -366,6 +367,7 @@ class ScheduledDifferentialDriveExpander
 public:
 
   using Entry = DifferentialDriveMapTypes::Entry;
+  using EntryHash = DifferentialDriveMapTypes::EntryHash;
 
   struct SearchNode;
   using SearchNodePtr = std::shared_ptr<SearchNode>;
@@ -374,14 +376,15 @@ public:
 
   struct SearchNode
   {
-    // We use optional here because start nodes don't always have a waypoint.
-    // If this is a nullopt, then SearchNode::start should have a value.
+    // We use optional here because start nodes don't always have an Entry value
+    // or a waypoint. If this is a nullopt, then SearchNode::start should have a
+    // value.
+    std::optional<Entry> entry;
     std::optional<std::size_t> waypoint;
     std::vector<std::size_t> approach_lanes;
     Eigen::Vector2d position;
     double yaw;
     Time time;
-    std::optional<Orientation> orientation;
 
     double remaining_cost_estimate;
 
@@ -407,28 +410,31 @@ public:
 
     std::optional<Orientation> get_orientation() const
     {
-      return orientation;
+      if (entry.has_value())
+        return entry->orientation;
+
+      return std::nullopt;
     }
 
     SearchNode(
+      std::optional<Entry> entry_,
       std::optional<std::size_t> waypoint_,
       std::vector<std::size_t> approach_lanes_,
       Eigen::Vector2d position_,
       double yaw_,
       Time time_,
-      std::optional<Orientation> orientation_,
       double remaining_cost_estimate_,
       std::vector<Route> route_from_parent_,
       Graph::Lane::EventPtr event_,
       double current_cost_,
       std::optional<Planner::Start> start_,
       SearchNodePtr parent_)
-    : waypoint(waypoint_),
+    : entry(entry_),
+      waypoint(waypoint_),
       approach_lanes(std::move(approach_lanes_)),
       position(position_),
       yaw(yaw_),
       time(time_),
-      orientation(orientation_),
       remaining_cost_estimate(remaining_cost_estimate_),
       route_from_parent(std::move(route_from_parent_)),
       event(event_),
@@ -687,12 +693,12 @@ public:
       // really have it return a Traversal.
       auto node = std::make_shared<SearchNode>(
         SearchNode{
+          std::nullopt,
           target_waypoint_index,
           approach_lanes,
           wp_location,
           approach_yaw,
           approach_time,
-          std::nullopt,
           top->remaining_cost_estimate - approach_cost,
           std::move(approach_routes),
           exit_event,
@@ -705,12 +711,12 @@ public:
       {
         node = std::make_shared<SearchNode>(
           SearchNode{
+            std::nullopt,
             target_waypoint_index,
             {},
             wp_location,
             approach_yaw,
             approach_time + exit_event_duration,
-            std::nullopt,
             node->remaining_cost_estimate - exit_event_cost,
             std::move(exit_event_routes),
             nullptr,
@@ -748,11 +754,11 @@ public:
       std::make_shared<SearchNode>(
         SearchNode{
           std::nullopt,
+          std::nullopt,
           {},
           p,
           yaw,
           hold_until,
-          std::nullopt,
           top->remaining_cost_estimate,
           std::move(hold_routes),
           nullptr,
@@ -793,12 +799,12 @@ public:
 
     return std::make_shared<SearchNode>(
       SearchNode{
+        top->entry,
         wp_index,
         {},
         p,
         yaw,
         finish_time,
-        top->orientation,
         top->remaining_cost_estimate,
         {std::move(route)},
         nullptr,
@@ -813,7 +819,10 @@ public:
     SearchQueue& queue) const
   {
     if (const auto node = expand_hold(top, _holding_time, 1.0))
-      queue.push(node);
+    {
+      if (_should_expand_to(node))
+        queue.push(node);
+    }
   }
 
   SearchNodePtr rotate_to_goal(const SearchNodePtr& top) const
@@ -846,12 +855,12 @@ public:
 
     return std::make_shared<SearchNode>(
       SearchNode{
+        std::nullopt,
         _goal_waypoint,
         {},
         p,
         target_yaw,
         finish_time,
-        std::nullopt,
         0.0,
         {std::move(route)},
         nullptr,
@@ -1093,12 +1102,16 @@ public:
 
         node = std::make_shared<SearchNode>(
           SearchNode{
+            Entry{
+              traversal.initial_lane_index,
+              orientation,
+              Side::Start
+            },
             initial_waypoint_index,
             {},
             p0,
             yaw,
             time,
-            orientation,
             *remaining_cost_estimate
             + entry_event_cost + alt->time + exit_event_cost,
             {std::move(approach_route)},
@@ -1125,14 +1138,20 @@ public:
         }
       }
 
+      const Entry finish_key = Entry{
+        traversal.initial_lane_index,
+        orientation,
+        Side::Finish
+      };
+
       node = std::make_shared<SearchNode>(
         SearchNode{
+          traversal.exit_event ? std::nullopt : std::make_optional(finish_key),
           next_waypoint_index,
           traversal.traversed_lanes,
           next_position,
           traversal_result.finish_yaw,
           traversal_result.finish_time,
-          orientation,
           *remaining_cost_estimate + exit_event_cost,
           std::move(traversal_result.routes),
           traversal.exit_event,
@@ -1145,12 +1164,12 @@ public:
       {
         node = std::make_shared<SearchNode>(
           SearchNode{
+            finish_key,
             next_waypoint_index,
             {},
             next_position,
             traversal_result.finish_yaw,
             traversal_result.finish_time + exit_event_duration,
-            orientation,
             *remaining_cost_estimate,
             {std::move(exit_event_route)},
             nullptr,
@@ -1163,7 +1182,9 @@ public:
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       std::cout << " ^^^^^^^^^^^^^^ Pushing" << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
-      queue.push(node);
+
+      if (_should_expand_to(node))
+        queue.push(node);
     }
   }
 
@@ -1192,18 +1213,14 @@ public:
         const auto cost =
           time::to_seconds(approach_info.finish_time - top->time);
 
-        const auto entry = solution_root->info.entry;
-        const auto orientation = entry.has_value() ?
-          std::make_optional(entry->orientation) : std::nullopt;
-
         search_node = std::make_shared<SearchNode>(
           SearchNode{
+            solution_root->info.entry,
             solution_root->info.waypoint,
             solution_root->info.approach_lanes,
             solution_root->info.position,
             approach_info.finish_yaw,
             approach_info.finish_time,
-            orientation,
             solution_root->info.remaining_cost_estimate,
             std::move(approach_info.routes),
             solution_root->info.event,
@@ -1244,18 +1261,14 @@ public:
         auto route_info = solution_node->route_factory(
           search_node->time, search_node->yaw);
 
-        const auto entry = solution_node->info.entry;
-        const auto orientation = entry.has_value() ?
-          std::make_optional(entry->orientation) : std::nullopt;
-
         search_node = std::make_shared<SearchNode>(
           SearchNode{
+            solution_node->info.entry,
             solution_node->info.waypoint,
             solution_node->info.approach_lanes,
             solution_node->info.position,
             route_info.finish_yaw,
             route_info.finish_time,
-            orientation,
             solution_node->info.remaining_cost_estimate,
             std::move(route_info.routes),
             solution_node->info.event,
@@ -1277,6 +1290,14 @@ public:
 
   void expand(const SearchNodePtr& top, SearchQueue& queue) const
   {
+    if (!_should_expand_from(top))
+    {
+      // This means we have already expanded from this location before, at
+      // approximately the same time, so there is no value in expanding this
+      // again.
+      return;
+    }
+
     if (!top->waypoint.has_value())
     {
       // If the node does not have a waypoint, then it must be a start node.
@@ -1545,12 +1566,12 @@ public:
 
     return std::make_shared<SearchNode>(
       SearchNode{
+        std::nullopt,
         node_waypoint,
         {},
         start_location.value_or(waypoint_location),
         initial_yaw,
         start.time(),
-        std::nullopt,
         remaining_cost_estimate,
         {{initial_map, std::move(start_point_trajectory)}},
         nullptr,
@@ -1721,9 +1742,11 @@ public:
     _goal_time(goal.minimum_time()),
     _validator(options.validator().get()),
     _holding_time(options.minimum_holding_time()),
+    _discrete_time_window(_holding_time/2),
     _saturation_limit(options.saturation_limit()),
     _maximum_cost_estimate(options.maximum_cost_estimate()),
-    _interrupter(options.interrupter())
+    _interrupter(options.interrupter()),
+    _already_expanded(4093, EntryHash(_supergraph->original().lanes.size()))
   {
     const auto& angular = _supergraph->traits().rotational();
     _w_nom = angular.get_nominal_velocity();
@@ -1794,7 +1817,8 @@ public:
             node->waypoint,
             node->yaw,
             node->event,
-            std::nullopt
+            std::nullopt,
+            next_id++
           });
 
         _to_debug[node] = new_debug_node;
@@ -1813,6 +1837,8 @@ public:
     std::vector<agv::Planner::Start> starts_;
     agv::Planner::Goal goal_;
     agv::Planner::Options options_;
+
+    std::size_t next_id = 0;
 
     Debugger(
       std::vector<agv::Planner::Start> starts,
@@ -1878,6 +1904,9 @@ public:
   {
     Debugger& debugger = static_cast<Debugger&>(input_debugger);
 
+    if (debugger.queue_.empty())
+      return std::nullopt;
+
     auto top = debugger.convert(debugger.queue_.top());
     debugger.queue_.pop();
     debugger.expanded_nodes_.push_back(debugger.convert(top));
@@ -1930,12 +1959,101 @@ private:
   std::optional<rmf_traffic::Time> _goal_time;
   const RouteValidator* _validator;
   Duration _holding_time;
+  Duration _discrete_time_window;
   std::optional<std::size_t> _saturation_limit;
   std::optional<double> _maximum_cost_estimate;
   std::function<bool()> _interrupter;
   double _w_nom;
   double _alpha_nom;
   double _rotation_threshold;
+
+  using TimeSet = std::set<rmf_traffic::Time>;
+  using VisitMap = std::unordered_map<
+    DifferentialDriveMapTypes::Entry,
+    TimeSet,
+    DifferentialDriveMapTypes::EntryHash
+  >;
+
+  mutable VisitMap _already_expanded;
+
+  std::optional<TimeSet::const_iterator> _get_hint_if_not_redundant(
+    const Time time,
+    const TimeSet& time_set) const
+  {
+    const auto greater_or_equal_it = time_set.lower_bound(time);
+    if (greater_or_equal_it == time_set.begin())
+    {
+      if (time + _discrete_time_window < *greater_or_equal_it)
+      {
+        return greater_or_equal_it;
+      }
+
+      // The node's time is within the tolerance of one that was already
+      // expanded
+      return std::nullopt;
+    }
+
+    const auto less_than = --TimeSet::const_iterator(greater_or_equal_it);
+    if (time < *less_than + _discrete_time_window)
+    {
+      // The node is within the tolerance of an earlier time
+      return std::nullopt;
+    }
+
+    // If we reach this point, the node is far enough from the earlier time, so
+    // now we need to check if it's far enough from any later time.
+
+    if (greater_or_equal_it == time_set.end())
+    {
+      // There is no need to check the node against a later time, because there
+      // is no later time in the set.
+      return greater_or_equal_it;
+    }
+
+    if (time + _discrete_time_window < *greater_or_equal_it)
+    {
+      return greater_or_equal_it;
+    }
+
+    return std::nullopt;
+  }
+
+  bool _should_expand_from(const SearchNodePtr& node) const
+  {
+    if (!node->entry.has_value())
+      return true;
+
+    const auto entry_it = _already_expanded.insert({*node->entry, {}}).first;
+    TimeSet& time_set = entry_it->second;
+    if (time_set.empty())
+    {
+      time_set.insert(node->time);
+      return true;
+    }
+
+    const auto time = node->time;
+    const auto hint = _get_hint_if_not_redundant(time, time_set);
+    if (hint.has_value())
+    {
+      time_set.insert(*hint, time);
+      return true;
+    }
+
+    return false;
+  }
+
+  bool _should_expand_to(const SearchNodePtr& node) const
+  {
+    if (!node->entry.has_value())
+      return true;
+
+    const auto entry_it = _already_expanded.insert({*node->entry, {}}).first;
+    const TimeSet& time_set = entry_it->second;
+    if (time_set.empty())
+      return true;
+
+    return _get_hint_if_not_redundant(node->time, time_set).has_value();
+  }
 };
 
 //==============================================================================
