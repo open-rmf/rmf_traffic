@@ -44,7 +44,7 @@ public:
 
   // Returns the itinerary of a participant with given ParticipantId in the form
   // of Writer::Input
-  static rmf_utils::optional<Writer::Input> get_itinerary(
+  static std::optional<Writer::Input> get_itinerary(
     const Database& db,
     const ParticipantId participant);
 

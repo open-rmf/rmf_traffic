@@ -227,12 +227,15 @@ public:
       }
     }
 
-    initial_endpoints.insert(
-      {
-        participant,
-        Endpoint::Implementation::make_initial(participant, initial,
-        description)
-      });
+    if (initial)
+    {
+      initial_endpoints.insert(
+        {
+          participant,
+          Endpoint::Implementation::make_initial(participant, initial,
+          description)
+        });
+    }
   }
 
   static void insert_final_endpoint(
@@ -251,11 +254,14 @@ public:
       }
     }
 
-    final_endpoints.insert(
-      {
-        participant,
-        Endpoint::Implementation::make_final(participant, final, description)
-      });
+    if (final)
+    {
+      final_endpoints.insert(
+        {
+          participant,
+          Endpoint::Implementation::make_final(participant, final, description)
+        });
+    }
   }
 
 

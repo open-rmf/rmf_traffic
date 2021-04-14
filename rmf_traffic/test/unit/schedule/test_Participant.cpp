@@ -33,8 +33,8 @@ class FaultyWriter : public rmf_traffic::schedule::Writer
 {
 public:
 
-  FaultyWriter(rmf_traffic::schedule::Database& database)
-  : _database(database)
+  FaultyWriter(std::shared_ptr<rmf_traffic::schedule::Database> database)
+  : _database(std::move(database))
   {
     // Do nothing
   }
@@ -49,7 +49,7 @@ public:
     if (drop_packets)
       return;
 
-    _database.set(participant, itinerary, version);
+    _database->set(participant, itinerary, version);
   }
 
   void extend(
@@ -60,7 +60,7 @@ public:
     if (drop_packets)
       return;
 
-    _database.extend(participant, routes, version);
+    _database->extend(participant, routes, version);
   }
 
   void delay(
@@ -71,7 +71,7 @@ public:
     if (drop_packets)
       return;
 
-    _database.delay(participant, delay, version);
+    _database->delay(participant, delay, version);
   }
 
   void erase(
@@ -81,7 +81,7 @@ public:
     if (drop_packets)
       return;
 
-    _database.erase(participant, version);
+    _database->erase(participant, version);
   }
 
   void erase(
@@ -92,88 +92,50 @@ public:
     if (drop_packets)
       return;
 
-    _database.erase(participant, routes, version);
+    _database->erase(participant, routes, version);
   }
 
   Registration register_participant(
     rmf_traffic::schedule::ParticipantDescription participant_info) final
   {
     // We assume participant registration is done over a reliable connection
-    return _database.register_participant(participant_info);
+    return _database->register_participant(participant_info);
   }
 
   void unregister_participant(
     rmf_traffic::schedule::ParticipantId participant) final
   {
-    _database.set_current_time(std::chrono::steady_clock::now());
-    _database.unregister_participant(participant);
+    _database->set_current_time(std::chrono::steady_clock::now());
+    _database->unregister_participant(participant);
   }
 
   void update_description(
     rmf_traffic::schedule::ParticipantId participant,
     rmf_traffic::schedule::ParticipantDescription desc) final
   {
-    _database.update_description(participant, desc);
+    _database->update_description(participant, std::move(desc));
   }
 
 private:
-  rmf_traffic::schedule::Database& _database;
+  std::shared_ptr<rmf_traffic::schedule::Database> _database;
 };
 
-//=============================================================================
+//==============================================================================
 namespace {
 
 using RouteId = rmf_traffic::RouteId;
 using ConstRoutePtr = rmf_traffic::ConstRoutePtr;
 
-inline void CHECK_EQUAL_TRAJECOTRY(
-  const rmf_traffic::Trajectory& t1,
-  const rmf_traffic::Trajectory& t2)
-{
-  REQUIRE(t1.size() == t2.size());
-  REQUIRE(t1.start_time());
-  REQUIRE(t1.finish_time());
-  REQUIRE(t2.start_time());
-  REQUIRE(t2.finish_time());
-
-  auto t1_it = t1.begin();
-  auto t2_it = t2.begin();
-
-  for (; t1_it != t1.end(); ++t1_it, ++t2_it)
-  {
-    REQUIRE((t1_it->position() - t2_it->position()).norm() == Approx(0.0).margin(
-        1e-6));
-    REQUIRE((t1_it->velocity() - t2_it->velocity()).norm() == Approx(0.0).margin(
-        1e-6));
-    REQUIRE((t1_it->time() - t2_it->time()).count() == Approx(0.0));
-  }
-}
-
-std::unordered_map<RouteId, ConstRoutePtr> convert_itinerary(
-  rmf_traffic::schedule::Writer::Input input)
-{
-  std::unordered_map<RouteId, ConstRoutePtr> itinerary;
-  itinerary.reserve(input.size());
-
-  for (const auto& item : input)
-  {
-    const auto result = itinerary.insert(std::make_pair(item.id, item.route));
-    assert(result.second);
-    (void)(result);
-  }
-  return itinerary;
-}
-
 inline void CHECK_ITINERARY(
   const rmf_traffic::schedule::Participant& p,
-  const rmf_traffic::schedule::Database& db)
+  const std::shared_ptr<rmf_traffic::schedule::Database>& db)
 {
   using Debug = rmf_traffic::schedule::Database::Debug;
 
-  REQUIRE(db.get_itinerary(p.id()));
+  REQUIRE(db->get_itinerary(p.id()));
 
   auto db_iti = convert_itinerary(
-    Debug::get_itinerary(db, p.id()).value());
+    Debug::get_itinerary(*db, p.id()).value());
   auto p_iti = convert_itinerary(p.itinerary());
   REQUIRE(db_iti.size() == p_iti.size());
 
@@ -182,7 +144,7 @@ inline void CHECK_ITINERARY(
     const auto db_it = db_iti.find(item.first);
     REQUIRE(db_it != db_iti.end());
     CHECK(item.second->map() == db_it->second->map());
-    CHECK_EQUAL_TRAJECOTRY(item.second->trajectory(),
+    CHECK_EQUAL_TRAJECTORY(item.second->trajectory(),
       db_it->second->trajectory());
   }
 }
@@ -214,12 +176,12 @@ SCENARIO("Test Participant")
   using Route = rmf_traffic::Route;
 
   // Create a database
-  rmf_traffic::schedule::Database db;
+  auto db = std::make_shared<rmf_traffic::schedule::Database>();
   rmf_traffic::schedule::Version dbv = 0;
-  CHECK(db.latest_version() == dbv);
-  REQUIRE(db.participant_ids().size() == 0);
-  REQUIRE(db.get_participant(0) == nullptr);
-  REQUIRE(db.inconsistencies().size() == 0);
+  CHECK(db->latest_version() == dbv);
+  REQUIRE(db->participant_ids().size() == 0);
+  REQUIRE(db->get_participant(0) == nullptr);
+  REQUIRE(db->inconsistencies().size() == 0);
 
   // Create a faulty writer
   const auto writer = std::make_shared<FaultyWriter>(db);
@@ -251,12 +213,12 @@ SCENARIO("Test Participant")
     ::ParticipantDescription::Rx::Responsive);
   REQUIRE(p1.itinerary().size() == 0);
 
-  CHECK(db.participant_ids().size() == 1);
-  REQUIRE(db.participant_ids().count(p1.id()) == 1);
-  CHECK(db.latest_version() == ++dbv);
-  REQUIRE(db.inconsistencies().begin() != db.inconsistencies().end());
-  REQUIRE(db.get_itinerary(p1.id()));
-  CHECK(db.get_itinerary(p1.id())->empty());
+  CHECK(db->participant_ids().size() == 1);
+  REQUIRE(db->participant_ids().count(p1.id()) == 1);
+  CHECK(db->latest_version() == ++dbv);
+  REQUIRE(db->inconsistencies().begin() != db->inconsistencies().end());
+  REQUIRE(db->get_itinerary(p1.id()));
+  CHECK(db->get_itinerary(p1.id())->empty());
 
   const auto time = std::chrono::steady_clock::now();
   rmf_traffic::Trajectory t1;
@@ -280,7 +242,7 @@ SCENARIO("Test Participant")
     CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.last_route_id() == 0);
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     WHEN("When participant itinerary is set with an empty itinerary")
@@ -290,18 +252,18 @@ SCENARIO("Test Participant")
       CHECK(route_id == 0);
       CHECK(p1.itinerary().empty());
 
-      CHECK(db.latest_version() == ++dbv);
+      CHECK(db->latest_version() == ++dbv);
       CHECK_ITINERARY(p1, db);
     }
   }
 
-  GIVEN("Changes:: SS")
+  GIVEN("Changes: SS")
   {
     auto route_id = p1.set({Route{"test_map", t1}});
     CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.last_route_id() == 0);
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     route_id = p1.set({
@@ -313,7 +275,7 @@ SCENARIO("Test Participant")
     // The RouteIds continue from previous set()
     CHECK(p1.last_route_id() == 2);
     CHECK(p1.itinerary().size() == 2);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -323,7 +285,7 @@ SCENARIO("Test Participant")
     CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.last_route_id() == 0);
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -331,7 +293,7 @@ SCENARIO("Test Participant")
   {
     auto route_id = p1.set({Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     // Extend itinerary with two new routes
@@ -343,7 +305,7 @@ SCENARIO("Test Participant")
     CHECK(route_id == 0);
     CHECK(p1.itinerary().size() == 3);
     CHECK(p1.last_route_id() == 2);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -355,7 +317,7 @@ SCENARIO("Test Participant")
     CHECK(p1.itinerary().size() == 0);
 
     // We do not need to transmit a delay when the itinerary is empty
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     CHECK(p1.last_route_id() ==
       std::numeric_limits<rmf_traffic::RouteId>::max());
@@ -365,7 +327,7 @@ SCENARIO("Test Participant")
   {
     p1.set({Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     // We make a copy of the itinerary for comparison after delay
@@ -388,7 +350,7 @@ SCENARIO("Test Participant")
         == Approx(0.0));
     }
 
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -400,7 +362,7 @@ SCENARIO("Test Participant")
       std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.itinerary().size() == 0);
     // No change in database version
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
   }
 
   GIVEN("Changes: SE")
@@ -408,12 +370,12 @@ SCENARIO("Test Participant")
     p1.set({Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
     CHECK(p1.last_route_id() == 0);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     p1.erase({p1.last_route_id()});
     CHECK(p1.itinerary().size() == 0);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -425,7 +387,7 @@ SCENARIO("Test Participant")
       std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.itinerary().size() == 0);
     // No change in database version
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
   }
 
   GIVEN("Changes: SC")
@@ -433,12 +395,12 @@ SCENARIO("Test Participant")
     p1.set({Route{"test_map", t1}, Route{"test_map_2", t2}});
     REQUIRE(p1.itinerary().size() == 2);
     CHECK(p1.last_route_id() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     p1.clear();
     CHECK(p1.itinerary().size() == 0);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -448,9 +410,9 @@ SCENARIO("Test Participant")
 
     p1.set({{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
   }
 
   GIVEN("Changes sS")
@@ -459,25 +421,25 @@ SCENARIO("Test Participant")
 
     p1.set({{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     writer->drop_packets = false;
 
     p1.set({Route{"test_map", t2}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.get_itinerary(p1.id())->size() == 1);
-    CHECK(db.latest_version() == ++dbv);
-    CHECK(db.inconsistencies().begin()->participant == p1.id());
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->get_itinerary(p1.id())->size() == 1);
+    CHECK(db->latest_version() == ++dbv);
+    CHECK(db->inconsistencies().begin()->participant == p1.id());
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
 
     rectifier->rectify();
     // There is no need to fix anything, because the last change was a
     // nullifying change.
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes sDdS")
@@ -486,41 +448,41 @@ SCENARIO("Test Participant")
 
     p1.set({{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     writer->drop_packets = false;
 
     p1.delay(10s);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.inconsistencies().size() == 1);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 1);
-    CHECK(db.inconsistencies().begin()->ranges.last_known_version() ==
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->inconsistencies().size() == 1);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 1);
+    CHECK(db->inconsistencies().begin()->ranges.last_known_version() ==
       rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
 
     writer->drop_packets = true;
 
     p1.delay(10s);
-    CHECK(db.latest_version() == dbv);
-    CHECK(db.inconsistencies().begin()->ranges.last_known_version() + 1 ==
+    CHECK(db->latest_version() == dbv);
+    CHECK(db->inconsistencies().begin()->ranges.last_known_version() + 1 ==
       rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
 
     writer->drop_packets = false;
 
     p1.set({{"test_map", t2}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->size() == 1);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
-    CHECK(db.inconsistencies().begin()->ranges.last_known_version() ==
+    CHECK(db->latest_version() == ++dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->size() == 1);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.last_known_version() ==
       rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
 
     rectifier->rectify();
     // There is no need to fix anything, because the last change was a
     // nullifying change.
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
   }
 
@@ -530,29 +492,29 @@ SCENARIO("Test Participant")
 
     // Set the itinerary
     p1.set({Route{"test_map", t1}, Route{"test_map", t2}});
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     writer->drop_packets = false;
 
     // Extend the itinerary
     p1.extend({Route{"test_map_2", t2}});
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->size() == 0);
-    CHECK(db.inconsistencies().begin()->participant == p1.id());
-    CHECK(db.inconsistencies().begin()->ranges.size() != 0);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->size() == 0);
+    CHECK(db->inconsistencies().begin()->participant == p1.id());
+    CHECK(db->inconsistencies().begin()->ranges.size() != 0);
 
     // Fix inconsistencies
     rectifier->rectify();
-    CHECK(db.latest_version() == ++(++dbv));
+    CHECK(db->latest_version() == ++(++dbv));
     CHECK_ITINERARY(p1, db);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: SxX")
   {
     p1.set({Route{"test_map", t1}});
 
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     // Tell the writer to start dropping packets
@@ -561,30 +523,30 @@ SCENARIO("Test Participant")
     p1.extend({Route{"test_map_2", t1}});
 
     // Check that the database version did not change
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     writer->drop_packets = false;
 
     p1.extend({Route{"test_map_3", t1}});
 
     // Check that the database version still did not change
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     // Check that the database now sees that we have an inconsistency
-    REQUIRE(db.inconsistencies().size() > 0);
-    CHECK(db.inconsistencies().begin()->participant == p1.id());
-    CHECK(db.inconsistencies().begin()->ranges.size() != 0);
+    REQUIRE(db->inconsistencies().size() > 0);
+    CHECK(db->inconsistencies().begin()->participant == p1.id());
+    CHECK(db->inconsistencies().begin()->ranges.size() != 0);
 
     // Tell the rectifier to fix the inconsistencies
     rectifier->rectify();
 
     // Now the database should have updated with both changes
-    CHECK(db.latest_version() == ++(++dbv));
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->size() == 3);
-    const auto itinerary = db.get_itinerary(p1.id());
+    CHECK(db->latest_version() == ++(++dbv));
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->size() == 3);
+    const auto itinerary = db->get_itinerary(p1.id());
     CHECK_ITINERARY(p1, db);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: sddxeX")
@@ -594,52 +556,52 @@ SCENARIO("Test Participant")
     // Set the participant itinerary
     p1.set({Route{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     // Add a delay to the itinerary
     p1.delay(1s);
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     // Add a second delay to the itinerary
     p1.delay(1s);
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     // Extend the itinerary
     p1.extend({Route{"test_map", t2}, Route{"test_map", t3}});
     CHECK(p1.itinerary().size() == 3);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     // Erase the third route in the trajectory
     REQUIRE(p1.last_route_id() == 2);
     p1.erase({p1.last_route_id()});
     CHECK(p1.itinerary().size() == 2);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     writer->drop_packets = false;
 
     // Extend the itinerary
     p1.extend({Route{"test_map_2", t3}});
     CHECK(p1.itinerary().size() == 3);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->empty());
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->empty());
 
     // Check for inconsistencies
-    REQUIRE(db.inconsistencies().size() > 0);
-    CHECK(db.inconsistencies().begin()->participant == p1.id());
-    const auto inconsistency = db.inconsistencies().begin();
+    REQUIRE(db->inconsistencies().size() > 0);
+    CHECK(db->inconsistencies().begin()->participant == p1.id());
+    const auto inconsistency = db->inconsistencies().begin();
     CHECK(inconsistency->ranges.size() == 1);
     CHECK(inconsistency->ranges.last_known_version() == 5);
     CHECK(inconsistency->ranges.begin()->lower == 0);
@@ -648,9 +610,9 @@ SCENARIO("Test Participant")
     // Fix inconsistencies
     rectifier->rectify();
     dbv += 6;
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: SdDxX")
@@ -658,22 +620,22 @@ SCENARIO("Test Participant")
     // Set the participant itinerary
     p1.set({Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     writer->drop_packets = true;
 
     // Add a delay
     p1.delay(1s);
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     writer->drop_packets = false;
 
     // Add a delay
     p1.delay(1s);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.inconsistencies().size() > 0);
-    auto inconsistency = db.inconsistencies().begin();
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->inconsistencies().size() > 0);
+    auto inconsistency = db->inconsistencies().begin();
     CHECK(inconsistency->participant == p1.id());
     REQUIRE(inconsistency->ranges.size() > 0);
     CHECK(inconsistency->ranges.last_known_version() == 2);
@@ -685,15 +647,15 @@ SCENARIO("Test Participant")
     // Extend the itinerary
     p1.extend({Route{"test_map", t2}});
     CHECK(p1.itinerary().size() == 2);
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     writer->drop_packets = false;
 
     // Extend the itinerary
     p1.extend({Route{"test_map", t3}});
-    REQUIRE(db.inconsistencies().size() > 0);
-    CHECK(db.inconsistencies().begin()->participant == p1.id());
-    inconsistency = db.inconsistencies().begin();
+    REQUIRE(db->inconsistencies().size() > 0);
+    CHECK(db->inconsistencies().begin()->participant == p1.id());
+    inconsistency = db->inconsistencies().begin();
     // We expect two ranges of inconsistencies
     REQUIRE(inconsistency->ranges.size() > 1);
     CHECK(inconsistency->ranges.last_known_version() == 4);
@@ -708,9 +670,9 @@ SCENARIO("Test Participant")
     // Fix inconsistencies
     rectifier->rectify();
     dbv += 4;
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: ScX")
@@ -718,7 +680,7 @@ SCENARIO("Test Participant")
     // Set the participant itinerary
     p1.set({Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
+    CHECK(db->latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
     writer->drop_packets = true;
@@ -726,20 +688,20 @@ SCENARIO("Test Participant")
     // Clear the itinerary
     p1.clear();
     REQUIRE(p1.itinerary().size() == 0);
-    CHECK(db.latest_version() == dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->size() == 1);
+    CHECK(db->latest_version() == dbv);
+    REQUIRE(db->get_itinerary(p1.id()));
+    CHECK(db->get_itinerary(p1.id())->size() == 1);
 
     writer->drop_packets = false;
 
     // Extend the itinerary
     p1.extend({Route{"test_map", t2}, Route{"test_map", t3}});
     REQUIRE(p1.itinerary().size() == 2);
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
 
     // Check for inconsistencies
-    REQUIRE(db.inconsistencies().size() == 1);
-    auto inconsistency = db.inconsistencies().begin();
+    REQUIRE(db->inconsistencies().size() == 1);
+    auto inconsistency = db->inconsistencies().begin();
     CHECK(inconsistency->participant == p1.id());
     REQUIRE(inconsistency->ranges.size() > 0);
     CHECK(inconsistency->ranges.last_known_version() == 2);
@@ -749,9 +711,9 @@ SCENARIO("Test Participant")
     // Fix inconsistency
     rectifier->rectify();
     dbv += 2;
-    CHECK(db.latest_version() == dbv);
+    CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
-    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Participant unregisters")
@@ -771,14 +733,14 @@ SCENARIO("Test Participant")
         rectifier);
 
       p2_id = p2.id();
-      CHECK(db.latest_version() == ++dbv);
-      CHECK(db.participant_ids().size() == 2);
-      CHECK(db.get_participant(p2_id));
-      REQUIRE(db.get_itinerary(p2_id));
-      REQUIRE(db.inconsistencies().size() == 2);
+      CHECK(db->latest_version() == ++dbv);
+      CHECK(db->participant_ids().size() == 2);
+      CHECK(db->get_participant(p2_id));
+      REQUIRE(db->get_itinerary(p2_id));
+      REQUIRE(db->inconsistencies().size() == 2);
 
       bool found = false;
-      for (const auto& inconsistency : db.inconsistencies())
+      for (const auto& inconsistency : db->inconsistencies())
       {
         if (inconsistency.participant == p2_id)
         {
@@ -790,11 +752,11 @@ SCENARIO("Test Participant")
     }
 
     // Participant p2 should be unregistered when it is out of scope
-    CHECK(db.latest_version() == ++dbv);
-    CHECK(db.participant_ids().size() == 1);
-    CHECK(db.get_participant(p2_id) == nullptr);
-    CHECK_FALSE(db.get_itinerary(p2_id).has_value());
-    CHECK(db.inconsistencies().size() == 1);
+    CHECK(db->latest_version() == ++dbv);
+    CHECK(db->participant_ids().size() == 1);
+    CHECK(db->get_participant(p2_id) == nullptr);
+    CHECK_FALSE(db->get_itinerary(p2_id).has_value());
+    CHECK(db->inconsistencies().size() == 1);
   }
 
 }
