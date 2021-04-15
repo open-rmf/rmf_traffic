@@ -22,6 +22,8 @@
 #include <future>
 #include <execution>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace reservations {
 
@@ -119,7 +121,9 @@ public:
   {
   public:
     unsigned long long cost;
-    std::vector<Reservation> impacted_reservations;
+    unsigned int num_conflict;
+    std::vector<Reservation> push_back_reservations;
+    std::vector<Reservation> bring_forward_reservations;
   };
 
   /// \brief Gives a list of reservations that are impacted when we perform a push back
@@ -163,7 +167,7 @@ public:
       }
 
       auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
-      proposal.impacted_reservations.push_back(proposed_reservation);
+      proposal.push_back_reservations.push_back(proposed_reservation);
       proposal.cost += (item_desired_time - *latest_start).count();
 
       /// Get the next_item
@@ -181,7 +185,7 @@ public:
       return std::nullopt;
     }
     auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
-    proposal.impacted_reservations.push_back(proposed_reservation);
+    proposal.push_back_reservations.push_back(proposed_reservation);
 
     /// TODO: change cost function
     proposal.cost += (item_desired_time - *latest_start).count();
@@ -224,7 +228,7 @@ public:
         return std::nullopt;
       }
       auto proposed_reservation = item->second.propose_new_start_time(item_desired_start);
-      proposal.impacted_reservations.push_back(proposed_reservation);
+      proposal.bring_forward_reservations.push_back(proposed_reservation);
 
       /// Get the next_item
       item = prev_item;
@@ -241,7 +245,7 @@ public:
       return std::nullopt;
     }
     auto proposed_reservation = item->second.propose_new_start_time(item_desired_start);
-    proposal.impacted_reservations.push_back(proposed_reservation);
+    proposal.bring_forward_reservations.push_back(proposed_reservation);
     return {proposal};
   }
 
@@ -346,7 +350,7 @@ public:
         // Reverse iterator prev actually means next in this case
         auto prev_it = std::prev(it);
         const auto& prev_reservation = prev_it->second;
-        auto prev_time = prev_it->first; 
+        auto prev_time = prev_it->first;
         
         // Get the latest start time of the next reservation.
         auto get_latest_start = [=](const Reservation& res) -> std::optional<Time> 
@@ -384,16 +388,46 @@ public:
     return result;
   }
 
-  static std::vector<std::optional<Duration>> nth_conflict_times_bring_forward(
+  bool satisfies_request_start_constraints(Time time, ReservationRequest req)
+  {
+    auto start = req.start_time();
+    if(!start.has_value())
+    {
+      return true;
+    }
+
+    if(start->lower_bound().has_value() &&
+      time < start->lower_bound())
+    {
+      return false;
+    }
+
+    if(start->upper_bound().has_value() &&
+      time > start->upper_bound())
+    {
+      return false;
+    }
+
+    return true;
+  }
+
+  std::vector<std::optional<Duration>> nth_conflict_times_bring_forward(
     ResourceSchedule& sched,
     ResourceSchedule::iterator iter,
-    Time desired_time,
-    Time time_limit
-  )
+    Time desired_time)
   {
     int conflicts = 0;
     std::vector<std::optional<Duration>> conflict_table;
     Duration conflict_duration = desired_time - *iter->second.actual_finish_time();
+    if(conflict_duration.count() != 0)
+    {
+      Duration dur{0};
+      conflict_table.push_back(dur);
+    }
+    else
+    {
+      conflict_table.push_back(std::nullopt);
+    }
     conflict_table.push_back({conflict_duration});
     while(iter->first > time_limit)
     {
@@ -403,8 +437,19 @@ public:
       }
       auto _prev_res = std::prev(iter);
       auto gap = iter->first - *_prev_res->second.actual_finish_time();
-      //TODO: consider other constraints
+      auto request = lookup_request(iter->second.reservation_id());
+      
       conflict_duration += gap;
+      // Check if pushback can actually be performed
+      auto ok
+        = satisfies_request_start_constraints(
+            iter->second.start_time() - conflict_duration,
+            request);
+      if(!ok)
+      {
+        break;
+      }
+
       if(gap.count() == 0)
       {
         // There is no gap so it is not possible to have n conflicts
@@ -416,9 +461,9 @@ public:
     return conflict_table;
   }
 
-  static std::vector<std::optional<Duration>> nth_conflict_times_push_back(
+  std::vector<std::optional<Duration>> nth_conflict_times_push_back(
     ResourceSchedule& sched,
-    ResourceSchedule::iterator iter,
+    ResourceSchedule::const_iterator iter,
     Time desired_time,
     Time time_limit
   )
@@ -426,14 +471,22 @@ public:
     int conflicts = 0;
     std::vector<std::optional<Duration>> conflict_table;
     Duration conflict_duration = iter->first - desired_time;
-    conflict_table.push_back({conflict_duration});
-    while(iter->second.actual_finish_time() > time_limit)
+    if(conflict_duration.count() != 0)
     {
-      if(iter==sched.end())
-      {
+      Duration dur{0};
+      conflict_table.push_back(dur);
+    }
+    else
+    {
+      conflict_table.push_back(std::nullopt);
+    }
+    conflict_table.push_back({conflict_duration}); 
+    while(iter->second.actual_finish_time() < time_limit)
+    {
+      auto _next_res = std::next(iter);
+      if(_next_res==sched.end()) 
         break;
       }
-      auto _next_res = std::next(iter);
       auto gap = *iter->second.actual_finish_time() - _next_res->first;
       //TODO: consider other constraints
       conflict_duration += gap;
@@ -448,39 +501,93 @@ public:
     return conflict_table;
   }
 
-
-  static Time least_conflicts(
+?  /// \returns a list of planhs in ascending number of conflicts.
+  /// The inner workings of tis algorithm are as follows:
+  /// - get the 
+  /// runtime complexity O(n^2) in number of items currently on the 
+  std::vector<Plan>  least_conflicts(
     Duration duration,
     ResourceSchedule& sched,
-    ResourceSchedule::iterator iter,
+    ResourceSchedule::const_iterator iter,
     Time earliest_start_time,
-    Time latest_start_time)
+    Time latest_start_time,
+    RequestId req_id)
   {
     auto previous_conflict_times
       = nth_conflict_times_bring_forward(
-        sched, iter, iter->first, earliest_start_time);
-    
-    auto next_pt = std::next(iter);
+          sched, iter, iter->first);
 
-    if(next_pt == sched.end())
-    {
-      // Just find the conflict with least time
-    }
-    
     auto post_conflict_times
       = nth_conflict_times_push_back(
         sched, iter, iter->first, latest_start_time
       );
 
-    
+    auto upper_limit
+      = previous_conflict_times.size() + post_conflict_times.size() - 1;
+
+     std::vector<Plan> plans;
+
+    for(std::size_t conflicts = 0; conflicts <= upper_limit; conflicts++)
+    {
+      int start_post = std::max(0UL, conflicts - previous_conflict_times.size());
+      std::size_t count = std::min(conflicts,
+        std::min(post_conflict_times.size() - start_post,
+        previous_conflict_times.size()
+        ));
+      for(std::size_t y = 0; y < count; y++)
+      {
+        auto prev_conflict_index
+          = std::min(previous_conflict_times.size(), count) - y - 1;
+
+        if(!previous_conflict_times[prev_conflict_index].has_value())
+        {
+          continue;
+        }
+
+        auto post_conflict_index
+          = start_post + count;
+        if(!post_conflict_times[post_conflict_index].has_value())
+        {
+          continue;
+        }
+
+        if(*post_conflict_times[post_conflict_index]
+          + *previous_conflict_times[prev_conflict_index] > duration)
+        {
+          auto start_time = iter->first - *post_conflict_times[post_conflict_index];
+
+          auto plan
+            = plan_bring_forward_reservations(
+              sched, iter->first,
+              start_time,
+              req_id);
+
+          auto plan_push_back
+            = plan_push_back_reservations(
+              sched,
+              iter->first,
+              start_time + duration,
+              req_id);
+
+          plan->push_back_reservations = plan_push_back->push_back_reservations;
+          plan->num_conflict = conflicts;
+
+          plans.push_back(*plan);
+        }
+      }
+    }
+    return plans;
   }
 
   /// \returns all reservations which conflict with the start range. 
+  /// the returned plans are sorted by number of conflicts followed by
   std::vector<Plan> create_plans(
     ReservationRequest& req,
     RequestId reqId)
   {
     auto sched = _resource_schedules[req.resource_name()];
+
+    std::vector<Plan> plans;
     
     auto start_lower_bound = [=]() -> ResourceSchedule::const_iterator
     {
@@ -501,58 +608,18 @@ public:
       }
       return sched.upper_bound(*req.start_time()->upper_bound());
     }();
-    
-    auto earliest_start_times = earliest_time_computation(sched);
-    auto latest_start_time = latest_start_time_computation(sched);
+
 
     for(
-      auto potential_insertion = start_lower_bound; 
-      potential_insertion != start_upper_bound; 
+      auto potential_insertion = start_lower_bound;
+      potential_insertion != start_upper_bound;
       potential_insertion++)
     {
       // Determine the maximum gap and see if we can insert our reservation here
-      if(potential_insertion == sched.begin())
-      {
-        auto res_id = potential_insertion->second.reservation_id();
-
-        auto earliest_start = [=]() -> Time 
-        {
-          if(!req.start_time().has_value()
-            || !req.start_time()->lower_bound().has_value())
-            return current_time;
-          return *req.start_time()->lower_bound();
-        }();
-        
-        // The end time should be max(start+duration, finish_time)
-        auto end_time = [=]() -> Time
-        {
-          auto duration_based_end
-            = earliest_start + req.duration().value_or(Duration{0});
-          
-          if(!req.finish_time().has_value())
-            return duration_based_end;
-
-          return std::max(*req.finish_time(), duration_based_end);
-        }();
-        
-        if(latest_start_time[res_id] <= end_time)
-        {
-          // Not possible to push back any further. Check some other slot.
-          continue;
-        }
-        //The only option in this case is to pushback
-        //We will push back the minimum amount so as to
-        //miminise conflicts. This will be the earliest_start plus the duration
-        auto plan = plan_push_back_reservations(sched,
-          potential_insertion->second.start_time(),
-          end_time, reqId);
-      }
-      else
-      {
-        // For now we pick the earliest slot with the least conflict 
-        // and attempt insertion there
-        
-      }
+      auto plan_list = least_conflicts(
+        *req.duration(),
+        sched,
+        potential_insertion);
     }
   }
 
@@ -581,18 +648,21 @@ public:
 
   bool approve_plan(Plan& plan)
   {
-    std::atomic_bool ok = true;
+    std::mutex _mtx;
+    bool ok = true;
     std::for_each(
       std::execution::par_unseq,
-      plan.impacted_reservations.begin(),
-      plan.impacted_reservations.end(),
-      [=](Reservation& res)
+      plan.push_back_reservations.begin(),
+      plan.push_back_reservations.end(),
+      [&](Reservation& res)
       {
         auto nego = lookup_negotiator(res.participant_id());
         auto accepted = nego->offer_received(res);
+        std::lock_guard lock(_mtx);
         ok &= accepted;
       }
     );
+    return ok;
   }
 
   void commit_plan(Plan& plan)
@@ -607,7 +677,7 @@ public:
     std::shared_ptr<Negotiator> nego)
   {
     auto req_id = add_request_queue(request, nego);
-
+    create_plans()
   }
   
 
