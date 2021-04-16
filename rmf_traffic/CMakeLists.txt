@@ -76,6 +76,17 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
     CONFIG_FILE ${uncrustify_config_file}
     MAX_LINE_LENGTH 80
   )
+
+  file(GLOB_RECURSE regress_DetectConflict_fail_resources "test/resources/regress_DetectConflict_fail/*")
+  foreach(resource ${regress_DetectConflict_fail_resources})
+    get_filename_component(resource_name ${resource} NAME)
+    configure_file(${resource} "${CMAKE_CURRENT_BINARY_DIR}/resources/${resource_name}" COPYONLY)
+  endforeach()
+
+  target_compile_definitions(test_rmf_traffic
+    PRIVATE
+    "RESOURCES_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/resources/\"")
+
 endif()
 
 if(using_new_fcl)

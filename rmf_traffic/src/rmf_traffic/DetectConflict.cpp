@@ -779,15 +779,19 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   for (auto it = trajectory_a_actual.begin(); it != trajectory_a_actual.end(); ++it) {
     auto position = it->position();
     auto velocity = it->velocity();
-    if (zero)
+    if (zero) {
       position << position(0), position(1), 0.0;
+      velocity << velocity(0), velocity(1), 0.0;
+    }
     trajectory_a.insert(it->time(), position, velocity);
   }
   for (auto it = trajectory_b_actual.begin(); it != trajectory_b_actual.end(); ++it) {
     auto position = it->position();
     auto velocity = it->velocity();
-    if (zero)
+    if (zero) {
       position << position(0), position(1), 0.0;
+      velocity << velocity(0), velocity(1), 0.0;
+    }
     trajectory_b.insert(it->time(), position, velocity);
   }
   if (trajectory_a.size() < 2)

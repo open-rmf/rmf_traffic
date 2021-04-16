@@ -24,6 +24,8 @@
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 
+#include <fstream>
+
 namespace {
 
 //==============================================================================
@@ -136,47 +138,75 @@ SCENARIO("Failed Detect Conflict")
   auto plan = planner.plan({start_time, 5, 180.0 * M_PI / 180.0}, {2});
 
   CHECK_FALSE(plan.success());
+}
 
-  for (const auto& obstacle_it : plan_obstacle->get_itinerary())
-  {
-    for (const auto& it : plan->get_itinerary())
-    {
-      rmf_traffic::Trajectory obstacle_traj;
-      rmf_traffic::Trajectory traj;
-      for (auto waypoint_traj = obstacle_it.trajectory().begin();
-        waypoint_traj != obstacle_it.trajectory().end(); ++waypoint_traj)
-      {
-        auto position = waypoint_traj->position();
-        auto velocity = waypoint_traj->velocity();
-        obstacle_traj.insert(waypoint_traj->time(), position, velocity);
-      }
-      for (auto waypoint_traj = it.trajectory().begin();
-        waypoint_traj != it.trajectory().end();
-        ++waypoint_traj)
-      {
-        auto position = waypoint_traj->position();
-        auto velocity = waypoint_traj->velocity();
-        traj.insert(waypoint_traj->time(), position, velocity);
-      }
+class SerializedWaypoint
+{
+public:
+  Eigen::Vector3d position, velocity;
 
-      bool detect_conflict_flag_true =
-        rmf_traffic::DetectConflict::between(traits.profile(),
-          obstacle_traj,
-          traits.profile(),
-          traj,
-          rmf_traffic::DetectConflict::Interpolate::CubicSpline,
-          true).has_value();
+  rmf_traffic::Time time;
+};
 
-      bool detect_conflict_flag_false =
-        rmf_traffic::DetectConflict::between(traits.profile(),
-          obstacle_traj,
-          traits.profile(),
-          traj,
-          rmf_traffic::DetectConflict::Interpolate::CubicSpline,
-          false).has_value();
+SerializedWaypoint read_waypoint(std::string file_name)
+{
+  std::ifstream file;
+  file.open(file_name, std::ios::in);
+  SerializedWaypoint serialized_waypoint;
+  file.seekg(0);
+  file.read((char*)&serialized_waypoint, sizeof(SerializedWaypoint));
+  file.close();
+  return serialized_waypoint;
+}
 
-      CHECK(detect_conflict_flag_true == detect_conflict_flag_false);
+//==============================================================================
+SCENARIO("Rotation failure")
+{
+  SerializedWaypoint serialized_waypoint[4];
+  serialized_waypoint[0] =
+    read_waypoint(RESOURCES_DIR + std::string("/Waypoint1.txt"));
+  serialized_waypoint[1] =
+    read_waypoint(RESOURCES_DIR + std::string("/Waypoint2.txt"));
+  serialized_waypoint[2] =
+    read_waypoint(RESOURCES_DIR + std::string("/Waypoint3.txt"));
+  serialized_waypoint[3] =
+    read_waypoint(RESOURCES_DIR + std::string("/Waypoint4.txt"));
+
+  rmf_traffic::agv::VehicleTraits traits{
+    {0.5, 2.0}, {0.75, 1.5},
+    rmf_traffic::Profile{
+      rmf_traffic::geometry::make_final_convex(
+        rmf_traffic::geometry::Circle(0.2))
     }
-  }
+  };
+
+  rmf_traffic::Trajectory traj1, traj2;
+  traj1.insert(serialized_waypoint[0].time, serialized_waypoint[0].position,
+    serialized_waypoint[0].velocity);
+  traj1.insert(serialized_waypoint[1].time, serialized_waypoint[1].position,
+    serialized_waypoint[1].velocity);
+
+  traj2.insert(serialized_waypoint[2].time, serialized_waypoint[2].position,
+    serialized_waypoint[2].velocity);
+  traj2.insert(serialized_waypoint[3].time, serialized_waypoint[3].position,
+    serialized_waypoint[3].velocity);
+
+  bool detect_conflict_flag_true =
+    rmf_traffic::DetectConflict::between(traits.profile(),
+      traj1,
+      traits.profile(),
+      traj2,
+      rmf_traffic::DetectConflict::Interpolate::CubicSpline,
+      true).has_value();
+
+  bool detect_conflict_flag_false =
+    rmf_traffic::DetectConflict::between(traits.profile(),
+      traj1,
+      traits.profile(),
+      traj2,
+      rmf_traffic::DetectConflict::Interpolate::CubicSpline,
+      false).has_value();
+
+  CHECK(detect_conflict_flag_true == detect_conflict_flag_false);
 }
 }
