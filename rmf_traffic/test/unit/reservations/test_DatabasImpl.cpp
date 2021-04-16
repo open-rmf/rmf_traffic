@@ -78,7 +78,7 @@ public:
     }
   }
 }*/
-#include <iostream>
+/*#include <iostream>
 SCENARIO("test conflict optimizer")
 {
   Database::Implementation::ResourceSchedule schedule;
@@ -117,9 +117,9 @@ SCENARIO("test conflict optimizer")
         now - 1h
       );
 
-      REQUIRE(res.size() == 2);
-      REQUIRE(*res[0] == 10min);
-      REQUIRE(*res[1] == 40min);
+      REQUIRE(res.size() == 3);
+      REQUIRE(*res[1] == 10min);
+      REQUIRE(*res[2] == 40min);
     }
   }
 
@@ -157,10 +157,50 @@ SCENARIO("test conflict optimizer")
         now - 1h
       );
 
-      REQUIRE(res.size() == 2);
-      REQUIRE(res[0].has_value() == false);
-      REQUIRE(res[1].has_value());
-      REQUIRE(res[1] == 10min);
+      REQUIRE(res.size() == 3);
+      REQUIRE(res[1].has_value() == false);
+      REQUIRE(res[2].has_value());
+      REQUIRE(res[2] == 10min);
     }
   }
-}
+
+  WHEN("We try to push_back two reservations with no gap")
+  {
+    using namespace std::literals::chrono_literals;
+    auto now = std::chrono::steady_clock::now();
+    auto next_res_start = now+30min;
+    auto res1 = Reservation::make_reservation(
+      now,
+      "rubbish",
+      0,
+      {30min},
+      std::nullopt);
+    
+    auto res2 = Reservation::make_reservation(
+      next_res_start,
+      "rubbish",
+      0,
+      {30min},
+      std::nullopt);
+    
+    schedule.insert({now, res1});
+    schedule.insert({res2.start_time(), res2});
+
+    auto req_time = now - 10min;
+    auto it = schedule.begin();
+    THEN("First conflict occurs at 10 minutes second conflict happens at 30min")
+    {
+      auto res = Database::Implementation::nth_conflict_times_push_back(
+        schedule,
+        it,
+        req_time,
+        now + 2h
+      );
+
+      REQUIRE(res.size() == 3);
+      REQUIRE(res[1].has_value() == false);
+      REQUIRE(res[2].has_value());
+      REQUIRE(res[2] == 10min);
+    }
+  }
+}*/
