@@ -24,6 +24,7 @@ public:
   /// Commits to the last offer. 
   void offer_commited() override
   {
+
   }
 
   void offer_retracted() override
@@ -37,6 +38,133 @@ public:
     
   }
 };
+
+
+SCENARIO("There is one request")
+{
+  Database::Implementation impl;
+
+  auto negotiator = std::make_shared<YayaPapayaNegotiator>();
+
+  rmf_traffic::Time current_time = std::chrono::steady_clock::now();
+
+  ReservationRequest req1 = 
+      ReservationRequest::make_request(
+          "resource",
+          0,
+          ReservationRequest::TimeRange::make_time_range(
+              {current_time + 100s},
+              {current_time + 200s}),
+          {200s}
+      );
+
+  Reservation res1 = Reservation::make_reservation(
+    current_time + 150s,
+    "resource",
+    0,
+    {200s},
+    {current_time + 150s}
+  );
+
+  std::vector<ReservationRequest> requests{req1};
+  auto req_id1 = impl.add_request_queue(requests, negotiator);
+  impl.associate_request_with_reservation(req_id1, res1);
+  
+  WHEN("We attempt to push back a request within its fixed time range")
+  {
+    auto plan = impl.plan_push_back_reservations(
+      impl._resource_schedules["resource"],
+      current_time,
+      current_time+190s,
+      req_id1
+    );
+
+    REQUIRE(plan.has_value());
+
+    impl.debug_reservations(*plan);
+  }
+
+  WHEN("We attempt to push back a request within its fixed time range")
+  {
+    auto plan = impl.plan_push_back_reservations(
+      impl._resource_schedules["resource"],
+      current_time,
+      current_time+500s,
+      req_id1
+    );
+
+    REQUIRE(!plan.has_value());
+  }
+}
+
+SCENARIO("There is one request enqued")
+{
+  Database::Implementation impl;
+
+  auto negotiator = std::make_shared<YayaPapayaNegotiator>();
+
+  rmf_traffic::Time current_time = std::chrono::steady_clock::now();
+
+  ReservationRequest req1 = 
+      ReservationRequest::make_request(
+          "resource",
+          0,
+          ReservationRequest::TimeRange::make_time_range(
+              {current_time + 100s},
+              {current_time + 200s}),
+          {200s}
+      );
+
+
+  std::vector<ReservationRequest> requests{req1};
+  auto req_id1 = impl.add_request_queue(requests, negotiator);
+
+  WHEN("Given a reservation within valid time range")
+  {
+    Reservation res1 = Reservation::make_reservation(
+      current_time + 150s,
+      "resource",
+      0,
+      {200s},
+      {current_time + 150s}
+    );
+    THEN("Satisfies the request")
+    {
+      REQUIRE(impl.satisfies(req_id1, res1).has_value());
+      REQUIRE(impl.satisfies(req_id1, res1).value() ==0);
+    }
+  }
+
+  WHEN("Given a reservation that starts too early")
+  {
+    Reservation res1 = Reservation::make_reservation(
+      current_time - 150s,
+      "resource",
+      0,
+      {200s},
+      {current_time + 150s}
+    );
+    THEN("does not satisfy request")
+    {
+      REQUIRE(!impl.satisfies(req_id1, res1).has_value());
+    }
+  }
+
+  WHEN("Given a reservation that starts too late")
+  {
+    Reservation res1 = Reservation::make_reservation(
+      current_time + 1050s,
+      "resource",
+      0,
+      {200s},
+      {current_time + 150s}
+    );
+    THEN("does not satisfy request")
+    {
+      REQUIRE(!impl.satisfies(req_id1, res1).has_value());
+    }
+  }
+}
 
 /*SCENARIO("Reservation test")
 {

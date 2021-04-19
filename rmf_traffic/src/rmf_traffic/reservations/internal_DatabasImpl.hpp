@@ -115,18 +115,95 @@ public:
     start_constraints.start_time()->lower_bound();
   }
 
-  rmf_traffic::Time current_time;
+  //Check if a reservation satisfies a request. This is useful later on
+  bool satisfies(ReservationRequest& req, Reservation reservation)
+  {
+    //Check upper bound
+    if(req.start_time()->lower_bound().has_value())
+    {
+      if(reservation.start_time() < req.start_time()->lower_bound().value())
+      {
+        return false;
+      }
+    }
+    
+    //Check upper bound
+    if(req.start_time()->upper_bound().has_value())
+    {
+      if(reservation.start_time() > req.start_time()->upper_bound().value())
+      {
+        return false;
+      }
+    }
+    
+    if(req.duration().has_value())
+    {
+      if(reservation.is_indefinite())
+      {
+        return false;
+      }
+      if(req.duration().value()
+        > *reservation.actual_finish_time() - reservation.start_time())
+      {
+        return false;
+      }
+    }
+
+    if(req.finish_time().has_value())
+    {
+      if(reservation.is_indefinite())
+      {
+        return false;
+      }
+      if(req.finish_time().value() > *reservation.actual_finish_time())
+      {
+        return false;
+      }
+    }
+
+    if(req.is_indefinite() && !reservation.is_indefinite()
+      || !req.is_indefinite() && reservation.is_indefinite())
+    {
+      return false;
+    }
+
+    if(req.resource_name() != reservation.resource_name())
+    {
+      return false;
+    }
+
+    return true;
+  }
+
+  std::optional<std::size_t> satisfies(
+    RequestId req_id,
+    Reservation reservation)
+  {
+    std::size_t i = 0;
+    while(
+      i <  _request_tracker[req_id].requests.size() &&
+      !satisfies(_request_tracker[req_id].requests[i], reservation))
+    {
+      i++;
+    }
+    if(i >= _request_tracker[req_id].requests.size())
+    {
+      // None of the constraints are satisfied by current reservation
+      return std::nullopt;
+    }
+    return {i};
+  }
+  
 
   class Plan
   {
   public:
-    unsigned long long cost;
-    unsigned int num_conflict;
     std::vector<Reservation> push_back_reservations;
     std::vector<Reservation> bring_forward_reservations;
+    int num_conflict;
+    float cost;
   };
-
-  /// \brief Gives a list of reservations that are impacted when we perform a push back
+  /// \brief satisfies that are impacted when we perform a push back
   /// \param sched is the ResourceSchedule to operate on
   /// \param start_time is the time after which all the reservations will be pushed back
   /// \param desired_time is the time which the reservation should be moved to 
@@ -641,14 +718,6 @@ public:
     }
   }
 
-  void add_reservation(Reservation& res, RequestId id)
-  {
-
-    _resource_schedules[res.resource_name()].insert({res.start_time(), res});
-    _reservation_mapping[res.reservation_id()] = res.resource_name();
-
-  }
-
   RequestId add_request_queue(
     std::vector<ReservationRequest>& requests,
     std::shared_ptr<Negotiator> negotiator)
@@ -663,6 +732,22 @@ public:
     
     return counter++;
   }
+
+  void associate_request_with_reservation(
+    RequestId req_id,
+    Reservation& reservation)
+  {
+    auto i = satisfies(req_id, reservation);
+    if(!i.has_value()) return;
+    _request_tracker[req_id].assigned_index = *i;
+    _request_tracker[req_id].status = RequestStatus::Status::assigned;
+    auto reservation_id = reservation.reservation_id();
+    auto resource =  reservation.resource_name();
+    _resource_schedules[resource].insert({reservation.start_time(), reservation});
+    _reservation_mapping[reservation_id] = resource;
+    _active_reservation_tracker[reservation_id] = req_id;
+  }
+
 
   bool approve_plan(Plan& plan)
   {
@@ -698,6 +783,67 @@ public:
     //create_plans()
   }
   
+  void debug_reservations(ResourceSchedule& sched)
+  {
+    std::cout << "=======================" <<std::endl;
+    for(auto x: sched)
+    {
+      std::cout << "--" << std::endl;
+      std::cout << "Start time: " << x.first.time_since_epoch().count() << std::endl;
+      std::cout << "Reservation ID: " << x.second.reservation_id() <<  std::endl;
+      
+      if(x.second.actual_finish_time().has_value())
+        std::cout << "End time: " << x.second.actual_finish_time()->time_since_epoch().count() <<std::endl;
+      else
+        std::cout << "End time: " << "Nivar" <<std::endl;
+
+      if(x.second.duration().has_value())
+        std::cout << "Min duration: " << x.second.duration()->count() << std::endl;
+
+      if(x.second.finish_time().has_value())
+        std::cout << "Finish time (requested): " << x.second.finish_time()->time_since_epoch().count() << std::endl;
+    }
+  }
+
+  void debug_reservations(Plan& sched)
+  {
+
+    std::cout << "=======================" <<std::endl;
+    for(auto x: sched.bring_forward_reservations)
+    {
+      
+      std::cout << "Start time: " << x.start_time().time_since_epoch().count() << std::endl;
+      std::cout << "Reservation ID: " << x.reservation_id() <<  std::endl;
+      
+      if(x.actual_finish_time().has_value())
+        std::cout << "End time: " << x.actual_finish_time()->time_since_epoch().count() <<std::endl;
+      else
+        std::cout << "End time: " << "Nivar" <<std::endl;
+
+      if(x.duration().has_value())
+        std::cout << "Min duration: " << x.duration()->count() << std::endl;
+
+      if(x.finish_time().has_value())
+        std::cout << "Finish time (requested): " << x.finish_time()->time_since_epoch().count() << std::endl;
+    }
+    for(auto x: sched.push_back_reservations)
+    {
+      std::cout << "--" << std::endl;
+      std::cout << "Start time: " << x.start_time().time_since_epoch().count() << std::endl;
+      std::cout << "Reservation ID: " << x.reservation_id() <<  std::endl;
+      
+      if(x.actual_finish_time().has_value())
+        std::cout << "End time: " << x.actual_finish_time()->time_since_epoch().count() <<std::endl;
+      else
+        std::cout << "End time: " << "Nivar" <<std::endl;
+
+      if(x.duration().has_value())
+        std::cout << "Min duration: " << x.duration()->count() << std::endl;
+
+      if(x.finish_time().has_value())
+        std::cout << "Finish time (requested): " << x.finish_time()->time_since_epoch().count() << std::endl;
+    }
+  }
 
 };
 
