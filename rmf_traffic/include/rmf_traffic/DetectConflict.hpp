@@ -56,8 +56,7 @@ public:
     const Trajectory& trajectory_a,
     const Profile& profile_b,
     const Trajectory& trajectory_b,
-    Interpolate interpolation = Interpolate::CubicSpline,
-    bool zero = true);
+    Interpolate interpolation = Interpolate::CubicSpline);
 
   class Implementation;
 };

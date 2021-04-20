@@ -19,10 +19,10 @@
 #include <rmf_traffic/agv/Graph.hpp>
 
 #include <rmf_utils/catch.hpp>
-#include <rmf_traffic/agv/Planner.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
-#include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
+#include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 #include <fstream>
 
@@ -130,7 +130,7 @@ SCENARIO("Failed Detect Conflict")
     database, std::numeric_limits<std::size_t>::max(), traits.profile());
 
   rmf_traffic::agv::Planner::Options options(obstacle_validator);
-  options.saturation_limit(1000000);
+  options.saturation_limit(100000);
   rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
     {graph, traits},
     options
@@ -148,7 +148,7 @@ public:
   rmf_traffic::Time time;
 };
 
-SerializedWaypoint read_waypoint(std::string file_name)
+SerializedWaypoint read_waypoint(const std::string& file_name)
 {
   std::ifstream file;
   file.open(file_name, std::ios::in);
@@ -181,32 +181,72 @@ SCENARIO("Rotation failure")
   };
 
   rmf_traffic::Trajectory traj1, traj2;
-  traj1.insert(serialized_waypoint[0].time, serialized_waypoint[0].position,
+  traj1.insert(
+    serialized_waypoint[0].time,
+    serialized_waypoint[0].position,
     serialized_waypoint[0].velocity);
-  traj1.insert(serialized_waypoint[1].time, serialized_waypoint[1].position,
+  traj1.insert(
+    serialized_waypoint[1].time,
+    serialized_waypoint[1].position,
     serialized_waypoint[1].velocity);
 
-  traj2.insert(serialized_waypoint[2].time, serialized_waypoint[2].position,
+  traj2.insert(
+    serialized_waypoint[2].time,
+    serialized_waypoint[2].position,
     serialized_waypoint[2].velocity);
-  traj2.insert(serialized_waypoint[3].time, serialized_waypoint[3].position,
+  traj2.insert(
+    serialized_waypoint[3].time,
+    serialized_waypoint[3].position,
     serialized_waypoint[3].velocity);
 
-  bool detect_conflict_flag_true =
+  bool detect_conflict_with_rotation =
     rmf_traffic::DetectConflict::between(traits.profile(),
       traj1,
       traits.profile(),
-      traj2,
-      rmf_traffic::DetectConflict::Interpolate::CubicSpline,
-      true).has_value();
+      traj2).has_value();
 
-  bool detect_conflict_flag_false =
+  rmf_traffic::Trajectory traj3, traj4;
+  traj3.insert(
+    serialized_waypoint[0].time,
+    {serialized_waypoint[0].position.x(),
+      serialized_waypoint[0].position.y(),
+      0.0},
+    {serialized_waypoint[0].velocity.x(),
+      serialized_waypoint[0].velocity.y(),
+      0.0});
+  traj3.insert(
+    serialized_waypoint[1].time,
+    {serialized_waypoint[1].position.x(),
+      serialized_waypoint[1].position.y(),
+      0.0},
+    {serialized_waypoint[1].velocity.x(),
+      serialized_waypoint[1].velocity.y(),
+      0.0});
+
+  traj4.insert(
+    serialized_waypoint[2].time,
+    {serialized_waypoint[2].position.x(),
+      serialized_waypoint[2].position.y(),
+      0.0},
+    {serialized_waypoint[2].velocity.x(),
+      serialized_waypoint[2].velocity.y(),
+      0.0});
+  traj4.insert(
+    serialized_waypoint[3].time,
+    {serialized_waypoint[3].position.x(),
+      serialized_waypoint[3].position.y(),
+      0.0},
+    {serialized_waypoint[3].velocity.x(),
+      serialized_waypoint[3].velocity.y(),
+      0.0});
+
+
+  bool detect_conflict_without_rotation =
     rmf_traffic::DetectConflict::between(traits.profile(),
-      traj1,
+      traj3,
       traits.profile(),
-      traj2,
-      rmf_traffic::DetectConflict::Interpolate::CubicSpline,
-      false).has_value();
+      traj4).has_value();
 
-  CHECK(detect_conflict_flag_true == detect_conflict_flag_false);
+  CHECK(detect_conflict_with_rotation == detect_conflict_without_rotation);
 }
 }

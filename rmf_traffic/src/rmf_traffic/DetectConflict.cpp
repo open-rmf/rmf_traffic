@@ -425,15 +425,12 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
   const Trajectory& trajectory_a,
   const Profile& profile_b,
   const Trajectory& trajectory_b,
-  Interpolate interpolation,
-  bool zero)
+  Interpolate interpolation)
 {
   return Implementation::between(
     profile_a, trajectory_a,
     profile_b, trajectory_b,
-    interpolation,
-    nullptr,
-    zero);
+    interpolation);
 }
 
 namespace {
@@ -767,33 +764,12 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
 //==============================================================================
 rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
-  const Trajectory& trajectory_a_actual,
+  const Trajectory& trajectory_a,
   const Profile& input_profile_b,
-  const Trajectory& trajectory_b_actual,
+  const Trajectory& trajectory_b,
   Interpolate /*interpolation*/,
-  std::vector<Conflict>* output_conflicts,
-  bool zero)
+  std::vector<Conflict>* output_conflicts)
 {
-  rmf_traffic::Trajectory trajectory_a;
-  rmf_traffic::Trajectory trajectory_b;
-  for (auto it = trajectory_a_actual.begin(); it != trajectory_a_actual.end(); ++it) {
-    auto position = it->position();
-    auto velocity = it->velocity();
-    if (zero) {
-      position << position(0), position(1), 0.0;
-      velocity << velocity(0), velocity(1), 0.0;
-    }
-    trajectory_a.insert(it->time(), position, velocity);
-  }
-  for (auto it = trajectory_b_actual.begin(); it != trajectory_b_actual.end(); ++it) {
-    auto position = it->position();
-    auto velocity = it->velocity();
-    if (zero) {
-      position << position(0), position(1), 0.0;
-      velocity << velocity(0), velocity(1), 0.0;
-    }
-    trajectory_b.insert(it->time(), position, velocity);
-  }
   if (trajectory_a.size() < 2)
   {
     throw invalid_trajectory_error::Implementation
