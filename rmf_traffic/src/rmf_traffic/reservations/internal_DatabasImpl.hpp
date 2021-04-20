@@ -89,18 +89,6 @@ public:
     return res->second.is_indefinite();
   }
 
-  std::optional<Time> latest_start_time(ReservationId id)
-  {
-    RequestId req_id = _active_reservation_tracker[id];
-    auto status = _request_tracker[req_id];
-    auto& start_constraints = status.requests[status.assigned_index];
-
-    if(!start_constraints.start_time().has_value() ||
-      !start_constraints.start_time()->upper_bound().has_value())
-      return std::nullopt;
-
-    start_constraints.start_time()->upper_bound();
-  }
 
   std::optional<Time> earliest_start_time(ReservationId id)
   {
@@ -217,56 +205,28 @@ public:
 
     assert(desired_time >  start_time);
 
-    auto item = sched.lower_bound(start_time);
-    auto next_item = std::next(item);
-    auto item_desired_time = desired_time;
-
-    auto push_back_duration = desired_time - item->first;
-
     Plan proposal;
-    proposal.cost = 0;
-
-    while(
-      next_item != sched.end() && // We have not reached the end of the schedule
-      next_item->first < item_desired_time+*item->second.duration() 
-      // There is an overlap between next item and current item
-      // We don't need to check for infinite reservations because only 
-      // the last item will be infinite and this while loop doesn't handle the last item
-    )
+    auto item = sched.lower_bound(start_time);
+    auto next_time = desired_time;
+    while(item != sched.end() && item->first <= next_time)
     {
-      auto latest_start = latest_start_time(item->second.reservation_id());
-      if(latest_start.has_value() &&
-        *latest_start < item_desired_time)
+      auto proposed_push_back = item->second.propose_new_start_time(next_time);
+      auto request_id = _active_reservation_tracker[item->second.reservation_id()];
+
+      if(!satisfies(request_id, proposed_push_back))
       {
-        // Violates the starting conditions mark this as a potential conflict
-        _conflict_tracker[item->second.reservation_id()].insert(request_id);
         return std::nullopt;
       }
-
-      auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
-      proposal.push_back_reservations.push_back(proposed_reservation);
-      proposal.cost += (item_desired_time - *latest_start).count();
-
-      /// Get the next_item
-      item = next_item;
-      item_desired_time = item->first + push_back_duration;
-      next_item = std::next(next_item);
+      auto last_fin_time = proposed_push_back.actual_finish_time();
+      proposal.push_back_reservations.push_back(proposed_push_back);
+      if(!last_fin_time.has_value())
+      {
+        break;
+      }
+      next_time = last_fin_time.value();
+      item = std::next(item);
     }
-
-    auto latest_start = latest_start_time(item->second.reservation_id());
-    if(latest_start.has_value() &&
-      *latest_start < item_desired_time)
-    {
-      /// Violates the starting conditions mark this as a potential conflict
-      _conflict_tracker[item->second.reservation_id()].insert(request_id);
-      return std::nullopt;
-    }
-    auto proposed_reservation = item->second.propose_new_start_time(item_desired_time);
-    proposal.push_back_reservations.push_back(proposed_reservation);
-
-    /// TODO: change cost function
-    proposal.cost += (item_desired_time - *latest_start).count();
-    return proposal;
+    return {proposal};
   }
 
   /// \brief Gives a list of reservations that are impacted when we perform a push back

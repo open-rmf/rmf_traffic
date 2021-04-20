@@ -64,8 +64,7 @@ void Reservation::set_actual_finish_time(rmf_traffic::Time dur)
 //=============================================================================
 Reservation Reservation::propose_new_finish_time(rmf_traffic::Time time)
 {
-  Reservation res;
-  res = *this;
+  Reservation res(*this);
   res.set_actual_finish_time(time);
   return res;
 }
@@ -73,8 +72,7 @@ Reservation Reservation::propose_new_finish_time(rmf_traffic::Time time)
 //=============================================================================
 Reservation Reservation::propose_new_start_time(rmf_traffic::Time start_time)
 {
-  Reservation res;
-  res = *this;
+  Reservation res(*this);
   res._pimpl->_start_time = start_time;
   return res;
 }
