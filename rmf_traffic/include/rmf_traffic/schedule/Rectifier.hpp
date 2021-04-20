@@ -144,9 +144,7 @@ public:
   /// This accepts a const-reference to a Database instance. Note that this
   /// class will store a reference to this Database, so its lifecycle is
   /// implicitly dependent on the Database's lifecycle.
-  //
-  // TODO(MXG): Should this demand a std::shared_ptr<Database> instead?
-  DatabaseRectificationRequesterFactory(const Database& database);
+  DatabaseRectificationRequesterFactory(std::shared_ptr<Database> database);
 
   // Documentation inherited
   std::unique_ptr<RectificationRequester> make(
@@ -156,6 +154,10 @@ public:
   /// Call this function to instruct all the RectificationRequestors produced
   /// by this factory to perform their rectifications.
   void rectify();
+
+  /// Change the database that will be getting rectified. This can be used to
+  /// switch to rectifying a new database fork.
+  void change_database(std::shared_ptr<Database> new_database);
 
   class Implementation;
 private:

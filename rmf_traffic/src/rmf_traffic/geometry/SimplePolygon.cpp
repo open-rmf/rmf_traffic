@@ -399,7 +399,8 @@ public:
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   : fcl::Convexd(points_, 0, std::shared_ptr<const std::vector<int>>()),
 #else
-  : FclConvexType(nullptr, nullptr, 0, points_->data(), points_->size(), nullptr),
+  : FclConvexType(nullptr, nullptr, 0, points_->data(), points_->size(),
+      nullptr),
 #endif
     point_storage(std::move(points_))
   {
@@ -689,7 +690,33 @@ FinalShape SimplePolygon::finalize() const
   }
   return FinalShape::Implementation::make_final_shape(
     rmf_utils::make_derived_impl<const Shape, const SimplePolygon>(*this),
-    _get_internal()->make_fcl(), characteristic_length);
+    _get_internal()->make_fcl(), characteristic_length,
+    make_equality_comparator(*this));
+}
+
+//==============================================================================
+bool operator==(const SimplePolygon& lhs, const SimplePolygon& rhs)
+{
+  if (lhs.get_num_points() != rhs.get_num_points())
+  {
+    return false;
+  }
+
+  for (size_t ii = 0; ii < lhs.get_num_points(); ++ii)
+  {
+    if (!lhs.get_point(ii).isApprox(rhs.get_point(ii)))
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+//==============================================================================
+bool operator!=(const SimplePolygon& lhs, const SimplePolygon& rhs)
+{
+  return !(lhs == rhs);
 }
 
 } // namespace geometry

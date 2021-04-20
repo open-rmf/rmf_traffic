@@ -21,10 +21,9 @@
 #include "ViewerInternal.hpp"
 #include "debug_Database.hpp"
 #include "internal_Snapshot.hpp"
+#include "internal_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
-
-#include <rmf_traffic/schedule/Database.hpp>
 
 #include <rmf_utils/Modular.hpp>
 
@@ -84,14 +83,8 @@ public:
     RouteStorage predecessor;
   };
 
-  struct RouteEntry
+  struct RouteEntry : public BaseRouteEntry
   {
-    // ===== Mandatory fields for a Timeline Entry =====
-    ConstRoutePtr route;
-    ParticipantId participant;
-    RouteId route_id;
-    std::shared_ptr<const ParticipantDescription> description;
-
     // ===== Additional fields for this timeline entry =====
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
     // templates to automatically mix these custom fields with the required
@@ -99,6 +92,27 @@ public:
     Version schedule_version;
     TransitionPtr transition;
     std::weak_ptr<RouteEntry> successor;
+
+    RouteEntry(
+      ConstRoutePtr route_,
+      ParticipantId participant_,
+      RouteId route_id_,
+      std::shared_ptr<const ParticipantDescription> desc_,
+      Version schedule_version_,
+      TransitionPtr transition_,
+      std::weak_ptr<RouteEntry> successor_)
+    : BaseRouteEntry{
+        std::move(route_),
+        participant_,
+        route_id_,
+        std::move(desc_),
+    },
+      schedule_version(schedule_version_),
+      transition(std::move(transition_)),
+      successor(std::move(successor_))
+    {
+      // Do nothing
+    }
   };
 
   Timeline<RouteEntry> timeline;
@@ -110,8 +124,9 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    const std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
+    Version last_updated;
     RouteId last_route_id = std::numeric_limits<RouteId>::max();
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -159,6 +174,15 @@ public:
   std::unordered_set<ParticipantId> participant_ids;
 
   Version schedule_version = 0;
+
+  /// When the Database forked off of a Mirror, this struct will contain
+  /// information about how the mirror was initialized
+  struct ForkInitializationInfo
+  {
+    Version initial_version;
+    Time initial_version_maximum_time;
+  };
+  std::optional<ForkInitializationInfo> fork_info;
 
   struct CullInfo
   {
@@ -302,6 +326,42 @@ public:
     }
   }
 
+  void apply_description_update(
+    ParticipantId participant,
+    ParticipantState& state)
+  {
+    ParticipantStorage& storage = state.storage;
+    for (const RouteId id : state.active_routes)
+    {
+      assert(storage.find(id) != storage.end());
+      auto& entry_storage = storage.at(id);
+
+      auto route = entry_storage.entry->route;
+
+      auto transition = std::make_unique<Transition>(
+        Transition{
+          std::nullopt,
+          std::move(entry_storage)
+        });
+
+      entry_storage.entry = std::make_unique<RouteEntry>(
+        RouteEntry{
+          std::move(route),
+          participant,
+          id,
+          state.description,
+          schedule_version,
+          std::move(transition),
+          RouteEntryPtr()
+        });
+
+      entry_storage.entry->transition->predecessor.entry->successor =
+        entry_storage.entry;
+
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+    }
+  }
+
   void erase_routes(
     ParticipantId participant,
     ParticipantState& state,
@@ -366,6 +426,28 @@ public:
     // *INDENT-ON*
   }
 
+  void add_new_participant_id(ParticipantId new_id)
+  {
+    if (rmf_utils::modular(_next_participant_id).less_than_or_equal(new_id))
+      _next_participant_id = new_id + 1;
+
+    const auto insertion = participant_ids.insert(new_id);
+    if (!insertion.second)
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[Database::Implementation::add_new_participant_id] Re-adding "
+        "participant ID [" + std::to_string(new_id) + "]. This should not be "
+        "possible! Please report this bug.");
+      // *INDENT-ON*
+    }
+  }
+
+  static Implementation& get(Database& database)
+  {
+    return *database._pimpl;
+  }
+
 private:
   ParticipantId _next_participant_id = 0;
 };
@@ -389,7 +471,7 @@ std::size_t Database::Debug::current_removed_participant_count(
 }
 
 //==============================================================================
-rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
+std::optional<Writer::Input> Database::Debug::get_itinerary(
   const Database& database,
   const ParticipantId participant)
 {
@@ -631,37 +713,113 @@ void Database::erase(
     state.active_routes.erase(id);
 }
 
+Writer::Registration register_participant_impl(
+  Database::Implementation& pimpl,
+  ParticipantId id,
+  ParticipantDescription description)
+{
+  const Version version = ++pimpl.schedule_version;
+  auto tracker = Inconsistencies::Implementation::register_participant(
+    pimpl.inconsistencies, id);
+
+  const auto description_ptr =
+    std::make_shared<const ParticipantDescription>(std::move(description));
+
+  const auto p_it = pimpl.states.insert(
+    std::make_pair(
+      id,
+      Database::Implementation::ParticipantState{
+        {},
+        std::move(tracker),
+        {},
+        description_ptr,
+        version,
+        version
+      })).first;
+
+  pimpl.descriptions.insert({id, description_ptr});
+
+  pimpl.add_participant_version[version] = id;
+
+  const auto& state = p_it->second;
+  return Database::Registration(
+    id, state.tracker->last_known_version(), state.last_route_id);
+}
+
 //==============================================================================
 Writer::Registration Database::register_participant(
   ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
-  auto tracker = Inconsistencies::Implementation::register_participant(
-    _pimpl->inconsistencies, id);
+  return register_participant_impl(*_pimpl, id, std::move(description));
+}
 
-  const Version version = ++_pimpl->schedule_version;
+//==============================================================================
+void internal_register_participant(
+  Database& database,
+  ParticipantId id,
+  ParticipantDescription description)
+{
+  auto& impl = Database::Implementation::get(database);
+  impl.add_new_participant_id(id);
+  register_participant_impl(impl, id, std::move(description));
+}
+
+//==============================================================================
+void set_initial_fork_version(
+  Database& database,
+  Version version)
+{
+  auto& impl = Database::Implementation::get(database);
+  impl.schedule_version = version;
+
+  std::optional<Time> maximum_time;
+  for (const auto& [_, state] : impl.states)
+  {
+    for (const auto& [_, storage] : state.storage)
+    {
+      const auto& route = storage.entry->route;
+      const auto* finish = route->trajectory().finish_time();
+      if (finish)
+      {
+        if (!maximum_time.has_value() || *maximum_time < *finish)
+          maximum_time = *finish;
+      }
+    }
+  }
+
+  if (maximum_time.has_value())
+  {
+    impl.fork_info = Database::Implementation::ForkInitializationInfo{
+      version,
+      *maximum_time
+    };
+  }
+}
+
+//==============================================================================
+void Database::update_description(
+  ParticipantId id,
+  ParticipantDescription desc)
+{
+  const auto p_it = _pimpl->states.find(id);
+  if (p_it == _pimpl->states.end())
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "[Database::erase] No participant with ID ["
+      + std::to_string(id) + "]");
+    // *INDENT-ON*
+  }
 
   const auto description_ptr =
-    std::make_shared<ParticipantDescription>(std::move(description));
+    std::make_shared<ParticipantDescription>(std::move(desc));
 
-  const auto p_it = _pimpl->states.insert(
-    std::make_pair(
-      id,
-      Implementation::ParticipantState{
-        {},
-        std::move(tracker),
-        {},
-        description_ptr,
-        version
-      })).first;
-
-  _pimpl->descriptions.insert({id, description_ptr});
-
-  _pimpl->add_participant_version[version] = id;
-
-  const auto& state = p_it->second;
-  return Registration(
-    id, state.tracker->last_known_version(), state.last_route_id);
+  auto version = ++_pimpl->schedule_version;
+  p_it->second.last_updated = version;
+  p_it->second.description = description_ptr;
+  _pimpl->descriptions[id] = description_ptr;
+  _pimpl->apply_description_update(id, p_it->second);
 }
 
 //==============================================================================
@@ -798,28 +956,32 @@ public:
         {
           const auto* const transition = traverse->transition.get();
           assert(transition);
-          assert(transition->delay);
-          const auto& delay = *transition->delay;
-          const auto insertion = p_changes.delays.insert(
-            std::make_pair(
-              traverse->schedule_version,
-              Delay{
-                delay.duration
-              }));
-#ifndef NDEBUG
-          // When compiling in debug mode, if we see a duplicate insertion,
-          // let's make sure that the previously entered data matches what we
-          // wanted to enter just now.
-          if (!insertion.second)
+
+          if (transition->delay.has_value())
           {
-            const Delay& previous = insertion.first->second;
-            assert(previous.duration == delay.duration);
-          }
+            const auto& delay = *transition->delay;
+            const auto insertion = p_changes.delays.insert(
+              std::make_pair(
+                traverse->schedule_version,
+                Delay{
+                  delay.duration
+                }));
+#ifndef NDEBUG
+            // When compiling in debug mode, if we see a duplicate insertion,
+            // let's make sure that the previously entered data matches what we
+            // wanted to enter just now.
+            if (!insertion.second)
+            {
+              const Delay& previous = insertion.first->second;
+              assert(previous.duration == delay.duration);
+            }
 #else
-          // When compiling in release mode, cast the return value to void to
-          // suppress compiler warnings.
-          (void)(insertion);
+            // When compiling in release mode, cast the return value to void to
+            // suppress compiler warnings.
+            (void)(insertion);
 #endif // NDEBUG
+          }
+
           traverse = traverse->transition->predecessor.entry.get();
         }
       }
@@ -906,6 +1068,35 @@ public:
         });
     }
   }
+};
+
+//==============================================================================
+// TODO(MXG): This class is redundant with MirrorViewRelevanceInspector
+class SnapshotViewRelevanceInspector
+  : public TimelineInspector<BaseRouteEntry>
+{
+public:
+
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+    const BaseRouteEntry* entry,
+    const std::function<bool(const BaseRouteEntry&)>& relevant) final
+  {
+    if (relevant(*entry))
+    {
+      routes.emplace_back(
+        Storage{
+          entry->participant,
+          entry->route_id,
+          entry->route,
+          entry->description
+        });
+    }
+  }
+
 };
 
 //==============================================================================
@@ -1054,10 +1245,16 @@ Version Database::latest_version() const
 std::shared_ptr<const Snapshot> Database::snapshot() const
 {
   using SnapshotType =
-    SnapshotImplementation<Implementation::RouteEntry, ViewRelevanceInspector>;
+    SnapshotImplementation<BaseRouteEntry, SnapshotViewRelevanceInspector>;
+
+  const auto check_relevant = [](const Implementation::RouteEntry& entry)
+    {
+      // If this entry has no successor, then it is relevant to the snapshot.
+      return entry.successor.lock() == nullptr;
+    };
 
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(),
+    _pimpl->timeline.snapshot(check_relevant),
     _pimpl->participant_ids,
     _pimpl->descriptions,
     _pimpl->schedule_version);
@@ -1081,8 +1278,18 @@ auto Database::changes(
   const Query& parameters,
   rmf_utils::optional<Version> after) const -> Patch
 {
+  if (after.has_value() && _pimpl->fork_info.has_value())
+  {
+    // If a specific version is being asked for, but that version predates the
+    // initial version of this forked database, then we will instead simply send
+    // a changeset that will bring the mirrors up to date no matter what their
+    // current version is.
+    if (*after < _pimpl->fork_info->initial_version)
+      return changes(parameters, std::nullopt);
+  }
+
   std::unordered_map<ParticipantId, ParticipantChanges> changes;
-  if (after)
+  if (after.has_value())
   {
     PatchRelevanceInspector inspector(*after);
     _pimpl->timeline.inspect(
@@ -1102,8 +1309,11 @@ auto Database::changes(
   std::vector<Patch::Participant> part_patches;
   for (const auto& p : changes)
   {
+    const auto& changeset = p.second;
+    const auto& state = _pimpl->states.at(p.first);
+
     std::vector<Change::Delay> delays;
-    for (const auto& d : p.second.delays)
+    for (const auto& d : changeset.delays)
     {
       delays.emplace_back(
         Change::Delay{
@@ -1111,59 +1321,35 @@ auto Database::changes(
         });
     }
 
+    if (changeset.erasures.empty()
+      && delays.empty()
+      && changeset.additions.empty())
+    {
+      // There aren't actually any changes for this participant, so we will
+      // leave it out of the patch.
+      continue;
+    }
+
     part_patches.emplace_back(
       Patch::Participant{
         p.first,
+        state.tracker->last_known_version(),
         Change::Erase(std::move(p.second.erasures)),
         std::move(delays),
         Change::Add(std::move(p.second.additions))
       });
   }
 
-  std::vector<Change::RegisterParticipant> registered;
-  std::vector<Change::UnregisterParticipant> unregistered;
-  if (after)
-  {
-    const Version after_v = *after;
-
-    auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
-    for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
-    {
-      const auto p_it = _pimpl->states.find(add_it->second);
-      assert(p_it != _pimpl->states.end());
-      registered.emplace_back(p_it->first, *p_it->second.description);
-    }
-
-    auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
-    for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
-    {
-      // We should only unregister this if it was registered before the last
-      // update to this mirror
-      if (remove_it->second.original_version <= *after)
-        unregistered.emplace_back(remove_it->second.id);
-    }
-  }
-  else
-  {
-    // If this is a mirror's first pull from the database, then we should send
-    // all the participant information.
-    for (const auto& p : _pimpl->states)
-      registered.emplace_back(p.first, *p.second.description);
-
-    // We do not need to mention any participants that have unregistered.
-  }
-
-  rmf_utils::optional<Change::Cull> cull;
+  std::optional<Change::Cull> cull;
   if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
   {
     cull = _pimpl->last_cull->cull;
   }
 
   return Patch(
-    std::move(unregistered),
-    std::move(registered),
     std::move(part_patches),
     cull,
+    after,
     _pimpl->schedule_version);
 }
 
@@ -1227,6 +1413,14 @@ Version Database::cull(Time time)
     _pimpl->schedule_version
   };
 
+  if (_pimpl->fork_info.has_value())
+  {
+    // If the initial state of the fork is being culled, then we can erase this
+    // fork initialization information.
+    if (_pimpl->fork_info->initial_version_maximum_time < time)
+      _pimpl->fork_info = std::nullopt;
+  }
+
   return _pimpl->schedule_version;
 }
 
@@ -1259,8 +1453,8 @@ RouteId Database::last_route_id(ParticipantId participant) const
   if (p_it == _pimpl->states.end())
   {
     throw std::runtime_error(
-      "[Database::last_route_id] No participant with ID ["
-      + std::to_string(participant) + "]");
+            "[Database::last_route_id] No participant with ID ["
+            + std::to_string(participant) + "]");
   }
 
   return p_it->second.last_route_id;

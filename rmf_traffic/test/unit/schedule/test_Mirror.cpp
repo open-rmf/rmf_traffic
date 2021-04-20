@@ -20,6 +20,7 @@
 
 //#include <rmf_traffic/geometry/Box.hpp>
 #include <src/rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/schedule/debug_Database.hpp>
 
 #include "src/rmf_traffic/schedule/debug_Viewer.hpp"
 
@@ -98,8 +99,13 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   rmf_traffic::schedule::Mirror mirror;
   // updating mirror
   changes = db.changes(query_all, rmf_utils::nullopt);
-  CHECK(mirror.update(changes) == changes.latest_version());
+  CHECK(mirror.update(changes));
   CHECK(mirror.latest_version() == changes.latest_version());
+
+  rmf_traffic::schedule::ParticipantDescriptionsMap descriptions;
+  for (const auto id : db.participant_ids())
+    descriptions.insert_or_assign(id, *db.get_participant(id));
+  mirror.update_participants_info(descriptions);
 
   WHEN("A trajectory is added to the database")
   {
@@ -178,7 +184,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       db.delay(p1.id(), 20s, iv1++);
       CHECK(db.latest_version() == ++dbv);
       changes = db.changes(query_all, mirror.latest_version());
-      CHECK(mirror.update(changes) == changes.latest_version());
+      CHECK(mirror.update(changes));
       CHECK(mirror.latest_version() == db.latest_version());
 
       view = mirror.query(query_all);
@@ -192,7 +198,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     {
       db.cull(time + 11s);
       changes = db.changes(query_all, mirror.latest_version());
-      CHECK(mirror.update(changes) == changes.latest_version());
+      CHECK(mirror.update(changes));
       CHECK(mirror.latest_version() == db.latest_version());
 
       view = mirror.query(query_all);
@@ -482,3 +488,319 @@ SCENARIO("Testing specialized mirrors")
     expected_ids[p2.id()] = {0};
   }
 }
+
+//==============================================================================
+class FailoverWriter :
+  public rmf_traffic::schedule::Writer,
+  public std::enable_shared_from_this<FailoverWriter>
+{
+public:
+
+  using RectFactory =
+    rmf_traffic::schedule::DatabaseRectificationRequesterFactory;
+
+  FailoverWriter()
+  : _database(std::make_shared<rmf_traffic::schedule::Database>()),
+    _rectifiers(std::make_shared<RectFactory>(_database))
+  {
+    // Do nothing
+  }
+
+  bool drop_packets = false;
+
+  void set(
+    ParticipantId participant,
+    const Input& itinerary,
+    ItineraryVersion version) final
+  {
+    if (drop_packets)
+      return;
+
+    _database->set(participant, itinerary, version);
+    _mirror.update(_database->changes(_all, _mirror.latest_version()));
+  }
+
+  void extend(
+    ParticipantId participant,
+    const Input& routes,
+    ItineraryVersion version) final
+  {
+    if (drop_packets)
+      return;
+
+    _database->extend(participant, routes, version);
+    _mirror.update(_database->changes(_all, _mirror.latest_version()));
+  }
+
+  void delay(
+    ParticipantId participant,
+    Duration delay,
+    ItineraryVersion version) final
+  {
+    if (drop_packets)
+      return;
+
+    _database->delay(participant, delay, version);
+    _mirror.update(_database->changes(_all, _mirror.latest_version()));
+  }
+
+  void erase(ParticipantId participant, ItineraryVersion version) final
+  {
+    if (drop_packets)
+      return;
+
+    _database->erase(participant, version);
+    _mirror.update(_database->changes(_all, _mirror.latest_version()));
+  }
+
+  void erase(
+    ParticipantId participant,
+    const std::vector<RouteId>& routes,
+    ItineraryVersion version) final
+  {
+    if (drop_packets)
+      return;
+
+    _database->erase(participant, routes, version);
+    _mirror.update(_database->changes(_all, _mirror.latest_version()));
+  }
+
+  Registration register_participant(ParticipantDescription description) final
+  {
+    // We assume participant registration is done over a reliable connection
+    auto registration = _database->register_participant(std::move(description));
+    _update_participants();
+
+    return registration;
+  }
+
+  void unregister_participant(ParticipantId participant) final
+  {
+    _database->set_current_time(std::chrono::steady_clock::now());
+    _database->unregister_participant(participant);
+    _update_participants();
+  }
+
+  void update_description(
+    ParticipantId participant,
+    ParticipantDescription desc) final
+  {
+    _database->update_description(participant, std::move(desc));
+    _update_participants();
+  }
+
+  void failover()
+  {
+    _database =
+      std::make_shared<rmf_traffic::schedule::Database>(_mirror.fork());
+    _rectifiers->change_database(_database);
+  }
+
+  void rectify()
+  {
+    _rectifiers->rectify();
+  }
+
+  rmf_traffic::schedule::Participant make_participant(
+    rmf_traffic::schedule::ParticipantDescription description)
+  {
+    return rmf_traffic::schedule::make_participant(
+      std::move(description),
+      shared_from_this(),
+      _rectifiers);
+  }
+
+  const rmf_traffic::schedule::Database& database() const
+  {
+    return *_database;
+  }
+
+private:
+
+  void _update_participants()
+  {
+    rmf_traffic::schedule::ParticipantDescriptionsMap descriptions;
+    for (const auto& p : _database->participant_ids())
+      descriptions.insert_or_assign(p, *_database->get_participant(p));
+
+    _mirror.update_participants_info(descriptions);
+  }
+
+  std::shared_ptr<rmf_traffic::schedule::Database> _database;
+  rmf_traffic::schedule::Mirror _mirror;
+  std::shared_ptr<rmf_traffic::schedule::DatabaseRectificationRequesterFactory>
+  _rectifiers;
+
+  rmf_traffic::schedule::Query _all = rmf_traffic::schedule::query_all();
+
+};
+
+//==============================================================================
+SCENARIO("Test forking off of mirrors")
+{
+  // In this test, we create a writer which has the ability to "fail over",
+  // meaning its back end database can be deleted and replaced with a new
+  // database that forked off of a mirror that was keeping in sync with the
+  // database. This writer also has packet loss issues that can be toggled on
+  // and off.
+  //
+  // Given this writer, we will perform arbitrary operations on a participant
+  // and intermittently toggle packet loss on and off, as well as trigger the
+  // failover mechanism occasionally. Each time we do a failover, we will test
+  // to make sure that the new back end database can continue staying in sync
+  // with the participant, and that the new database agrees with the participant
+  // about its current state.
+
+  using namespace std::chrono_literals;
+  const auto writer = std::make_shared<FailoverWriter>();
+
+  const auto shape = rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Circle>(1.0);
+
+  const auto description = rmf_traffic::schedule::ParticipantDescription{
+    "participant",
+    "test_Mirror",
+    rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+    rmf_traffic::Profile{shape}
+  };
+
+  auto p0 = writer->make_participant(description);
+
+  const auto now = std::chrono::steady_clock::now();
+
+  rmf_traffic::Trajectory trajectory;
+  trajectory.insert(now, {0, 0, 0}, {0, 0, 0});
+  trajectory.insert(now + 10s, {0, 10, 0}, {0, 0, 0});
+
+  const std::string test_map = "test_map";
+
+  p0.set({{test_map, trajectory}});
+
+  writer->drop_packets = true;
+
+  trajectory.insert(now + 20s, {10, 10, 0}, {0, 0, 0});
+  p0.extend({{test_map, trajectory}});
+
+  writer->drop_packets = false;
+
+  trajectory.insert(now + 22s, {10, 10, 0}, {0, 0, 0});
+  p0.extend({{test_map, trajectory}});
+
+  writer->rectify();
+
+  p0.delay(10s);
+
+  writer->drop_packets = true;
+
+  trajectory.insert(now + 32s, {10, 0, 0}, {0, 0, 0});
+  p0.extend({{test_map, trajectory}});
+  p0.delay(5s);
+
+  writer->failover();
+
+  writer->drop_packets = false;
+
+  trajectory.erase(trajectory.begin(), trajectory.end());
+  trajectory.insert(now, {3, 2, 1}, {0, 0, 0});
+  trajectory.insert(now, {1, 2, 3}, {0, 0, 0});
+  p0.extend({{test_map, trajectory}});
+
+  writer->rectify();
+
+  {
+    const auto itinerary = convert_itinerary(
+      *rmf_traffic::schedule::Database::Debug::get_itinerary(
+        writer->database(), p0.id()));
+    REQUIRE(p0.itinerary().size() == itinerary.size());
+
+    for (const auto& [route_id, route] : p0.itinerary())
+    {
+      const auto db_it = itinerary.find(route_id);
+      REQUIRE(db_it != itinerary.end());
+      CHECK(route->map() == db_it->second->map());
+      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
+    }
+  }
+
+  p0.set({{test_map, trajectory}});
+
+  writer->failover();
+
+  {
+    // This block tests to make sure the new Database's itinerary information
+    // perfectly matches the participant's intended itinerary information.
+    const auto itinerary = convert_itinerary(
+      *rmf_traffic::schedule::Database::Debug::get_itinerary(
+        writer->database(), p0.id()));
+    REQUIRE(p0.itinerary().size() == itinerary.size());
+
+    for (const auto& [route_id, route] : p0.itinerary())
+    {
+      const auto db_it = itinerary.find(route_id);
+      REQUIRE(db_it != itinerary.end());
+      CHECK(route->map() == db_it->second->map());
+      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
+    }
+  }
+
+  p0.clear();
+
+  writer->drop_packets = true;
+
+  trajectory.insert(now + 32s, {10, 0, 0}, {0, 0, 0});
+  p0.set({{test_map, trajectory}});
+  p0.delay(20s);
+
+  trajectory.insert(now + 10s, {0, 10, 0}, {0, 0, 0});
+  p0.extend({{test_map, trajectory}});
+
+  writer->drop_packets = false;
+  writer->rectify();
+
+  {
+    const auto itinerary = convert_itinerary(
+      *rmf_traffic::schedule::Database::Debug::get_itinerary(
+        writer->database(), p0.id()));
+    REQUIRE(p0.itinerary().size() == itinerary.size());
+
+    for (const auto& [route_id, route] : p0.itinerary())
+    {
+      const auto db_it = itinerary.find(route_id);
+      REQUIRE(db_it != itinerary.end());
+      CHECK(route->map() == db_it->second->map());
+      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
+    }
+  }
+
+  writer->failover();
+
+  {
+    const auto itinerary = convert_itinerary(
+      *rmf_traffic::schedule::Database::Debug::get_itinerary(
+        writer->database(), p0.id()));
+    REQUIRE(p0.itinerary().size() == itinerary.size());
+
+    for (const auto& [route_id, route] : p0.itinerary())
+    {
+      const auto db_it = itinerary.find(route_id);
+      REQUIRE(db_it != itinerary.end());
+      CHECK(route->map() == db_it->second->map());
+      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
+    }
+  }
+
+  writer->drop_packets = true;
+  p0.clear();
+
+  writer->failover();
+  writer->drop_packets = false;
+  writer->rectify();
+
+  CHECK(rmf_traffic::schedule::Database::Debug::get_itinerary(
+      writer->database(), p0.id())->empty());
+
+  // TODO(MXG): This could use more testing. For example, what happens when
+  // other mirrors were following the database and then it fails over while
+  // the mirror is out of sync? How would their changesets be impacted?
+}
+

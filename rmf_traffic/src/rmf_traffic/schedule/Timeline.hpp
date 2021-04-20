@@ -216,6 +216,13 @@ protected:
     const auto relevant = [](const Entry&) -> bool { return true; };
     for (const auto& entry : *_all_bucket)
     {
+      if (!entry->description)
+      {
+        // This entry is still missing its participant description, so it
+        // should be ignored for now.
+        continue;
+      }
+
       if (participant_filter.ignore(entry->participant))
         continue;
 
@@ -366,6 +373,13 @@ protected:
       {
         const Entry* entry = entry_it->get();
 
+        if (!entry->description)
+        {
+          // This entry is still missing its participant description, so it
+          // should be ignored for now.
+          continue;
+        }
+
         if (participant_filter.ignore(entry->participant))
           continue;
 
@@ -404,6 +418,15 @@ protected:
 };
 
 //==============================================================================
+struct BaseRouteEntry
+{
+  ConstRoutePtr route;
+  ParticipantId participant;
+  RouteId route_id;
+  std::shared_ptr<const ParticipantDescription> description;
+};
+
+//==============================================================================
 template<typename Entry>
 class Timeline : public TimelineView<Entry>
 {
@@ -413,6 +436,37 @@ public:
   using Bucket = typename TimelineView<Entry>::Bucket;
   using BucketPtr = typename TimelineView<Entry>::BucketPtr;
   using Entries = typename TimelineView<Entry>::Entries;
+
+  using BaseBucket = TimelineView<BaseRouteEntry>::Bucket;
+  using BaseBucketPtr = TimelineView<BaseRouteEntry>::BucketPtr;
+
+  static BaseBucketPtr clone_bucket(
+    const Bucket& other,
+    const std::function<bool(const Entry& other)>& check_relevant)
+  {
+    if constexpr (std::is_same<Entry, BaseRouteEntry>::value)
+    {
+      // If there is no need to check for relevance and we are using
+      if (!check_relevant)
+        return std::make_shared<BaseBucket>(other);
+    }
+
+    BaseBucket output;
+    output.reserve(other.size());
+
+    for (const auto& other_entry : other)
+    {
+      if (check_relevant)
+      {
+        if (!check_relevant(*other_entry))
+          continue;
+      }
+
+      output.emplace_back(std::make_shared<BaseRouteEntry>(*other_entry));
+    }
+
+    return std::make_shared<BaseBucket>(std::move(output));
+  }
 
   /// This Timeline::Handle class allows us to use RAII so that when an Entry is
   /// deleted it will automatically be removed from any of its timeline buckets.
@@ -457,9 +511,10 @@ public:
     if (entry->route && entry->route->trajectory().size() < 2)
     {
       throw std::runtime_error(
-        "[rmf_traffic::schedule::Timeline] Trying to insert a trajectory with "
-        "less than 2 waypoints ["
-        + std::to_string(entry->route->trajectory().size()) + "] is illegal!");
+              "[rmf_traffic::schedule::Timeline] Trying to insert a trajectory with "
+              "less than 2 waypoints ["
+              + std::to_string(
+                entry->route->trajectory().size()) + "] is illegal!");
     }
 
     if (entry->route && entry->route->trajectory().start_time())
@@ -507,7 +562,10 @@ public:
 
   /// Create an immutable snapshot of the current timeline. A single instance of
   /// the snapshot can be safely used by multiple threads simultaneously.
-  std::shared_ptr<const TimelineView<const Entry>> snapshot() const
+  ///
+  /// Filter out entries based on which are relevant.
+  std::shared_ptr<const TimelineView<const BaseRouteEntry>> snapshot(
+    const std::function<bool(const Entry& other)>& check_relevant) const
   {
     // TODO(MXG): Consider whether we could use plain std::vector<Bucket>
     // instances instead of std::vector<std::shared_ptr<Bucket>> in the snapshot
@@ -519,22 +577,34 @@ public:
     // entry gets removed right now, so we wouldn't know to update the snapshot
     // when an entry gets taken out.
 
-    std::shared_ptr<TimelineView<const Entry>> result =
-      std::make_shared<TimelineView<const Entry>>();
+    std::shared_ptr<TimelineView<const BaseRouteEntry>> result =
+      std::make_shared<TimelineView<const BaseRouteEntry>>();
 
     // Make a deep copy of the buckets so that adding/removing entries from the
     // source bucket does not impact the snapshot
-    result->_timelines = this->_timelines;
-    for (auto& map_scope : result->_timelines)
+    if constexpr (std::is_same<Entry, BaseRouteEntry>::value)
     {
-      for (auto& time_scope : map_scope.second)
+      result->_timelines = this->_timelines;
+      for (auto& [map, time_scope] : result->_timelines)
       {
-        auto& bucket = time_scope.second;
-        bucket = std::make_shared<Bucket>(*bucket);
+        for (auto& [time, bucket] : time_scope)
+          bucket = clone_bucket(*bucket, check_relevant);
+      }
+    }
+    else
+    {
+      result->_timelines.reserve(this->_timelines.size());
+      for (const auto& [map, time_scope] : this->_timelines)
+      {
+        auto& out_time_scope =
+          result->_timelines.insert({map, {}}).first->second;
+
+        for (const auto& [time, bucket] : time_scope)
+          out_time_scope.insert({time, clone_bucket(*bucket, check_relevant)});
       }
     }
 
-    result->_all_bucket = std::make_shared<Bucket>(*result->_all_bucket);
+    result->_all_bucket = clone_bucket(*this->_all_bucket, check_relevant);
 
     return result;
   }

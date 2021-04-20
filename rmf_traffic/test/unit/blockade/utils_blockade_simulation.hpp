@@ -31,9 +31,9 @@ inline void ImplAnd(rmf_traffic::blockade::AndConstraint&)
 //==============================================================================
 template<typename... Args>
 void ImplAnd(
-    rmf_traffic::blockade::AndConstraint& and_constraint,
-    rmf_traffic::blockade::ConstConstraintPtr next_constraint,
-    const Args&... args)
+  rmf_traffic::blockade::AndConstraint& and_constraint,
+  rmf_traffic::blockade::ConstConstraintPtr next_constraint,
+  const Args& ... args)
 {
   and_constraint.add(next_constraint);
   ImplAnd(and_constraint, args...);
@@ -41,10 +41,10 @@ void ImplAnd(
 
 //==============================================================================
 template<typename... Args>
-rmf_traffic::blockade::ConstConstraintPtr And(const Args&... args)
+rmf_traffic::blockade::ConstConstraintPtr And(const Args& ... args)
 {
   const auto and_constraint =
-      std::make_shared<rmf_traffic::blockade::AndConstraint>();
+    std::make_shared<rmf_traffic::blockade::AndConstraint>();
 
   ImplAnd(*and_constraint, args...);
 
@@ -84,10 +84,10 @@ struct StateHash
 
 //==============================================================================
 inline rmf_traffic::blockade::State make_initial_state(
-    const std::size_t N_participants)
+  const std::size_t N_participants)
 {
   rmf_traffic::blockade::State state;
-  for (std::size_t i=0; i < N_participants; ++i)
+  for (std::size_t i = 0; i < N_participants; ++i)
     state[i] = rmf_traffic::blockade::ReservedRange{0, 0};
 
   return state;
@@ -95,8 +95,8 @@ inline rmf_traffic::blockade::State make_initial_state(
 
 //==============================================================================
 inline bool have_reached_goal(
-    const rmf_traffic::blockade::State& state,
-    const std::vector<std::size_t>& goal)
+  const rmf_traffic::blockade::State& state,
+  const std::vector<std::size_t>& goal)
 {
   for (const auto& s : state)
   {
@@ -119,15 +119,15 @@ inline bool have_reached_goal(
 //==============================================================================
 /// This function simulates all possible command sequences
 inline void simulate_all_sequences(
-    const rmf_traffic::blockade::Blockers& blockers,
-    const rmf_traffic::blockade::ConstConstraintPtr& no_gridlock,
-    const std::vector<std::size_t>& goal)
+  const rmf_traffic::blockade::Blockers& blockers,
+  const rmf_traffic::blockade::ConstConstraintPtr& no_gridlock,
+  const std::vector<std::size_t>& goal)
 {
   using namespace rmf_traffic::blockade;
   REQUIRE(!goal.empty());
 
   std::unordered_set<State, StateHash> cache(
-        0, StateHash(*std::max_element(goal.begin(), goal.end())));
+    0, StateHash(*std::max_element(goal.begin(), goal.end())));
 
   std::vector<IndexToConstraint> should_go;
   should_go.resize(goal.size(), {});

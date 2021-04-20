@@ -40,6 +40,11 @@ public:
   };
 
   using Input = std::vector<Item>;
+  using ParticipantId = rmf_traffic::schedule::ParticipantId;
+  using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
+  using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
+  using Duration = rmf_traffic::Duration;
+  using RouteId = rmf_traffic::RouteId;
 
   /// Set a brand new itinerary for a participant. This will replace any
   /// itinerary that is already in the schedule for the participant.
@@ -187,6 +192,16 @@ public:
   /// \return the new version of the schedule.
   virtual void unregister_participant(
     ParticipantId participant) = 0;
+
+  /// Updates a participants footprint
+  ///
+  /// \param[in] participant
+  ///   The ID of the participant to update
+  /// \param[in] desc
+  ///   The participant description
+  virtual void update_description(
+    ParticipantId participant,
+    ParticipantDescription desc) = 0;
 
   // virtual destructor
   virtual ~Writer() = default;

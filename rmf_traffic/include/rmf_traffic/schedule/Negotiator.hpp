@@ -123,7 +123,7 @@ public:
     std::vector<schedule::ParticipantId>* report_blockers = nullptr);
 
   template<typename... Args>
-  static std::shared_ptr<SimpleResponder> make(Args&&... args)
+  static std::shared_ptr<SimpleResponder> make(Args&& ... args)
   {
     return std::make_shared<SimpleResponder>(std::forward<Args>(args)...);
   }

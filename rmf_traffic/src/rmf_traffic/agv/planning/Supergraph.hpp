@@ -26,6 +26,7 @@
 #include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
+#include <rmf_traffic/agv/LaneClosure.hpp>
 
 #include <map>
 
@@ -64,6 +65,7 @@ struct Traversal
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
   std::vector<std::string> maps;
+  std::vector<std::size_t> traversed_lanes;
   double best_time;
 
   struct Alternative
@@ -82,7 +84,7 @@ using ConstTraversalsPtr = std::shared_ptr<const Traversals>;
 
 //==============================================================================
 class TraversalGenerator
-    : public Generator<std::unordered_map<std::size_t, ConstTraversalsPtr>>
+  : public Generator<std::unordered_map<std::size_t, ConstTraversalsPtr>>
 {
 public:
 
@@ -90,9 +92,9 @@ public:
     const std::shared_ptr<const Supergraph>& graph);
 
   ConstTraversalsPtr generate(
-      const std::size_t& key,
-      const Storage& old_items,
-      Storage& new_items) const final;
+    const std::size_t& key,
+    const Storage& old_items,
+    Storage& new_items) const final;
 
   struct Kinematics
   {
@@ -128,10 +130,12 @@ public:
   static std::shared_ptr<const Supergraph> make(
     Graph::Implementation original,
     VehicleTraits traits,
+    LaneClosure lane_closures,
     const Interpolate::Options::Implementation& interpolate);
 
   const Graph::Implementation& original() const;
   const VehicleTraits& traits() const;
+  const LaneClosure& closures() const;
   const Interpolate::Options::Implementation& options() const;
 
   struct FloorChange
@@ -158,11 +162,11 @@ public:
   public:
 
     std::vector<Entry> relevant_entries(
-        std::optional<double> orientation) const;
+      std::optional<double> orientation) const;
 
     Entries(
-        std::map<double, Entry> angled_entries,
-        std::optional<Entry> agnostic_entry);
+      std::map<double, Entry> angled_entries,
+      std::optional<Entry> agnostic_entry);
 
   private:
     // These are entries that require a specific entry angle
@@ -185,25 +189,27 @@ public:
   /// Get the keys for the DifferentialDriveHeuristic cache entries that are
   /// relevant for a given combination of start and goal conditions.
   DifferentialDriveKeySet keys_for(
-      std::size_t start_waypoint_index,
-      std::size_t goal_waypoint_index,
-      std::optional<double> goal_orientation) const;
+    std::size_t start_waypoint_index,
+    std::size_t goal_waypoint_index,
+    std::optional<double> goal_orientation) const;
 
 private:
   Supergraph(
     Graph::Implementation original,
     VehicleTraits traits,
+    LaneClosure lane_closures,
     const Interpolate::Options::Implementation& interpolate);
 
   Graph::Implementation _original;
   VehicleTraits _traits;
+  LaneClosure _lane_closures;
   Interpolate::Options::Implementation _interpolate;
   FloorChangeMap _floor_changes;
   std::shared_ptr<const CacheManager<TraversalCache>> _traversals;
   std::optional<DifferentialDriveConstraint> _constraint;
 
   class EntriesGenerator
-      : public Generator<std::unordered_map<std::size_t, ConstEntriesPtr>>
+    : public Generator<std::unordered_map<std::size_t, ConstEntriesPtr>>
   {
   public:
     EntriesGenerator(
@@ -231,9 +237,9 @@ private:
       const std::shared_ptr<const Supergraph>& graph);
 
     std::optional<double> generate(
-        const Entry& key,
-        const Storage& old_items,
-        Storage& new_items) const final;
+      const Entry& key,
+      const Storage& old_items,
+      Storage& new_items) const final;
 
   private:
     std::weak_ptr<const Supergraph> _graph;
@@ -245,11 +251,11 @@ private:
 
 //==============================================================================
 bool orientation_constraint_satisfied(
-    const Eigen::Vector2d p,
-    const double orientation,
-    const Eigen::Vector2d course_vector,
-    const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
-    const double rotation_thresh);
+  const Eigen::Vector2d p,
+  const double orientation,
+  const Eigen::Vector2d course_vector,
+  const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
+  const double rotation_thresh);
 
 } // namespace planning
 } // namespace agv

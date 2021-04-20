@@ -76,9 +76,9 @@ struct ConflictInfo
 
 //==============================================================================
 ConflictInfo detect_conflict(
-    const Segment& s_a,
-    const Segment& s_b,
-    double angle_threshold);
+  const Segment& s_a,
+  const Segment& s_b,
+  double angle_threshold);
 
 } // namespace blockade
 } // namespace rmf_traffic

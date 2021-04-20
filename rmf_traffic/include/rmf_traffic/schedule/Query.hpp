@@ -465,6 +465,30 @@ Query make_query(
   const Time* start_time,
   const Time* finish_time);
 
+//==============================================================================
+/// Equality operator for Query objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator==(
+  const Query& lhs,
+  const Query& rhs);
+
+//==============================================================================
+/// Non-equality operator for Query objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator!=(
+  const Query& lhs,
+  const Query& rhs);
+
 } // namespace schedule
 
 namespace detail {

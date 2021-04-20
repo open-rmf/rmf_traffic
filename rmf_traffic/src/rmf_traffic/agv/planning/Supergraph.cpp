@@ -32,7 +32,7 @@ namespace planning {
 namespace {
 //==============================================================================
 Supergraph::FloorChangeMap find_floor_changes(
-    const Graph::Implementation& original)
+  const Graph::Implementation& original)
 {
   Supergraph::FloorChangeMap all_floor_changes;
 
@@ -56,7 +56,7 @@ Supergraph::FloorChangeMap find_floor_changes(
 
 //==============================================================================
 Eigen::Rotation2Dd compute_forward_offset(
-    const Eigen::Vector2d& forward)
+  const Eigen::Vector2d& forward)
 {
   return Eigen::Rotation2Dd(std::atan2(forward[1], forward[0]));
 }
@@ -76,6 +76,7 @@ struct TraversalNode
 
   // TODO(MXG): Can std::string_view be used to make this more memory efficient?
   std::vector<std::string> map_names;
+  std::vector<std::size_t> traversed_lanes;
 
   std::array<std::optional<double>, 2> orientations;
   bool standstill = false;
@@ -110,7 +111,8 @@ void node_to_traversals(
   traversal.finish_waypoint_index = node.finish_waypoint_index;
   traversal.best_time = 0.0;
   traversal.maps = std::vector<std::string>(
-        node.map_names.begin(), node.map_names.end());
+    node.map_names.begin(), node.map_names.end());
+  traversal.traversed_lanes = node.traversed_lanes;
 
 //  std::cout << "Traversal [" << traversal.initial_lane_index << "] -> ("
 //            << traversal.finish_lane_index << "): entry event {"
@@ -119,14 +121,14 @@ void node_to_traversals(
   {
     traversal.entry_event = node.entry_event->clone();
     traversal.best_time += rmf_traffic::time::to_seconds(
-          traversal.entry_event->duration());
+      traversal.entry_event->duration());
   }
 
   if (node.exit_event)
   {
     traversal.exit_event = node.exit_event->clone();
     traversal.best_time += rmf_traffic::time::to_seconds(
-          traversal.exit_event->duration());
+      traversal.exit_event->duration());
   }
 
   if (node.standstill)
@@ -137,8 +139,8 @@ void node_to_traversals(
       kin.interpolate.rotation_thresh, traversal.maps);
 
     // If the node is a standstill, just add this empty Alternative
-    traversal.alternatives[static_cast<std::size_t>(Orientation::Any)]
-        = std::move(alt);
+    traversal.alternatives[static_cast<std::size_t>(Orientation::Any)] =
+      std::move(alt);
 
     // If the node is a standstill, it should't have any orientation
     // requirements
@@ -151,7 +153,7 @@ void node_to_traversals(
   }
 
   std::optional<double> best_trajectory_time;
-  for (std::size_t i=0; i < 2; ++i)
+  for (std::size_t i = 0; i < 2; ++i)
   {
     const auto yaw = node.orientations[i];
 
@@ -161,22 +163,22 @@ void node_to_traversals(
     const Eigen::Vector3d start{
       node.initial_p.x(),
       node.initial_p.y(),
-      *yaw
+      * yaw
     };
 
     const Eigen::Vector3d finish{
       node.finish_p.x(),
       node.finish_p.y(),
-      *yaw
+      * yaw
     };
 
     Traversal::Alternative alternative;
     alternative.yaw = *yaw;
     auto factory_info = make_differential_drive_translate_factory(
-          start, finish, kin.limits,
-          kin.interpolate.translation_thresh,
-          kin.interpolate.rotation_thresh,
-          traversal.maps);
+      start, finish, kin.limits,
+      kin.interpolate.translation_thresh,
+      kin.interpolate.rotation_thresh,
+      traversal.maps);
 
     const auto time = factory_info.minimum_cost;
     alternative.time = time;
@@ -202,8 +204,8 @@ void node_to_traversals(
 
 //==============================================================================
 void add_if_missing(
-    std::vector<std::string>& all_maps,
-    const std::string& map)
+  std::vector<std::string>& all_maps,
+  const std::string& map)
 {
   if (std::find(all_maps.begin(), all_maps.end(), map) == all_maps.end())
     all_maps.push_back(map);
@@ -214,11 +216,18 @@ void perform_traversal(
   const TraversalNode* parent,
   const std::size_t lane_index,
   const Graph::Implementation& graph,
+  const LaneClosure& closures,
   const TraversalGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
+  if (closures.is_closed(lane_index))
+  {
+    // If the lane is closed, then we must not traverse it.
+    return;
+  }
+
   const auto& lane = graph.lanes[lane_index];
   const auto& entry = lane.entry();
   const auto& exit = lane.exit();
@@ -253,6 +262,7 @@ void perform_traversal(
     node.initial_lane_index = parent->initial_lane_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
+    node.traversed_lanes = parent->traversed_lanes;
 
     if (parent->entry_event)
       node.entry_event = parent->entry_event->clone();
@@ -266,6 +276,7 @@ void perform_traversal(
       node.entry_event = entry_event->clone();
   }
 
+  node.traversed_lanes.push_back(lane_index);
   node.finish_p = p1;
 
   add_if_missing(node.map_names, wp0.get_map_name());
@@ -292,7 +303,7 @@ void perform_traversal(
   {
     const Eigen::Vector2d course_vector = (p1 - p0)/dist;
     const auto orientations =
-        kin.constraint->get_orientations(course_vector);
+      kin.constraint->get_orientations(course_vector);
 
     const double thresh = kin.interpolate.rotation_thresh;
 
@@ -304,12 +315,12 @@ void perform_traversal(
 
       const auto* entry_constraint = entry.orientation_constraint();
       if (!orientation_constraint_satisfied(
-            p0, *orientation, course_vector, entry_constraint, thresh))
+          p0, *orientation, course_vector, entry_constraint, thresh))
         continue;
 
       const auto* exit_constraint = exit.orientation_constraint();
       if (!orientation_constraint_satisfied(
-            p1, *orientation, course_vector, exit_constraint, thresh))
+          p1, *orientation, course_vector, exit_constraint, thresh))
         continue;
 
       if (parent && !parent->standstill)
@@ -319,7 +330,7 @@ void perform_traversal(
           continue;
 
         const double R_diff = rmf_utils::wrap_to_pi(
-              *orientation - *parent_orientation);
+          *orientation - *parent_orientation);
 
         if (std::abs(R_diff) > kin.interpolate.rotation_thresh)
           continue;
@@ -359,35 +370,39 @@ void expand_traversal(
   const TraversalNode& parent,
   const std::size_t lane_index,
   const Graph::Implementation& graph,
+  const LaneClosure& closures,
   const TraversalGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
-  perform_traversal(&parent, lane_index, graph, kin, queue, output, visited);
+  perform_traversal(
+    &parent, lane_index, graph, closures, kin, queue, output, visited);
 }
 
 //==============================================================================
 void initiate_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
+  const LaneClosure& closures,
   const TraversalGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
-  perform_traversal(nullptr, lane_index, graph, kin, queue, output, visited);
+  perform_traversal(
+    nullptr, lane_index, graph, closures, kin, queue, output, visited);
 }
 
 } // anonymous namespace
 
 //==============================================================================
 bool orientation_constraint_satisfied(
-    const Eigen::Vector2d p,
-    const double orientation,
-    const Eigen::Vector2d course_vector,
-    const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
-    const double rotation_thresh)
+  const Eigen::Vector2d p,
+  const double orientation,
+  const Eigen::Vector2d course_vector,
+  const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
+  const double rotation_thresh)
 {
   if (!constraint)
     return true;
@@ -407,8 +422,8 @@ const Eigen::Rotation2Dd DifferentialDriveConstraint::R_pi =
 
 //==============================================================================
 DifferentialDriveConstraint::DifferentialDriveConstraint(
-    const Eigen::Vector2d& forward,
-    const bool reversible)
+  const Eigen::Vector2d& forward,
+  const bool reversible)
 : R_f_inv(compute_forward_offset(forward).inverse()),
   reversible(reversible)
 {
@@ -418,7 +433,7 @@ DifferentialDriveConstraint::DifferentialDriveConstraint(
 //==============================================================================
 std::array<std::optional<double>, 2>
 DifferentialDriveConstraint::get_orientations(
-    const Eigen::Vector2d& course_vector) const
+  const Eigen::Vector2d& course_vector) const
 {
   std::array<std::optional<double>, 2> orientations;
 
@@ -426,13 +441,13 @@ DifferentialDriveConstraint::get_orientations(
     std::atan2(course_vector[1], course_vector[0]));
   const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
 
-  orientations[static_cast<std::size_t>(Orientation::Forward)]
-      = rmf_utils::wrap_to_pi(R_h.angle());
+  orientations[static_cast<std::size_t>(Orientation::Forward)] =
+    rmf_utils::wrap_to_pi(R_h.angle());
 
   if (reversible)
   {
-    orientations[static_cast<std::size_t>(Orientation::Backward)]
-        = rmf_utils::wrap_to_pi((R_pi * R_h).angle());
+    orientations[static_cast<std::size_t>(Orientation::Backward)] =
+      rmf_utils::wrap_to_pi((R_pi * R_h).angle());
   }
 
   return orientations;
@@ -448,7 +463,7 @@ TraversalGenerator::Kinematics::Kinematics(
   if (const auto* diff_drive = traits.get_differential())
   {
     constraint = DifferentialDriveConstraint(
-          diff_drive->get_forward(), diff_drive->is_reversible());
+      diff_drive->get_forward(), diff_drive->is_reversible());
   }
 }
 
@@ -463,9 +478,9 @@ TraversalGenerator::TraversalGenerator(
 
 //==============================================================================
 ConstTraversalsPtr TraversalGenerator::generate(
-    const std::size_t& key,
-    const Storage&, // old items are irrelevant
-    Storage& new_items) const
+  const std::size_t& key,
+  const Storage&, // old items are irrelevant
+  Storage& new_items) const
 {
   const auto supergraph = _graph.lock();
 
@@ -480,13 +495,14 @@ ConstTraversalsPtr TraversalGenerator::generate(
     //    within the supergraph's lifecycle, and throwing an exception is
     //    preferable to Undefined Behavior.
     throw std::runtime_error(
-          "[rmf_traffic::agv::planning::TraversalGenerator::generate] "
-          "Supergraph died while a TraversalCache was still being used. "
-          "Please report this critical bug to the maintainers of rmf_traffic.");
+            "[rmf_traffic::agv::planning::TraversalGenerator::generate] "
+            "Supergraph died while a TraversalCache was still being used. "
+            "Please report this critical bug to the maintainers of rmf_traffic.");
   }
 
   const std::size_t waypoint_index = key;
   const auto& graph = supergraph->original();
+  const auto& closures = supergraph->closures();
   const auto& initial_lanes = graph.lanes_from[waypoint_index];
   std::vector<TraversalNode> queue;
   std::vector<Traversal> output;
@@ -494,7 +510,7 @@ ConstTraversalsPtr TraversalGenerator::generate(
   visited.insert(waypoint_index);
 
   for (const auto l : initial_lanes)
-    initiate_traversal(l, graph, _kinematics, queue, output, visited);
+    initiate_traversal(l, graph, closures, _kinematics, queue, output, visited);
 
   while (!queue.empty())
   {
@@ -503,7 +519,10 @@ ConstTraversalsPtr TraversalGenerator::generate(
 
     const auto& lanes = graph.lanes_from[top.finish_waypoint_index];
     for (const auto l : lanes)
-      expand_traversal(top, l, graph, _kinematics, queue, output, visited);
+    {
+      expand_traversal(
+        top, l, graph, closures, _kinematics, queue, output, visited);
+    }
   }
 
   auto new_traversals = std::make_shared<Traversals>(std::move(output));
@@ -514,26 +533,29 @@ ConstTraversalsPtr TraversalGenerator::generate(
 
 //==============================================================================
 std::shared_ptr<const Supergraph> Supergraph::make(
-    Graph::Implementation original,
-    VehicleTraits traits,
-    const Interpolate::Options::Implementation& interpolate)
+  Graph::Implementation original,
+  VehicleTraits traits,
+  LaneClosure lane_closures,
+  const Interpolate::Options::Implementation& interpolate)
 {
   auto supergraph = std::shared_ptr<Supergraph>(
-        new Supergraph(std::move(original), std::move(traits), interpolate));
+    new Supergraph(
+      std::move(original), std::move(traits),
+      std::move(lane_closures), interpolate));
 
   supergraph->_traversals =
-      CacheManager<TraversalCache>::make(
-        std::make_shared<TraversalGenerator>(supergraph));
+    CacheManager<TraversalCache>::make(
+    std::make_shared<TraversalGenerator>(supergraph));
 
   supergraph->_entries_into_waypoint_cache =
-      CacheManager<EntriesCache>::make(
-        std::make_shared<EntriesGenerator>(supergraph));
+    CacheManager<EntriesCache>::make(
+    std::make_shared<EntriesGenerator>(supergraph));
 
   const std::size_t N_lanes = supergraph->original().lanes.size();
   supergraph->_lane_yaw_cache =
-      CacheManager<LaneYawCache>::make(
-        std::make_shared<LaneYawGenerator>(supergraph),
-        [N_lanes](){ return LaneYawMap(251, EntryHash(N_lanes)); });
+    CacheManager<LaneYawCache>::make(
+    std::make_shared<LaneYawGenerator>(supergraph),
+    [N_lanes]() { return LaneYawMap(251, EntryHash(N_lanes)); });
 
   return supergraph;
 }
@@ -551,6 +573,12 @@ const VehicleTraits& Supergraph::traits() const
 }
 
 //==============================================================================
+const LaneClosure& Supergraph::closures() const
+{
+  return _lane_closures;
+}
+
+//==============================================================================
 const Interpolate::Options::Implementation& Supergraph::options() const
 {
   return _interpolate;
@@ -564,14 +592,14 @@ auto Supergraph::floor_change() const -> const FloorChangeMap&
 
 //==============================================================================
 ConstTraversalsPtr Supergraph::traversals_from(
-    const std::size_t waypoint_index) const
+  const std::size_t waypoint_index) const
 {
   return _traversals->get().get(waypoint_index);
 }
 
 //==============================================================================
 std::vector<Supergraph::Entry> Supergraph::Entries::relevant_entries(
-    std::optional<double> orientation_opt) const
+  std::optional<double> orientation_opt) const
 {
   std::vector<Supergraph::Entry> output;
   output.reserve(_total_entries);
@@ -627,7 +655,7 @@ Supergraph::Entries::Entries(
   _agnostic_entry(std::move(agnostic_entry))
 {
   _total_entries = _angled_entries.size()
-      + (_agnostic_entry.has_value()? 1 : 0);
+    + (_agnostic_entry.has_value() ? 1 : 0);
 }
 
 //==============================================================================
@@ -680,7 +708,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
   DifferentialDriveKeySet keys(31, KeyHash{_original.lanes.size()});
 
   const auto relevant_entries = entries_into(goal_waypoint_index)
-      ->relevant_entries(goal_orientation);
+    ->relevant_entries(goal_orientation);
 
   const auto relevant_traversals = traversals_from(start_waypoint_index);
   assert(relevant_traversals);
@@ -716,8 +744,8 @@ Supergraph::EntriesGenerator::EntriesGenerator(
   if (const auto* differential = graph->traits().get_differential())
   {
     _constraint = DifferentialDriveConstraint(
-          differential->get_forward(),
-          differential->is_reversible());
+      differential->get_forward(),
+      differential->is_reversible());
   }
 }
 
@@ -740,9 +768,9 @@ auto Supergraph::EntriesGenerator::generate(
     //    within the supergraph's lifecycle, and throwing an exception is
     //    preferable to Undefined Behavior.
     throw std::runtime_error(
-          "[rmf_traffic::agv::planning::Supergraph::EntriesGenerator::generate]"
-          " Supergraph died while a EntriesCache was still being used. "
-          "Please report this critical bug to the maintainers of rmf_traffic.");
+            "[rmf_traffic::agv::planning::Supergraph::EntriesGenerator::generate]"
+            " Supergraph died while a EntriesCache was still being used. "
+            "Please report this critical bug to the maintainers of rmf_traffic.");
   }
 
   const std::size_t waypoint_index = key;
@@ -770,9 +798,9 @@ auto Supergraph::EntriesGenerator::generate(
     {
       const Eigen::Vector2d course_vector = (p1 - p0)/dist;
       const auto orientations =
-          _constraint->get_orientations(course_vector);
+        _constraint->get_orientations(course_vector);
 
-      for (std::size_t i=0; i < orientations.size(); ++i)
+      for (std::size_t i = 0; i < orientations.size(); ++i)
       {
         const auto orientation = orientations[i];
         if (!orientation.has_value())
@@ -785,7 +813,7 @@ auto Supergraph::EntriesGenerator::generate(
   }
 
   auto new_entries = std::make_shared<Entries>(
-        std::move(angled_entries), std::move(agnostic_entry));
+    std::move(angled_entries), std::move(agnostic_entry));
 
   new_items.insert({key, new_entries});
   return new_entries;
@@ -812,16 +840,17 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 {
   if (key.orientation == Orientation::Any)
   {
-    for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+    for (std::size_t j = 0; j <= static_cast<std::size_t>(Side::Finish); ++j)
       new_items.insert({{key.lane, Orientation::Any, Side(j)}, std::nullopt});
     return std::nullopt;
   }
 
   if (!_constraint.has_value())
   {
-    for (std::size_t i=0; i <= static_cast<std::size_t>(Orientation::Any); ++i)
+    const auto any = static_cast<std::size_t>(Orientation::Any);
+    for (std::size_t i = 0; i <= any; ++i)
     {
-      for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+      for (std::size_t j = 0; j <= static_cast<std::size_t>(Side::Finish); ++j)
         new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
     }
 
@@ -841,9 +870,9 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
     //    within the supergraph's lifecycle, and throwing an exception is
     //    preferable to Undefined Behavior.
     throw std::runtime_error(
-          "[rmf_traffic::agv::planning::Supergraph::EntriesGenerator::generate]"
-          " Supergraph died while a EntriesCache was still being used. "
-          "Please report this critical bug to the maintainers of rmf_traffic.");
+            "[rmf_traffic::agv::planning::Supergraph::EntriesGenerator::generate]"
+            " Supergraph died while a EntriesCache was still being used. "
+            "Please report this critical bug to the maintainers of rmf_traffic.");
   }
 
   const auto& original = supergraph->original();
@@ -858,9 +887,10 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
   const double dist = (p1 - p0).norm();
   if (dist <= supergraph->options().translation_thresh)
   {
-    for (std::size_t i=0; i <= static_cast<std::size_t>(Orientation::Any); ++i)
+    const auto any = static_cast<std::size_t>(Orientation::Any);
+    for (std::size_t i = 0; i <= any; ++i)
     {
-      for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+      for (std::size_t j = 0; j <= static_cast<std::size_t>(Side::Finish); ++j)
         new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
     }
 
@@ -869,12 +899,12 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 
   const Eigen::Vector2d course_vector = (p1 - p0)/dist;
   const auto orientations = _constraint->get_orientations(course_vector);
-  for (std::size_t i=0; i < orientations.size(); ++i)
+  for (std::size_t i = 0; i < orientations.size(); ++i)
   {
     const auto yaw = orientations[i];
     assert(yaw.has_value());
 
-    for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+    for (std::size_t j = 0; j <= static_cast<std::size_t>(Side::Finish); ++j)
       new_items.insert({{key.lane, Orientation(i), Side(j)}, yaw});
   }
 
@@ -885,16 +915,18 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 Supergraph::Supergraph(
   Graph::Implementation original,
   VehicleTraits traits,
+  LaneClosure lane_closures,
   const Interpolate::Options::Implementation& interpolate)
 : _original(std::move(original)),
   _traits(std::move(traits)),
+  _lane_closures(std::move(lane_closures)),
   _interpolate(interpolate),
   _floor_changes(find_floor_changes(_original))
 {
   if (const auto* diff = _traits.get_differential())
   {
     _constraint = DifferentialDriveConstraint(
-          diff->get_forward(), diff->is_reversible());
+      diff->get_forward(), diff->is_reversible());
   }
 }
 

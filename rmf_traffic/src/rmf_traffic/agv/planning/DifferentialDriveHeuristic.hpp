@@ -46,7 +46,7 @@ public:
     Storage& new_items) const final;
 
   static CacheManagerPtr<DifferentialDriveHeuristic> make_manager(
-      std::shared_ptr<const Supergraph> graph);
+    std::shared_ptr<const Supergraph> graph);
 
 private:
   std::shared_ptr<const Supergraph> _graph;
@@ -63,14 +63,14 @@ class DifferentialDriveHeuristicAdapter
 public:
 
   DifferentialDriveHeuristicAdapter(
-      Cache<DifferentialDriveHeuristic> cache,
-      std::shared_ptr<const Supergraph> graph,
-      std::size_t goal_waypoint,
-      std::optional<double> goal_yaw);
+    Cache<DifferentialDriveHeuristic> cache,
+    std::shared_ptr<const Supergraph> graph,
+    std::size_t goal_waypoint,
+    std::optional<double> goal_yaw);
 
   std::optional<double> compute(
-      std::size_t start_waypoint,
-      double yaw) const;
+    std::size_t start_waypoint,
+    double yaw) const;
 
   using SolutionNodePtr = DifferentialDriveHeuristic::SolutionNodePtr;
   using Entry = DifferentialDriveHeuristic::Entry;
@@ -112,7 +112,7 @@ struct DifferentialDriveCompare
     const std::optional<Orientation> b_orientation = b->get_orientation();
 
     if (b_orientation == Orientation::Forward
-        && a_orientation != Orientation::Forward)
+      && a_orientation != Orientation::Forward)
     {
       return true;
     }

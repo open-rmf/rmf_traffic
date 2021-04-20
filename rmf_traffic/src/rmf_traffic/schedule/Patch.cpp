@@ -27,6 +27,7 @@ class Patch::Participant::Implementation
 public:
 
   ParticipantId id;
+  ItineraryVersion itinerary_version;
   Change::Erase erasures;
   std::vector<Change::Delay> delays;
   Change::Add additions;
@@ -36,12 +37,14 @@ public:
 //==============================================================================
 Patch::Participant::Participant(
   ParticipantId id,
+  ItineraryVersion itinerary_version,
   Change::Erase erasures,
   std::vector<Change::Delay> delays,
   Change::Add additions)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         id,
+        itinerary_version,
         std::move(erasures),
         std::move(delays),
         std::move(additions)
@@ -54,6 +57,12 @@ Patch::Participant::Participant(
 ParticipantId Patch::Participant::participant_id() const
 {
   return _pimpl->id;
+}
+
+//==============================================================================
+ItineraryVersion Patch::Participant::itinerary_version() const
+{
+  return _pimpl->itinerary_version;
 }
 
 //==============================================================================
@@ -79,10 +88,10 @@ class Patch::Implementation
 {
 public:
 
-  std::vector<Change::UnregisterParticipant> unregistered;
-  std::vector<Change::RegisterParticipant> registered;
   std::vector<Participant> changes;
-  rmf_utils::optional<Change::Cull> cull;
+
+  std::optional<Change::Cull> cull;
+  std::optional<Version> base_version;
   Version latest_version;
 
 };
@@ -97,34 +106,19 @@ public:
 };
 
 //==============================================================================
-Patch::Patch(
-  std::vector<Change::UnregisterParticipant> removed_participants,
-  std::vector<Change::RegisterParticipant> new_participants,
-  std::vector<Participant> changes,
+Patch::Patch(std::vector<Participant> changes,
   rmf_utils::optional<Change::Cull> cull,
+  std::optional<Version> base_version,
   Version latest_version)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        std::move(removed_participants),
-        std::move(new_participants),
         std::move(changes),
         cull,
+        base_version,
         latest_version
       }))
 {
   // Do nothing
-}
-
-//==============================================================================
-const std::vector<Change::UnregisterParticipant>& Patch::unregistered() const
-{
-  return _pimpl->unregistered;
-}
-
-//==============================================================================
-const std::vector<Change::RegisterParticipant>& Patch::registered() const
-{
-  return _pimpl->registered;
 }
 
 //==============================================================================
@@ -152,6 +146,12 @@ const Change::Cull* Patch::cull() const
     return &_pimpl->cull.value();
 
   return nullptr;
+}
+
+//==============================================================================
+std::optional<Version> Patch::base_version() const
+{
+  return _pimpl->base_version;
 }
 
 //==============================================================================

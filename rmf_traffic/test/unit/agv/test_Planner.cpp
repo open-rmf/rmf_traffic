@@ -81,9 +81,9 @@ void print_trajectory_info(
   rmf_traffic::Time time)
 {
   display_path(plan);
-  std::cout << "Itinerary count: " << plan->get_itinerary().size() 
+  std::cout << "Itinerary count: " << plan->get_itinerary().size()
             << std::endl;
-  int trajectory_count = 1; 
+  int trajectory_count = 1;
   for (const auto& r : plan->get_itinerary())
   {
     int waypoint_count = 1;
@@ -269,14 +269,14 @@ void test_ignore_obstacle(
     CHECK( (new_p.block<2, 1>(0, 0) - old_p.block<2, 1>(0, 0)).norm()
       == Approx(0.0) );
     const double yaw_diff =
-        std::abs(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]));
+      std::abs(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]));
 
     // In many cases, there are multiple equally optimal solutions which differ
     // only by whether the robot is oriented forward or backward. We should
     // accept either one in this comparison.
     const bool consistent_yaw =
-        yaw_diff == Approx(0.0).margin(1e-8)
-        || yaw_diff == Approx(M_PI).margin(1e-8);
+      yaw_diff == Approx(0.0).margin(1e-8)
+      || yaw_diff == Approx(M_PI).margin(1e-8);
 
     CHECK(consistent_yaw);
   }
@@ -356,10 +356,10 @@ inline void CHECK_PLAN(
     REQUIRE(i_wp < plan->get_itinerary()[i_itin].trajectory().size());
 
     const auto& traj_wp = plan->get_itinerary()
-        .at(i_itin).trajectory().at(i_wp);
+      .at(i_itin).trajectory().at(i_wp);
 
-    const Eigen::Vector2d wp_p = wp.position().block<2,1>(0,0);
-    const Eigen::Vector2d traj_wp_p = traj_wp.position().block<2,1>(0,0);
+    const Eigen::Vector2d wp_p = wp.position().block<2, 1>(0, 0);
+    const Eigen::Vector2d traj_wp_p = traj_wp.position().block<2, 1>(0, 0);
     CHECK((wp_p - traj_wp_p).norm() == Approx(0.0).margin(1e-6));
 
     const auto wp_R = wp.position()[2];
@@ -391,12 +391,12 @@ inline void CHECK_PLAN(
     CHECK(route.trajectory().size() >= 2);
   }
 
-  for (std::size_t i=0; i < plan->get_itinerary().size(); ++i)
+  for (std::size_t i = 0; i < plan->get_itinerary().size(); ++i)
   {
     std::optional<rmf_traffic::Time> last_time;
     const auto& trajectory = plan->get_itinerary()[i].trajectory();
 
-    for (std::size_t j=0; j < trajectory.size(); ++j)
+    for (std::size_t j = 0; j < trajectory.size(); ++j)
     {
       if (!last_time.has_value())
       {
@@ -542,7 +542,8 @@ SCENARIO("Test Options", "[options]")
   {
     local_maximum_cost_estimate = 42;
     REQUIRE(set_max_cost_estimate_options.maximum_cost_estimate());
-    set_max_cost_estimate_options.maximum_cost_estimate(local_maximum_cost_estimate);
+    set_max_cost_estimate_options.maximum_cost_estimate(
+      local_maximum_cost_estimate);
     CHECK(set_max_cost_estimate_options.maximum_cost_estimate().value()
       == Approx(local_maximum_cost_estimate));
   }
@@ -768,13 +769,13 @@ SCENARIO("Test planning")
 
   //TODO abort planning that is impossible as lane does not exit in the graph
 
-   WHEN("goal waypoint does not have a lane in the graph")
-   {
-     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-     auto plan = planner.plan(
-         rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
-         rmf_traffic::agv::Planner::Goal(9));
-   }
+  WHEN("goal waypoint does not have a lane in the graph")
+  {
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+    auto plan = planner.plan(
+      rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
+      rmf_traffic::agv::Planner::Goal(9));
+  }
 
   WHEN("initial conditions satisfy the goals")
   {
@@ -1854,7 +1855,7 @@ SCENARIO("DP1 Graph")
     // We give a slight angle to make the optimal solutions for the plans
     // unique. That helps to set correct test expectations.
     const auto start = rmf_traffic::agv::Plan::Start{
-        time, start_index, 5.0*M_PI/180.0};
+      time, start_index, 5.0*M_PI/180.0};
 
     const std::size_t goal_index = 32;
     const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
@@ -3079,7 +3080,7 @@ SCENARIO("Close start", "[close_start]")
   graph.add_waypoint(test_map_name, { 0.0, -5.0}); // 0
   graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 1
   graph.add_waypoint(test_map_name, { 0.0, 0.0}); // 2
-  graph.add_waypoint(test_map_name, { 5.0,  0.0}); // 3
+  graph.add_waypoint(test_map_name, { 5.0, 0.0}); // 3
   graph.add_waypoint(test_map_name, { 0.0, 5.0}); // 4
   graph.add_waypoint(test_map_name, { 5.0, 5.0}); // 5
 
@@ -3125,21 +3126,21 @@ SCENARIO("Close start", "[close_start]")
     configuration,
     rmf_traffic::agv::Plan::Options{
       rmf_traffic::agv::ScheduleRouteValidator::make(
-            database, p1.id(), p1.description().profile())
+        database, p1.id(), p1.description().profile())
     }
   };
 
   const auto result =
-      planner.plan(
-        {
-          rmf_traffic::agv::Plan::Start(time, 2, 0, Eigen::Vector2d{0.5, 0.0}),
-          rmf_traffic::agv::Plan::Start(time, 3, 0, Eigen::Vector2d{0.5, 0.0})
-        }, 4);
+    planner.plan(
+    {
+      rmf_traffic::agv::Plan::Start(time, 2, 0, Eigen::Vector2d{0.5, 0.0}),
+      rmf_traffic::agv::Plan::Start(time, 3, 0, Eigen::Vector2d{0.5, 0.0})
+    }, 4);
 
   REQUIRE(result);
 
   CHECK(result->get_itinerary().back().trajectory().back().time()
-        < time + 10min);
+    < time + 10min);
 
   std::unordered_set<std::size_t> visited_wps;
   for (const auto& wp : result->get_waypoints())
@@ -3191,7 +3192,7 @@ SCENARIO("Minimum time", "[minimum_time]")
   graph.add_waypoint(test_map_name, { 0.0, -5.0}); // 0
   graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 1
   graph.add_waypoint(test_map_name, { 0.0, 0.0}); // 2
-  graph.add_waypoint(test_map_name, { 5.0,  0.0}); // 3
+  graph.add_waypoint(test_map_name, { 5.0, 0.0}); // 3
   graph.add_waypoint(test_map_name, { 0.0, 5.0}); // 4
   graph.add_waypoint(test_map_name, { 5.0, 5.0}); // 5
 
@@ -3270,7 +3271,7 @@ SCENARIO("Minimum time", "[minimum_time]")
   rmf_traffic::agv::Planner planner{configuration, options};
 
   const auto result =
-      planner.plan(start, rmf_traffic::agv::Plan::Goal(2, time+duration));
+    planner.plan(start, rmf_traffic::agv::Plan::Goal(2, time+duration));
 
   REQUIRE(result);
 
@@ -3299,4 +3300,145 @@ SCENARIO("Minimum time", "[minimum_time]")
   }
 
   CHECK(time + duration <= result->get_waypoints().back().time());
+}
+
+SCENARIO("Test planning with lane closures")
+{
+  using namespace std::chrono_literals;
+
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
+  rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.1),
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.1)
+  };
+
+  auto p1 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 1",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, {5.0, 0.0}); // 0
+  graph.add_waypoint(test_map_name, {10.0, 0.0}); // 1
+  graph.add_waypoint(test_map_name, {0.0, 5.0}); // 2
+  graph.add_waypoint(test_map_name, {5.0, 5.0}); // 3
+  graph.add_waypoint(test_map_name, {10.0, 5.0}); // 4
+  graph.add_waypoint(test_map_name, {15, 5.0}); // 5
+  graph.add_waypoint(test_map_name, {5.0, 10.0}); // 6
+  graph.add_waypoint(test_map_name, {10.0, 10.0}); // 7
+  graph.add_waypoint(test_map_name, {15.0, 10.0}); // 8
+
+  /*
+   *       6-----7-----8
+   *       |     |     |
+   *       |     |     |
+   * 2-----3-----4-----5
+   *       |     |
+   *       |     |
+   *       0     1
+   */
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 3); // 0 1
+  add_bidir_lane(1, 4); // 2 3
+  add_bidir_lane(2, 3); // 4 5
+  add_bidir_lane(3, 4); // 6 7
+  add_bidir_lane(4, 5); // 8 9
+  add_bidir_lane(3, 6); // 10 11
+  add_bidir_lane(4, 7); // 12 13
+  add_bidir_lane(5, 8); // 14 15
+  add_bidir_lane(6, 7); // 16 17
+  add_bidir_lane(7, 8); // 18 19
+
+  const rmf_traffic::agv::VehicleTraits traits{
+    {0.7, 0.3},
+    {1.0, 0.45},
+    profile
+  };
+
+
+  const auto time = std::chrono::steady_clock::now();
+  rmf_traffic::agv::Plan::Start start{time, 0, 0.0};
+  rmf_traffic::agv::Plan::Goal goal{1};
+
+  rmf_traffic::agv::Planner::Configuration configuration{graph, traits};
+  std::vector<std::size_t> expected_waypoints;
+  std::vector<std::vector<std::size_t>> expected_lanes;
+
+  WHEN("No closures")
+  {
+    expected_waypoints = {0, 3, 4, 1};
+    expected_lanes = {{}, {}, {0}, {}, {6}, {}, {3}};
+  }
+
+  WHEN("Close lane 3->4")
+  {
+    expected_waypoints = {0, 6, 7, 1};
+    expected_lanes = {{}, {}, {0, 10}, {}, {16}, {}, {13, 3}};
+    configuration.lane_closures().close(graph.lane_from(3, 4)->index());
+  }
+
+  WHEN("Close lanes 3->4, 7->4")
+  {
+    expected_waypoints = {0, 6, 8, 5, 4, 1};
+    expected_lanes = {
+      {}, {}, {0, 10}, {}, {16, 18}, {}, {15}, {}, {9}, {}, {3}
+    };
+    configuration.lane_closures()
+    .close(graph.lane_from(3, 4)->index())
+    .close(graph.lane_from(7, 4)->index());
+  }
+
+  WHEN("Close lanes 3->4, 7->4, 5->4")
+  {
+    expected_waypoints = {};
+    expected_lanes = {};
+    configuration.lane_closures()
+    .close(graph.lane_from(3, 4)->index())
+    .close(graph.lane_from(7, 4)->index())
+    .close(graph.lane_from(5, 4)->index());
+  }
+
+  rmf_traffic::agv::Planner planner(
+    configuration,
+    rmf_traffic::agv::Planner::Options{
+      make_test_schedule_validator(*database, profile),
+      std::chrono::seconds(5),
+    });
+
+  const auto result = planner.plan(start, goal);
+
+  if (expected_waypoints.empty())
+  {
+    CHECK_FALSE(result.success());
+  }
+  else
+  {
+    REQUIRE(result.success());
+
+    std::unordered_set<std::size_t> visited_waypoints;
+    for (const auto& wp : result->get_waypoints())
+      visited_waypoints.insert(wp.graph_index().value());
+
+    CHECK(visited_waypoints.size() == expected_waypoints.size());
+    for (const auto& wp : expected_waypoints)
+      CHECK(visited_waypoints.count(wp));
+
+    REQUIRE(expected_lanes.size() == result->get_waypoints().size());
+    for (std::size_t i = 0; i < result->get_waypoints().size(); ++i)
+      CHECK(result->get_waypoints()[i].approach_lanes() == expected_lanes[i]);
+  }
 }

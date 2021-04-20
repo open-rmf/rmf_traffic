@@ -113,17 +113,8 @@ struct NegotiationData
   }
 };
 
-struct RouteEntry
-{
-  ConstRoutePtr route;
-  ParticipantId participant;
-  RouteId route_id;
-  std::shared_ptr<const ParticipantDescription> description;
-};
-using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
-
 using AlternativeTimelinePtr =
-  std::shared_ptr<const TimelineView<const RouteEntry>>;
+  std::shared_ptr<const TimelineView<const BaseRouteEntry>>;
 
 using AlternativesTimelineMap = std::vector<AlternativeTimelinePtr>;
 using ParticipantToAlternativesMap =
@@ -136,7 +127,8 @@ class Negotiation::Table::Viewer::Endpoint::Implementation
 {
 public:
 
-  enum Type {
+  enum Type
+  {
     Initial,
     Final
   };
@@ -235,11 +227,15 @@ public:
       }
     }
 
-    initial_endpoints.insert(
+    if (initial)
     {
-      participant,
-      Endpoint::Implementation::make_initial(participant, initial, description)
-    });
+      initial_endpoints.insert(
+        {
+          participant,
+          Endpoint::Implementation::make_initial(participant, initial,
+          description)
+        });
+    }
   }
 
   static void insert_final_endpoint(
@@ -258,11 +254,14 @@ public:
       }
     }
 
-    final_endpoints.insert(
+    if (final)
     {
-      participant,
-      Endpoint::Implementation::make_final(participant, final, description)
-    });
+      final_endpoints.insert(
+        {
+          participant,
+          Endpoint::Implementation::make_final(participant, final, description)
+        });
+    }
   }
 
 
@@ -343,7 +342,7 @@ class DefunctFlag
 public:
 
   DefunctFlag()
-    : _defunct(std::make_shared<bool>(false))
+  : _defunct(std::make_shared<bool>(false))
   {
     // Do nothing
   }
@@ -448,18 +447,19 @@ public:
     weak_parent(std::move(parent_))
   {
     std::vector<std::shared_ptr<void>> handles;
-    Timeline<RouteEntry> timeline_builder;
+    Timeline<BaseRouteEntry> timeline_builder;
 
     for (const auto& p : proposal)
     {
       const ParticipantId participant = p.participant;
-      const auto& description = schedule_viewer->get_participant(participant);
+      const auto description = schedule_viewer->get_participant(participant);
+
       for (std::size_t i = 0; i < p.itinerary.size(); ++i)
       {
         const auto& route = p.itinerary[i];
 
-        auto entry = std::make_shared<RouteEntry>(
-          RouteEntry{
+        auto entry = std::make_shared<BaseRouteEntry>(
+          BaseRouteEntry{
             route,
             participant,
             i,
@@ -470,7 +470,7 @@ public:
       }
     }
 
-    proposed_timeline = timeline_builder.snapshot();
+    proposed_timeline = timeline_builder.snapshot(nullptr);
 
     std::vector<ParticipantId> all_participants;
     all_participants.reserve(submitted_.size() + unsubmitted_.size());
@@ -625,18 +625,18 @@ public:
     const Alternatives& alternatives) const
   {
     AlternativesTimelineMap output;
-    const auto& description = schedule_viewer->get_participant(participant);
+    const auto description = schedule_viewer->get_participant(participant);
 
     for (const auto& alternative : alternatives)
     {
-      Timeline<RouteEntry> timeline;
+      Timeline<BaseRouteEntry> timeline;
       std::vector<std::shared_ptr<void>> handles;
 
       std::size_t id = 0;
       for (const auto& route : alternative)
       {
-        auto entry = std::make_shared<RouteEntry>(
-          RouteEntry{
+        auto entry = std::make_shared<BaseRouteEntry>(
+          BaseRouteEntry{
             route,
             participant,
             id,
@@ -646,7 +646,7 @@ public:
         handles.push_back(timeline.insert(entry));
       }
 
-      output.emplace_back(timeline.snapshot());
+      output.emplace_back(timeline.snapshot(nullptr));
     }
 
     return output;
@@ -1106,7 +1106,7 @@ bool Negotiation::complete() const
 
 namespace {
 //==============================================================================
-class NegotiationRelevanceInspector : public TimelineInspector<RouteEntry>
+class NegotiationRelevanceInspector : public TimelineInspector<BaseRouteEntry>
 {
 public:
 
@@ -1115,8 +1115,8 @@ public:
   std::vector<Storage> routes;
 
   void inspect(
-    const RouteEntry* entry,
-    const std::function<bool(const RouteEntry&)>& relevant) final
+    const BaseRouteEntry* entry,
+    const std::function<bool(const BaseRouteEntry&)>& relevant) final
   {
     assert(entry->route);
     if (relevant(*entry))
@@ -1148,11 +1148,11 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
   for (const auto& alternative : chosen_alternatives)
   {
     const auto& participant_alternatives =
-        alternatives_timelines.at(alternative.participant);
+      alternatives_timelines.at(alternative.participant);
     assert(alternative.version < participant_alternatives.size());
 
     participant_alternatives.at(alternative.version)
-        ->inspect(spacetime, all_participants, inspector);
+    ->inspect(spacetime, all_participants, inspector);
   }
 
   // Query for the relevant routes that are outside of the negotiation

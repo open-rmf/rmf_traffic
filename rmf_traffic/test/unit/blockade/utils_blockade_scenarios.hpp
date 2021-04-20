@@ -21,9 +21,9 @@
 #include <rmf_traffic/blockade/Writer.hpp>
 
 //==============================================================================
-template <std::size_t N>
+template<std::size_t N>
 std::vector<rmf_traffic::blockade::Writer::Checkpoint> make_path(
-    const std::array<Eigen::Vector2d, N>& points)
+  const std::array<Eigen::Vector2d, N>& points)
 {
   using namespace rmf_traffic::blockade;
 

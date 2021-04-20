@@ -37,6 +37,7 @@ public:
   Graph graph;
   VehicleTraits traits;
   Interpolate::Options interpolation;
+  LaneClosure lane_closures;
 
 };
 
@@ -49,7 +50,8 @@ Planner::Configuration::Configuration(
       Implementation{
         std::move(graph),
         std::move(traits),
-        std::move(interpolation)
+        std::move(interpolation),
+        LaneClosure()
       }))
 {
   // Do nothing
@@ -115,6 +117,26 @@ const Interpolate::Options& Planner::Configuration::interpolation() const
 }
 
 //==============================================================================
+auto Planner::Configuration::lane_closures(LaneClosure closures)
+-> Configuration&
+{
+  _pimpl->lane_closures = std::move(closures);
+  return *this;
+}
+
+//==============================================================================
+LaneClosure& Planner::Configuration::lane_closures()
+{
+  return _pimpl->lane_closures;
+}
+
+//==============================================================================
+const LaneClosure& Planner::Configuration::lane_closures() const
+{
+  return _pimpl->lane_closures;
+}
+
+//==============================================================================
 class Planner::Options::Implementation
 {
 public:
@@ -155,13 +177,13 @@ Planner::Options::Options(
   rmf_utils::optional<double> maximum_cost_estimate,
   rmf_utils::optional<std::size_t> saturation_limit)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-     Implementation{
-       std::move(validator),
-       min_hold_time,
-       maximum_cost_estimate,
-       saturation_limit,
-       std::move(interrupter)
-     }))
+      Implementation{
+        std::move(validator),
+        min_hold_time,
+        maximum_cost_estimate,
+        saturation_limit,
+        std::move(interrupter)
+      }))
 {
   // Do nothing
 }
@@ -210,7 +232,7 @@ const std::function<bool()>& Planner::Options::interrupter() const
 
 //==============================================================================
 auto Planner::Options::interrupt_flag(
-    std::shared_ptr<const bool> flag) -> Options&
+  std::shared_ptr<const bool> flag) -> Options&
 {
   if (flag)
   {
@@ -387,11 +409,11 @@ Planner::Goal::Goal(
   const std::size_t waypoint,
   const double goal_orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{
-      waypoint,
-      goal_orientation,
-      std::nullopt
-    }))
+      Implementation{
+        waypoint,
+        goal_orientation,
+        std::nullopt
+      }))
 {
   // Do nothing
 }
@@ -402,11 +424,11 @@ Planner::Goal::Goal(
   const std::optional<rmf_traffic::Time> minimum_time,
   const std::optional<double> goal_orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{
-      goal_waypoint,
-      goal_orientation,
-      minimum_time
-    }))
+      Implementation{
+        goal_waypoint,
+        goal_orientation,
+        minimum_time
+      }))
 {
   // Do nothing
 }
@@ -519,7 +541,7 @@ Planner::Result Planner::Result::Implementation::generate(
   // TODO(MXG): Throw an exception if any of the starts or the goal has an
   // invalid waypoint index.
   auto state = interface->initiate(
-        starts, std::move(goal), std::move(options));
+    starts, std::move(goal), std::move(options));
 
   auto plan = Plan::Implementation::make(interface->plan(state));
 
@@ -536,13 +558,13 @@ Planner::Result Planner::Result::Implementation::generate(
 
 //==============================================================================
 Planner::Result Planner::Result::Implementation::setup(
-    planning::InterfacePtr interface,
-    const std::vector<Planner::Start>& starts,
-    Planner::Goal goal,
-    Planner::Options options)
+  planning::InterfacePtr interface,
+  const std::vector<Planner::Start>& starts,
+  Planner::Goal goal,
+  Planner::Options options)
 {
   auto state = interface->initiate(
-        starts, std::move(goal), std::move(options));
+    starts, std::move(goal), std::move(options));
 
   Planner::Result result;
   result._pimpl = rmf_utils::make_impl<Implementation>(
@@ -668,9 +690,9 @@ Planner::Result Planner::setup(const StartSet& start, Goal goal) const
 
 //==============================================================================
 Planner::Result Planner::setup(
-    const StartSet& start,
-    Goal goal,
-    Options options) const
+  const StartSet& start,
+  Goal goal,
+  Options options) const
 {
   return Result::Implementation::setup(
     _pimpl->interface,
@@ -857,7 +879,7 @@ rmf_utils::optional<double> Planner::Result::cost_estimate() const
 double Planner::Result::initial_cost_estimate() const
 {
   return _pimpl->state.ideal_cost.value_or(
-        std::numeric_limits<double>::infinity());
+    std::numeric_limits<double>::infinity());
 }
 
 //==============================================================================
@@ -894,13 +916,13 @@ bool Planner::Result::interrupted() const
 bool Planner::Result::saturated() const
 {
   const auto saturation_limit =
-      _pimpl->state.conditions.options.saturation_limit();
+    _pimpl->state.conditions.options.saturation_limit();
 
   if (!saturation_limit)
     return false;
 
   const std::size_t saturation =
-      _pimpl->state.internal->queue_size() + _pimpl->state.popped_count;
+    _pimpl->state.internal->queue_size() + _pimpl->state.popped_count;
 
   return *saturation_limit < saturation;
 }
@@ -938,6 +960,12 @@ rmf_traffic::Time Plan::Waypoint::time() const
 std::optional<std::size_t> Plan::Waypoint::graph_index() const
 {
   return _pimpl->graph_index;
+}
+
+//==============================================================================
+const std::vector<std::size_t>& Plan::Waypoint::approach_lanes() const
+{
+  return _pimpl->approach_lanes;
 }
 
 //==============================================================================
@@ -1205,14 +1233,14 @@ auto Planner::Debug::begin(
 std::size_t Planner::Debug::queue_size(const Planner::Result& result)
 {
   return Planner::Result::Implementation::get(result)
-      .state.internal->queue_size();
+    .state.internal->queue_size();
 }
 
 //==============================================================================
 std::size_t Planner::Debug::expansion_count(const Planner::Result& result)
 {
   return Planner::Result::Implementation::get(result)
-      .state.internal->expansion_count();
+    .state.internal->expansion_count();
 }
 
 //==============================================================================

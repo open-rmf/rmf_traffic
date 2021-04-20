@@ -26,11 +26,11 @@ namespace blockade {
 
 //==============================================================================
 Rectifier Rectifier::Implementation::make(
-    Participant::Implementation& participant)
+  Participant::Implementation& participant)
 {
   Rectifier output;
   output._pimpl = rmf_utils::make_unique_impl<Implementation>(
-        Implementation{participant});
+    Implementation{participant});
 
   return output;
 }
@@ -61,14 +61,14 @@ RectificationRequester::~RectificationRequester()
 
 //==============================================================================
 struct ModeratorRectifierInfo
-    : public std::enable_shared_from_this<ModeratorRectifierInfo>
+  : public std::enable_shared_from_this<ModeratorRectifierInfo>
 {
   std::unordered_map<ParticipantId, Rectifier> active_rectifiers;
   std::unordered_set<ParticipantId> dead_rectifiers;
 
   std::unique_ptr<RectificationRequester> make(
-      Rectifier rectifier,
-      ParticipantId participant_id);
+    Rectifier rectifier,
+    ParticipantId participant_id);
 };
 
 //==============================================================================
@@ -77,10 +77,10 @@ class ModeratorRectificationRequester : public RectificationRequester
 public:
 
   ModeratorRectificationRequester(
-      ParticipantId participant_id,
-      const std::shared_ptr<ModeratorRectifierInfo>& info)
-    : _participant_id(participant_id),
-      _weak_info(info)
+    ParticipantId participant_id,
+    const std::shared_ptr<ModeratorRectifierInfo>& info)
+  : _participant_id(participant_id),
+    _weak_info(info)
   {
     // Do nothing
   }
@@ -101,14 +101,14 @@ private:
 
 //==============================================================================
 std::unique_ptr<RectificationRequester> ModeratorRectifierInfo::make(
-    Rectifier rectifier,
-    ParticipantId participant_id)
+  Rectifier rectifier,
+  ParticipantId participant_id)
 {
   active_rectifiers.insert_or_assign(participant_id, std::move(rectifier));
   dead_rectifiers.erase(participant_id);
 
   return std::make_unique<ModeratorRectificationRequester>(
-        participant_id, shared_from_this());
+    participant_id, shared_from_this());
 }
 
 //==============================================================================
@@ -120,14 +120,14 @@ public:
   std::shared_ptr<ModeratorRectifierInfo> info;
 
   Implementation(std::shared_ptr<Moderator> moderator_)
-    : moderator(std::move(moderator_)),
-      info(std::make_shared<ModeratorRectifierInfo>())
+  : moderator(std::move(moderator_)),
+    info(std::make_shared<ModeratorRectifierInfo>())
   {
     if (!moderator)
     {
       std::runtime_error(
-            "[rmf_traffic::blockade::ModeratorRectificationRequesterFactory] "
-            "nullptr given for the `moderator` argument. This is illegal.");
+        "[rmf_traffic::blockade::ModeratorRectificationRequesterFactory] "
+        "nullptr given for the `moderator` argument. This is illegal.");
     }
   }
 
@@ -164,8 +164,8 @@ public:
 
 //==============================================================================
 ModeratorRectificationRequesterFactory::ModeratorRectificationRequesterFactory(
-    std::shared_ptr<Moderator> moderator)
-  : _pimpl(rmf_utils::make_unique_impl<Implementation>(std::move(moderator)))
+  std::shared_ptr<Moderator> moderator)
+: _pimpl(rmf_utils::make_unique_impl<Implementation>(std::move(moderator)))
 {
   // Do nothing
 }
@@ -173,8 +173,8 @@ ModeratorRectificationRequesterFactory::ModeratorRectificationRequesterFactory(
 //==============================================================================
 std::unique_ptr<RectificationRequester>
 ModeratorRectificationRequesterFactory::make(
-    Rectifier rectifier,
-    const ParticipantId participant_id)
+  Rectifier rectifier,
+  const ParticipantId participant_id)
 {
   return _pimpl->info->make(std::move(rectifier), participant_id);
 }

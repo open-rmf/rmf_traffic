@@ -46,7 +46,7 @@ public:
 
   using SearchQueue =
     std::priority_queue<
-      NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
+    NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
 
   bool quit(const NodePtr&, const SearchQueue&) const
   {
@@ -89,12 +89,12 @@ public:
       }
 
       auto new_node = std::make_shared<Node>(
-            Node{
-              _goal,
-              0.0,
-              current_cost + remaining_cost.value(),
-              top
-            });
+        Node{
+          _goal,
+          0.0,
+          current_cost + remaining_cost.value(),
+          top
+        });
 
       queue.push(std::move(new_node));
       return;
@@ -112,12 +112,12 @@ public:
       const auto cost = (_goal_p - current_p).norm()/_max_speed;
 
       auto new_node = std::make_shared<Node>(
-            Node{
-              _goal,
-              0.0,
-              current_cost + cost,
-              top
-            });
+        Node{
+          _goal,
+          0.0,
+          current_cost + cost,
+          top
+        });
 
       queue.push(std::move(new_node));
       return;
@@ -137,8 +137,8 @@ public:
       for (const auto& change : routes)
       {
         const auto change_finish_wp_index =
-            _graph->original().lanes[change.lane]
-            .exit().waypoint_index();
+          _graph->original().lanes[change.lane]
+          .exit().waypoint_index();
 
         if (_visited.count(change_finish_wp_index))
         {
@@ -148,11 +148,11 @@ public:
         }
 
         const auto change_start_wp_index =
-            _graph->original().lanes[change.lane]
-            .entry().waypoint_index();
+          _graph->original().lanes[change.lane]
+          .entry().waypoint_index();
 
         const Eigen::Vector2d first_p =
-            _graph->original().waypoints[change_start_wp_index].get_location();
+          _graph->original().waypoints[change_start_wp_index].get_location();
 
         double floor_change_cost = (first_p - current_p).norm()/_max_speed;
 
@@ -160,28 +160,28 @@ public:
         if (const auto& entry_event = lane.entry().event())
         {
           floor_change_cost +=
-              rmf_traffic::time::to_seconds(entry_event->duration());
+            rmf_traffic::time::to_seconds(entry_event->duration());
         }
 
         if (const auto& exit_event = lane.exit().event())
         {
           floor_change_cost +=
-              rmf_traffic::time::to_seconds(exit_event->duration());
+            rmf_traffic::time::to_seconds(exit_event->duration());
         }
 
         const Eigen::Vector2d last_p =
-            _graph->original().waypoints[change_finish_wp_index].get_location();
+          _graph->original().waypoints[change_finish_wp_index].get_location();
 
         const double remaining_cost_estimate =
-            (_goal_p - last_p).norm()/_max_speed;
+          (_goal_p - last_p).norm()/_max_speed;
 
         auto new_node = std::make_shared<Node>(
-              Node{
-                change_finish_wp_index,
-                remaining_cost_estimate,
-                current_cost + floor_change_cost,
-                top
-              });
+          Node{
+            change_finish_wp_index,
+            remaining_cost_estimate,
+            current_cost + floor_change_cost,
+            top
+          });
 
         queue.push(std::move(new_node));
       }
@@ -231,9 +231,9 @@ EuclideanHeuristic::EuclideanHeuristic(
 
 //==============================================================================
 std::optional<double> EuclideanHeuristic::generate(
-    const std::size_t& key,
-    const Storage& old_items,
-    Storage& new_items) const
+  const std::size_t& key,
+  const Storage& old_items,
+  Storage& new_items) const
 {
   const auto& start_wp = _graph->original().waypoints.at(key);
   const auto& start_map = start_wp.get_map_name();
@@ -298,7 +298,7 @@ EuclideanHeuristicFactory::EuclideanHeuristicFactory(
 
 //==============================================================================
 ConstEuclideanHeuristicPtr EuclideanHeuristicFactory::make(
-    const std::size_t goal) const
+  const std::size_t goal) const
 {
   return std::make_shared<EuclideanHeuristic>(goal, _max_speed, _graph);
 }

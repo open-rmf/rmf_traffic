@@ -54,7 +54,7 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
-  rmf_utils::optional<Itinerary> get_itinerary(
+  std::optional<Itinerary> get_itinerary(
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
@@ -74,10 +74,19 @@ public:
   /// Create a database mirror
   Mirror();
 
+  /// Update the known participants and their descriptions.
+  void update_participants_info(const ParticipantDescriptionsMap& participants);
+
   /// Update this mirror.
   ///
-  /// \return the last version that this Mirror knows of
-  Version update(const Patch& patch);
+  /// \return true if this update is okay. false if the base version of the
+  /// patch does not match
+  bool update(const Patch& patch);
+
+  /// Fork a new database off of this Mirror. The state of the new database
+  /// will match the last state of the upstream database that this Mirror knows
+  /// about.
+  Database fork() const;
 
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or

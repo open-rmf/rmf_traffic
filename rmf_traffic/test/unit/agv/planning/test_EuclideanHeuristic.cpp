@@ -41,13 +41,13 @@ SCENARIO("Euclidean Heuristic -- Single Floor")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
-        std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph));
+    rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
+    std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
+      supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -57,7 +57,7 @@ SCENARIO("Euclidean Heuristic -- Single Floor")
   const std::size_t goal = 0;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::EuclideanHeuristic>>;
+        rmf_traffic::agv::planning::EuclideanHeuristic>>;
   CacheOpt cache = cache_map.get(goal)->get();
   auto value = cache->get(goal);
   REQUIRE(value.has_value());
@@ -103,8 +103,8 @@ SCENARIO("Euclidean Heuristic -- Easy Multifloor")
 
   const auto lift_move_duration = std::chrono::seconds(10);
   auto lift_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", lift_move_duration));
 
   graph.add_lane({3, lift_move}, 7);
   graph.add_lane({7, lift_move}, 3);
@@ -116,34 +116,33 @@ SCENARIO("Euclidean Heuristic -- Easy Multifloor")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
-        std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph));
+    rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
+    std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
+      supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
   const Eigen::Vector2d p2 = graph.get_waypoint(2).get_location();
   const Eigen::Vector2d p3 = graph.get_waypoint(3).get_location();
-  const Eigen::Vector2d p7 = graph.get_waypoint(7).get_location();
   const Eigen::Vector2d p8 = graph.get_waypoint(8).get_location();
   const Eigen::Vector2d p11 = graph.get_waypoint(11).get_location();
 
   const std::size_t goal = 8;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::EuclideanHeuristic>>;
+        rmf_traffic::agv::planning::EuclideanHeuristic>>;
   CacheOpt cache = cache_map.get(goal)->get();
 
   const auto expected_cost = [&](const Eigen::Vector2d p)
-  {
-    return (p3-p).norm()/max_speed
+    {
+      return (p3-p).norm()/max_speed
         + 2 * rmf_traffic::time::to_seconds(lift_move_duration)
         + (p8 - p11).norm()/max_speed;
-  };
+    };
 
   auto value = cache->get(0);
   REQUIRE(value.has_value());
@@ -194,12 +193,12 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
 
   const auto lift_move_duration = std::chrono::seconds(10);
   auto lift_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", lift_move_duration));
 
   auto lift_double_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", 2*lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", 2*lift_move_duration));
 
   // These waypoints provide the optimal path that the planner should find
   const std::string test_map_3 = "test_map_3";
@@ -233,13 +232,13 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
-        std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph));
+    rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
+    std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
+      supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -251,16 +250,16 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
   const std::size_t goal = 8;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::EuclideanHeuristic>>;
+        rmf_traffic::agv::planning::EuclideanHeuristic>>;
   CacheOpt cache = cache_map.get(goal)->get();
 
   const auto expected_cost = [&](const Eigen::Vector2d p)
-  {
-    return (p12 - p).norm()/max_speed
+    {
+      return (p12 - p).norm()/max_speed
         + 2.0 * (p14 - p12).norm()/max_speed
         + (p0 - p12).norm()/max_speed
         + 4 * rmf_traffic::time::to_seconds(lift_move_duration);
-  };
+    };
 
   auto value = cache->get(0);
   REQUIRE(value.has_value());
@@ -281,10 +280,10 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
   // Starting from waypoint 1 is a bit different because it can go directly up
   // the lift that it's on.
   const double expected_cost_wp1 =
-      (p14 - p1).norm()/max_speed
-      + (p12 - p14).norm()/max_speed
-      + (p0 - p12).norm()/max_speed
-      + 4 * rmf_traffic::time::to_seconds(lift_move_duration);
+    (p14 - p1).norm()/max_speed
+    + (p12 - p14).norm()/max_speed
+    + (p0 - p12).norm()/max_speed
+    + 4 * rmf_traffic::time::to_seconds(lift_move_duration);
 
   value = cache->get(1);
   REQUIRE(value.has_value());
@@ -319,8 +318,8 @@ SCENARIO("Euclidean Heuristic -- No Connection")
 
   const auto lift_move_duration = std::chrono::seconds(10);
   auto lift_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", lift_move_duration));
 
   graph.add_lane({1, lift_move}, 5);
   graph.add_lane({5, lift_move}, 1);
@@ -334,18 +333,18 @@ SCENARIO("Euclidean Heuristic -- No Connection")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
-        std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph));
+    rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
+    std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
+      supergraph));
 
   const std::size_t goal = 8;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::EuclideanHeuristic>>;
+        rmf_traffic::agv::planning::EuclideanHeuristic>>;
   CacheOpt cache = cache_map.get(goal)->get();
 
   // Waypoints on a different floor than the goal have no way to get there
@@ -386,9 +385,9 @@ SCENARIO("Euclidean Heuristic -- No Connection")
   const Eigen::Vector2d p11 = graph.get_waypoint(11).get_location();
 
   const auto expected_cost = [&](const Eigen::Vector2d p)
-  {
-    return (p8 - p).norm()/max_speed;
-  };
+    {
+      return (p8 - p).norm()/max_speed;
+    };
 
   value = cache->get(8);
   REQUIRE(value.has_value());

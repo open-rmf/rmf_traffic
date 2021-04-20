@@ -22,7 +22,7 @@
 
 #include <rmf_utils/catch.hpp>
 
-SCENARIO("Test Query API")
+SCENARIO("Test Query API", "[query]")
 {
   using namespace std::chrono_literals;
 
@@ -61,17 +61,180 @@ SCENARIO("Test Query API")
   for (const auto& region : *query.spacetime().regions())
   {
     ++regions;
-    for (const auto& space : region)
+    for ([[maybe_unused]] const auto& space : region)
     {
       ++spaces;
-
-      // TODO(MXG): replace this with [[maybe_unused]] when we can use C++17
-      (void)space;
     }
   }
 
   CHECK(regions == 1);
   CHECK(spaces == 3);
+
+  // Tests for the equality operators.
+  GIVEN("Two queries")
+  {
+    auto now_plus_30s = now + 30s;
+    auto now_plus_1min = now + 1min;
+    // TODO(Geoff): These tests are not exhaustive. Make them so.
+    WHEN("Both queries are empty")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+
+      CHECK(query1 == query2);
+    }
+
+    WHEN("Both queries have the same start and end times")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_1min);
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_1min);
+
+      CHECK(query1 == query2);
+    }
+
+    WHEN("The queries have different start times")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_1min);
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({}, &now_plus_30s, &now_plus_1min);
+
+      CHECK(query1 != query2);
+    }
+
+    WHEN("The queries have different finish times")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_30s);
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_1min);
+
+      CHECK(query1 != query2);
+    }
+
+    WHEN("One query has a spacetime query")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.spacetime().regions()->push_back(
+        rmf_traffic::Region{"test_map", now, now+10s, {}});
+
+      CHECK(query1 != query2);
+    }
+
+    WHEN("Both queries have the same spacetime query")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.spacetime().regions()->push_back(
+        rmf_traffic::Region{"test_map", now, now+10s, {}});
+      query2.spacetime().regions()->push_back(
+        rmf_traffic::Region{"test_map", now, now+10s, {}});
+
+      CHECK(query1 == query2);
+    }
+
+    WHEN("Both queries are equal timespans for all maps, "
+      "but one has a map explicitly added")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({"test_map"}, &now, &now_plus_30s);
+      query1.spacetime().timespan()->all_maps(true);
+
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({}, &now, &now_plus_30s);
+      query2.spacetime().timespan()->all_maps(true);
+
+      CHECK(query1 == query2);
+    }
+
+    WHEN("Both queries have different spacetime queries")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.spacetime().regions()->push_back(
+        rmf_traffic::Region{"test_map", now, now+10s, {}});
+      query2.spacetime().regions()->push_back(
+        rmf_traffic::Region{"another_map", now, now+10s, {}});
+
+      CHECK(query1 != query2);
+    }
+
+    WHEN("One query has a participant query")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+
+      CHECK(query1 != query2);
+    }
+
+    WHEN("Both queries have the same participant query")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query2.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+
+      CHECK(query1 == query2);
+    }
+
+    WHEN("Both queries have different participant queries")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query2.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({2, 3, 4});
+
+      CHECK(query1 != query2);
+
+      rmf_traffic::schedule::Query query3 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query4 =
+        rmf_traffic::schedule::make_query({});
+      query3.participants() =
+        rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
+      query4.participants() =
+        rmf_traffic::schedule::Query::Participants::make_all_except({2, 3, 4});
+
+      CHECK(query3 != query4);
+    }
+
+    WHEN("Both queries have different participant query modes")
+    {
+      rmf_traffic::schedule::Query query1 =
+        rmf_traffic::schedule::make_query({});
+      rmf_traffic::schedule::Query query2 =
+        rmf_traffic::schedule::make_query({});
+      query1.participants() =
+        rmf_traffic::schedule::Query::Participants::make_only({1, 2, 3});
+      query2.participants() =
+        rmf_traffic::schedule::Query::Participants::make_all_except({1, 2, 3});
+
+      CHECK(query1 != query2);
+    }
+  }
 
   // TODO(MXG): Write tests for every function to confirm that the
   // Query API works as intended

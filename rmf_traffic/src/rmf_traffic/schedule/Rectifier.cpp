@@ -64,10 +64,10 @@ public:
   };
 
   DatabaseRectificationRequester(
-    const Database& database,
+    std::shared_ptr<std::shared_ptr<Database>> database,
     Rectifier rectifier,
     ParticipantId id)
-  : _database(database),
+  : _database(std::move(database)),
     _handle(std::make_shared<Handle>(Handle{*this})),
     _rectifier(std::move(rectifier)),
     _participant_id(id)
@@ -77,7 +77,7 @@ public:
 
   void rectify()
   {
-    const auto& inconsistencies = _database.inconsistencies();
+    const auto& inconsistencies = (*_database)->inconsistencies();
     for (const auto& p : inconsistencies)
     {
       if (p.participant != _participant_id)
@@ -97,7 +97,7 @@ public:
     }
   }
 
-  const Database& _database;
+  std::shared_ptr<std::shared_ptr<Database>> _database;
   std::shared_ptr<Handle> _handle;
   Rectifier _rectifier;
   ParticipantId _participant_id;
@@ -109,16 +109,19 @@ class DatabaseRectificationRequesterFactory::Implementation
 {
 public:
 
-  const Database& _database;
+  std::shared_ptr<std::shared_ptr<Database>> _database;
   std::vector<std::weak_ptr<DatabaseRectificationRequester::Handle>> _handles;
 
 };
 
 //==============================================================================
 DatabaseRectificationRequesterFactory::DatabaseRectificationRequesterFactory(
-  const Database& database)
+  std::shared_ptr<Database> database)
 : _pimpl(rmf_utils::make_unique_impl<Implementation>(
-      Implementation{database, {}}))
+      Implementation{
+        std::make_shared<std::shared_ptr<Database>>(database),
+        {}
+      }))
 {
   // Do nothing
 }
@@ -155,6 +158,13 @@ void DatabaseRectificationRequesterFactory::rectify()
       handles.end(),
       [](const WeakHandlePtr& h) { return h.expired(); }),
     handles.end());
+}
+
+//==============================================================================
+void DatabaseRectificationRequesterFactory::change_database(
+  std::shared_ptr<Database> new_database)
+{
+  *_pimpl->_database = new_database;
 }
 
 } // namespace schedule

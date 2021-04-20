@@ -49,17 +49,17 @@ SCENARIO("Shortest Path Heuristic -- Single Floor")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
-        std::make_shared<
-          rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph));
+    rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
+    std::make_shared<
+      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
+      supergraph));
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::ShortestPathHeuristic>>;
+        rmf_traffic::agv::planning::ShortestPathHeuristic>>;
   CacheOpt cache = cache_map.get(2)->get();
 
   auto value = cache->get(0);
@@ -93,10 +93,10 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
   rmf_traffic::agv::Graph graph;
 
   const auto add_bidir_lane = [&](std::size_t i, std::size_t j)
-  {
-    graph.add_lane(i, j);
-    graph.add_lane(j, i);
-  };
+    {
+      graph.add_lane(i, j);
+      graph.add_lane(j, i);
+    };
 
   const std::string test_map_0 = "test_map_0";
   graph.add_waypoint(test_map_0, {0, 0}); // 0
@@ -134,8 +134,8 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
 
   const auto lift_move_duration = std::chrono::seconds(10);
   auto lift_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", lift_move_duration));
 
   graph.add_lane({3, lift_move}, 7);
   graph.add_lane({7, lift_move}, 3);
@@ -147,26 +147,26 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
-        std::make_shared<
-          rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph));
+    rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
+    std::make_shared<
+      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
+      supergraph));
 
   const std::size_t goal = 8;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::ShortestPathHeuristic>>;
+        rmf_traffic::agv::planning::ShortestPathHeuristic>>;
   CacheOpt cache = cache_map.get(goal)->get();
 
   const auto expected_cost = [&](const std::size_t steps)
-  {
-    return static_cast<double>(steps)/max_speed + 2/max_speed
+    {
+      return static_cast<double>(steps)/max_speed + 2/max_speed
         + 2 * rmf_traffic::time::to_seconds(lift_move_duration);
-  };
+    };
 
   auto value = cache->get(0);
   REQUIRE(value.has_value());
@@ -199,10 +199,10 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
   rmf_traffic::agv::Graph graph;
 
   const auto add_bidir_lane = [&](std::size_t i, std::size_t j)
-  {
-    graph.add_lane(i, j);
-    graph.add_lane(j, i);
-  };
+    {
+      graph.add_lane(i, j);
+      graph.add_lane(j, i);
+    };
 
   const std::string test_map_0 = "test_map_0";
   graph.add_waypoint(test_map_0, {0, 0}); // 0
@@ -239,12 +239,12 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
 
   const auto lift_move_duration = std::chrono::seconds(10);
   auto lift_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", lift_move_duration));
 
   auto lift_double_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", 2*lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", 2*lift_move_duration));
 
   // These waypoints provide the optimal path that the planner should find
   const std::string test_map_3 = "test_map_3";
@@ -283,26 +283,26 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
-        std::make_shared<
-          rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph));
+    rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
+    std::make_shared<
+      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
+      supergraph));
 
   const std::size_t goal = 8;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::ShortestPathHeuristic>>;
+        rmf_traffic::agv::planning::ShortestPathHeuristic>>;
   CacheOpt cache = cache_map.get(goal)->get();
 
   const auto expected_cost = [&](const std::size_t steps)
-  {
-    return (static_cast<double>(steps) + 29.0)/max_speed
+    {
+      return (static_cast<double>(steps) + 29.0)/max_speed
         + 4 * rmf_traffic::time::to_seconds(lift_move_duration);
-  };
+    };
 
   auto value = cache->get(3);
   REQUIRE(value.has_value());
@@ -335,10 +335,10 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   rmf_traffic::agv::Graph graph;
 
   const auto add_bidir_lane = [&](std::size_t i, std::size_t j)
-  {
-    graph.add_lane(i, j);
-    graph.add_lane(j, i);
-  };
+    {
+      graph.add_lane(i, j);
+      graph.add_lane(j, i);
+    };
 
   const std::string test_map_0 = "test_map_0";
   graph.add_waypoint(test_map_0, {0, 0}); // 0
@@ -374,8 +374,8 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
 
   const auto lift_move_duration = std::chrono::seconds(10);
   auto lift_move = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::LiftMove(
-          "does not matter", "does not matter", lift_move_duration));
+    rmf_traffic::agv::Graph::Lane::LiftMove(
+      "does not matter", "does not matter", lift_move_duration));
 
   graph.add_lane({1, lift_move}, 5);
   graph.add_lane({5, lift_move}, 1);
@@ -389,28 +389,28 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
     {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
 
   auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   auto cache_map =
     std::make_optional<rmf_traffic::agv::planning::CacheManagerMap<
-      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>>(
-        std::make_shared<
-          rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph));
+        rmf_traffic::agv::planning::ShortestPathHeuristicFactory>>(
+    std::make_shared<
+      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
+      supergraph));
 
   const std::size_t goal = 8;
 
   const auto expected_cost = [&](
-      const std::size_t steps,
-      const std::size_t floors)
-  {
-    return static_cast<double>(steps)/max_speed
+    const std::size_t steps,
+    const std::size_t floors)
+    {
+      return static_cast<double>(steps)/max_speed
         + floors*rmf_traffic::time::to_seconds(lift_move_duration);
-  };
+    };
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
-    rmf_traffic::agv::planning::ShortestPathHeuristic>>;
+        rmf_traffic::agv::planning::ShortestPathHeuristic>>;
   CacheOpt cache = cache_map->get(goal)->get();
 
   // Waypoints on a different floor than the goal have no way to get there
@@ -466,8 +466,8 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   graph.add_lane({7, lift_move}, 11);
 
   supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   // We need to completely reconstruct the cache map, because the supergraph has
   // changed.

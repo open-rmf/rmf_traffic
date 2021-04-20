@@ -73,7 +73,7 @@ public:
   }
 
   SnapshotImplementation(
-    std::shared_ptr<const TimelineView<const RouteEntry>> timeline,
+    std::shared_ptr<const TimelineView<const BaseRouteEntry>> timeline,
     std::unordered_set<ParticipantId> ids,
     ParticipantMap participants,
     Version version)

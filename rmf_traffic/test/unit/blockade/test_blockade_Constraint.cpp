@@ -43,8 +43,8 @@ std::size_t hold_at(std::size_t index)
 
 //==============================================================================
 rmf_traffic::blockade::ReservedRange range(
-    const std::size_t begin,
-    const std::size_t end)
+  const std::size_t begin,
+  const std::size_t end)
 {
   return {begin, end};
 }
@@ -80,7 +80,7 @@ SCENARIO("Test gridlock detection")
     g[D][1] = blockage(A, hold_at(0), reach(2));
 
     ConstConstraintPtr no_gridlock = compute_gridlock_constraint(g);
-    for (std::size_t i=A; i <= D; ++i)
+    for (std::size_t i = A; i <= D; ++i)
       CHECK(no_gridlock->dependencies().count(i));
 
     State state;
@@ -148,23 +148,23 @@ SCENARIO("Test gridlock detection")
   {
     g[A][0] = blockage(D, hold_at(1), reach(2));
     g[A][1] =
-        And(
-          blockage(B, hold_at(0), reach(2)),
-          blockage(C, hold_at(0), reach(2))
-        );
+      And(
+      blockage(B, hold_at(0), reach(2)),
+      blockage(C, hold_at(0), reach(2))
+      );
     g[B][0] = blockage(A, hold_at(1), reach(2));
     g[B][1] = blockage(D, hold_at(0), reach(2));
     g[C][0] = blockage(A, hold_at(1), reach(2));
     g[C][1] = blockage(D, hold_at(0), reach(2));
     g[D][0] =
-        And(
-          blockage(B, hold_at(1), reach(2)),
-          blockage(C, hold_at(1), reach(2))
-        );
+      And(
+      blockage(B, hold_at(1), reach(2)),
+      blockage(C, hold_at(1), reach(2))
+      );
     g[D][1] = blockage(A, hold_at(0), reach(2));
 
     ConstConstraintPtr no_gridlock = compute_gridlock_constraint(g);
-    for (std::size_t i=A; i <= D; ++i)
+    for (std::size_t i = A; i <= D; ++i)
       CHECK(no_gridlock->dependencies().count(i));
 
     State state;
@@ -244,22 +244,22 @@ SCENARIO("Test gridlock detection")
   GIVEN("Criss-cross intersection")
   {
     g[A][1] =
-        And(
-          blockage(B, hold_at(0), reach(2)),
-          blockage(C, hold_at(1), reach(2))
-        );
+      And(
+      blockage(B, hold_at(0), reach(2)),
+      blockage(C, hold_at(1), reach(2))
+      );
     g[A][3] = blockage(B, hold_at(0), reach(2));
     g[B][0] =
-        And(
-          blockage(A, hold_at(1), reach(2)),
-          blockage(A, hold_at(3), reach(4))
-        );
+      And(
+      blockage(A, hold_at(1), reach(2)),
+      blockage(A, hold_at(3), reach(4))
+      );
     g[B][1] = blockage(C, hold_at(0), reach(2));
     g[C][0] = blockage(B, hold_at(1), reach(2));
     g[C][1] = blockage(A, hold_at(1), pass(3));
 
     ConstConstraintPtr no_gridlock = compute_gridlock_constraint(g);
-    for (std::size_t i=A; i <= C; ++i)
+    for (std::size_t i = A; i <= C; ++i)
       CHECK(no_gridlock->dependencies().count(i));
 
     State state;
@@ -303,18 +303,18 @@ SCENARIO("Test gridlock detection")
     g[B][1] = blockage(C, hold_at(0), reach(2));
     g[C][0] = blockage(B, hold_at(1), reach(2));
     g[C][1] =
-        And(
-          blockage(A, hold_at(1), reach(3)),
-          blockage(D, std::nullopt, reach(1))
-        );
+      And(
+      blockage(A, hold_at(1), reach(3)),
+      blockage(D, std::nullopt, reach(1))
+      );
     g[D][0] =
-        And(
-          blockage(A, hold_at(0), reach(2)),
-          blockage(C, hold_at(1), std::nullopt)
-        );
+      And(
+      blockage(A, hold_at(0), reach(2)),
+      blockage(C, hold_at(1), std::nullopt)
+      );
 
     ConstConstraintPtr no_gridlock = compute_gridlock_constraint(g);
-    for (std::size_t i=A; i <= D; ++i)
+    for (std::size_t i = A; i <= D; ++i)
       CHECK(no_gridlock->dependencies().count(i));
 
     simulate_all_sequences(g, no_gridlock, {3, 2, 2, 1});
@@ -324,10 +324,10 @@ SCENARIO("Test gridlock detection")
   {
     g[A][0] = blockage(C, hold_at(1), reach(2));
     g[A][1] =
-        And(
-          blockage(B, hold_at(0), reach(2)),
-          blockage(D, hold_at(0), reach(2))
-        );
+      And(
+      blockage(B, hold_at(0), reach(2)),
+      blockage(D, hold_at(0), reach(2))
+      );
     g[B][0] = blockage(A, hold_at(1), reach(2));
     g[B][1] = blockage(C, hold_at(0), reach(2));
     g[C][0] = blockage(B, hold_at(1), reach(2));
@@ -337,7 +337,7 @@ SCENARIO("Test gridlock detection")
     g[E][0] = blockage(D, hold_at(1), reach(2));
 
     ConstConstraintPtr no_gridlock = compute_gridlock_constraint(g);
-    for (std::size_t i=A; i <= D; ++i)
+    for (std::size_t i = A; i <= D; ++i)
       CHECK(no_gridlock->dependencies().count(i));
 
     CHECK_FALSE(no_gridlock->dependencies().count(E));

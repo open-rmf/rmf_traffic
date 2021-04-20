@@ -50,9 +50,9 @@ public:
   const Planner::Configuration& get_configuration() const final;
 
   std::unique_ptr<Debugger> debug_begin(
-      const std::vector<Planner::Start>& starts,
-      Planner::Goal goal,
-      Planner::Options options) const final;
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options) const final;
 
   std::optional<PlanData> debug_step(Debugger& debugger) const final;
 

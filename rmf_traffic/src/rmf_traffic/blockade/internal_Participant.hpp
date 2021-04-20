@@ -29,19 +29,19 @@ class Participant::Implementation
 public:
 
   static Participant make(
-      ParticipantId participant_id,
-      double radius,
-      std::shared_ptr<Writer> writer,
-      std::shared_ptr<RectificationRequesterFactory> rectifier_factory);
+    ParticipantId participant_id,
+    double radius,
+    std::shared_ptr<Writer> writer,
+    std::shared_ptr<RectificationRequesterFactory> rectifier_factory);
 
   void check(const Status& status);
 
   void check();
 
   Implementation(
-      ParticipantId id,
-      double radius,
-      std::shared_ptr<Writer> writer);
+    ParticipantId id,
+    double radius,
+    std::shared_ptr<Writer> writer);
 
   ~Implementation();
 

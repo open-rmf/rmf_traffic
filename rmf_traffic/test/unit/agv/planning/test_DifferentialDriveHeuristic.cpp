@@ -28,7 +28,7 @@
 
 //==============================================================================
 // This is cruft needed for C++17. It should be removed when we migrate to C++20
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> struct overloaded : Ts... { using Ts::operator() ...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 //==============================================================================
@@ -61,13 +61,13 @@ bool compare_routes(
   REQUIRE(a.trajectory().size() == b.trajectory().size());
 
   bool all_correct = a.map() == b.map();
-  for (std::size_t i=0; i < a.trajectory().size(); ++i)
+  for (std::size_t i = 0; i < a.trajectory().size(); ++i)
   {
     const auto& wp_a = a.trajectory().at(i);
     const auto& wp_b = b.trajectory().at(i);
 
     const double time_diff =
-        rmf_traffic::time::to_seconds(wp_a.time() - wp_b.time());
+      rmf_traffic::time::to_seconds(wp_a.time() - wp_b.time());
     const bool time_matches = time_diff == Approx(0.0).margin(1e-8);
     CHECK(time_matches);
 
@@ -79,7 +79,7 @@ bool compare_routes(
     const Eigen::Vector3d v_a = wp_a.velocity();
     const Eigen::Vector3d v_b = wp_b.velocity();
     const bool velocities_match =
-        (v_a - v_b).norm() == Approx(0.0).margin(1e-8);
+      (v_a - v_b).norm() == Approx(0.0).margin(1e-8);
 
     CHECK(velocities_match);
 
@@ -91,10 +91,10 @@ bool compare_routes(
 
 //==============================================================================
 bool compare_plan(
-    const rmf_traffic::agv::VehicleTraits& traits,
-    const Eigen::Vector3d initial_position,
-    const std::vector<Action>& actions,
-    SolutionNodePtr solution)
+  const rmf_traffic::agv::VehicleTraits& traits,
+  const Eigen::Vector3d initial_position,
+  const std::vector<Action>& actions,
+  SolutionNodePtr solution)
 {
   REQUIRE(solution);
 
@@ -108,9 +108,9 @@ bool compare_plan(
 
     auto new_route_info = solution->route_factory(time, yaw);
     routes.insert(
-          routes.end(),
-          new_route_info.routes.begin(),
-          new_route_info.routes.end());
+      routes.end(),
+      new_route_info.routes.begin(),
+      new_route_info.routes.end());
     time = new_route_info.finish_time;
     yaw = new_route_info.finish_yaw;
 
@@ -130,12 +130,12 @@ bool compare_plan(
           auto positions = move.positions;
           positions.insert(positions.begin(), position);
           const auto trajectory = rmf_traffic::agv::Interpolate::positions(
-              traits, time, positions);
+            traits, time, positions);
 
           for (const auto& map : move.maps)
           {
             const bool routes_equal =
-                compare_routes({map, trajectory}, routes.at(counter++));
+            compare_routes({map, trajectory}, routes.at(counter++));
             CHECK(routes_equal);
             all_correct &= routes_equal;
           }
@@ -148,12 +148,12 @@ bool compare_plan(
           rmf_traffic::Trajectory trajectory;
           trajectory.insert(time, position, Eigen::Vector3d::Zero());
           trajectory.insert(
-              time + wait.duration, position, Eigen::Vector3d::Zero());
+            time + wait.duration, position, Eigen::Vector3d::Zero());
 
           for (const auto& map : wait.maps)
           {
             const bool routes_equal =
-                compare_routes({map, trajectory}, routes.at(counter++));
+            compare_routes({map, trajectory}, routes.at(counter++));
             CHECK(routes_equal);
             all_correct &= routes_equal;
           }
@@ -178,13 +178,13 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
   // (intentionally) be forced to waste time accelerating and decelerating. That
   // slowdown will allow a longer path to require less time to reach the goal.
   const auto bogus_event = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
+    rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
 
   const std::size_t N = 30;
   const std::size_t start_index = 0;
   const std::size_t goal_index = N;
 
-  for (std::size_t i=0; i <= N; ++i)
+  for (std::size_t i = 0; i <= N; ++i)
   {
     graph.add_waypoint(test_map, {i, 0});
     if (i > 0)
@@ -195,7 +195,7 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
   }
 
   const double peak = 3.0;
-  for (std::size_t i=1; i < N; ++i)
+  for (std::size_t i = 1; i < N; ++i)
   {
     double offset;
     if (i < N/2)
@@ -233,12 +233,12 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
   traits.get_differential()->set_reversible(true);
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   auto diff_drive_cache =
-      rmf_traffic::agv::planning
-      ::DifferentialDriveHeuristic::make_manager(supergraph);
+    rmf_traffic::agv::planning
+    ::DifferentialDriveHeuristic::make_manager(supergraph);
 
   using Ori = rmf_traffic::agv::planning::Orientation;
   using Side = rmf_traffic::agv::planning::Side;
@@ -394,7 +394,7 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
 
   const auto bogus_event_duration = std::chrono::seconds(1);
   const auto bogus_event = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::Wait(bogus_event_duration));
+    rmf_traffic::agv::Graph::Lane::Wait(bogus_event_duration));
 
   graph.add_lane({0, bogus_event}, 1); // 0
   graph.add_lane({1, bogus_event}, 2); // 1
@@ -407,22 +407,23 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
   traits.get_differential()->set_reversible(true);
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph),
-        traits, rmf_traffic::agv::Interpolate::Options());
+    rmf_traffic::agv::Graph::Implementation::get(graph),
+    traits, {}, rmf_traffic::agv::Interpolate::Options());
 
   // TODO(MXG): Make a cleaner way to instantiate these caches
   using DifferentialDriveCache =
     rmf_traffic::agv::planning::CacheManager<
-      rmf_traffic::agv::planning::Cache<
-        rmf_traffic::agv::planning::DifferentialDriveHeuristic>>;
+    rmf_traffic::agv::planning::Cache<
+      rmf_traffic::agv::planning::DifferentialDriveHeuristic>>;
   auto diff_drive_cache = DifferentialDriveCache::make(
     std::make_shared<
       rmf_traffic::agv::planning::DifferentialDriveHeuristic>(
-          supergraph), [N = supergraph->original().lanes.size()]()
-  {
-    return rmf_traffic::agv::planning::DifferentialDriveHeuristic::Storage(
-      4093, rmf_traffic::agv::planning::DifferentialDriveMapTypes::KeyHash{N});
-  });
+      supergraph), [N = supergraph->original().lanes.size()]()
+    {
+      return rmf_traffic::agv::planning::DifferentialDriveHeuristic::Storage(
+        4093,
+        rmf_traffic::agv::planning::DifferentialDriveMapTypes::KeyHash{N});
+    });
 
   using Ori = rmf_traffic::agv::planning::Orientation;
   using Side = rmf_traffic::agv::planning::Side;

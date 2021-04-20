@@ -53,7 +53,8 @@ public:
 
   void getCurrentTransform(fcl::Transform3d& tf) const final;
 
-  void getTaylorModel(fcl::TMatrix3<double>&, fcl::TVector3<double>&) const final;
+  void getTaylorModel(fcl::TMatrix3<double>&,
+    fcl::TVector3<double>&) const final;
 
 private:
   fcl::Transform3d _tf;

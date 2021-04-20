@@ -21,6 +21,7 @@
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
 #include "internal_Snapshot.hpp"
+#include "internal_Database.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -30,13 +31,7 @@ class Mirror::Implementation
 {
 public:
 
-  struct RouteEntry
-  {
-    ConstRoutePtr route;
-    ParticipantId participant;
-    RouteId route_id;
-    std::shared_ptr<const ParticipantDescription> description;
-  };
+  using RouteEntry = BaseRouteEntry;
   using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
 
   struct RouteStorage
@@ -51,6 +46,7 @@ public:
   {
     std::unordered_map<RouteId, RouteStorage> storage;
     std::shared_ptr<const ParticipantDescription> description;
+    ItineraryVersion itinerary_version;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
@@ -76,7 +72,6 @@ public:
     for (const RouteId id : erase.ids())
     {
       const auto r_it = state.storage.find(id);
-      assert(r_it != state.storage.end());
       if (r_it == state.storage.end())
       {
         std::cerr << "[Mirror::update] Erasing unrecognized route [" << id
@@ -114,6 +109,35 @@ public:
     }
   }
 
+  void add_route(
+    const ParticipantId participant,
+    ParticipantState& state,
+    const RouteId route_id,
+    const ConstRoutePtr& route)
+  {
+    auto insertion = state.storage.insert({route_id, RouteStorage()});
+    const bool inserted = insertion.second;
+    if (!inserted)
+    {
+      std::cerr << "[Mirror::update] Inserting a route [" << route_id
+                << "] which already exists for participant [" << participant
+                << "]" << std::endl;
+      // NOTE(MXG): We will continue anyway. The new route will simply
+      // overwrite the old one.
+    }
+
+    auto& entry_storage = insertion.first->second;
+    entry_storage.entry = std::make_shared<RouteEntry>(
+      RouteEntry{
+        std::move(route),
+        participant,
+        route_id,
+        state.description
+      });
+
+    entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+  }
+
   void add_routes(
     const ParticipantId participant,
     ParticipantState& state,
@@ -121,31 +145,11 @@ public:
   {
     for (const auto& item : add.items())
     {
-      const RouteId route_id = item.id;
-      auto insertion = state.storage.insert({route_id, RouteStorage()});
-      const bool inserted = insertion.second;
-      assert(inserted);
-      if (!inserted)
-      {
-        std::cerr << "[Mirror::update] Inserting a route [" << item.id
-                  << "] which already exists for participant [" << participant
-                  << "]" << std::endl;
-        // NOTE(MXG): We will continue anyway. The new route will simply
-        // overwrite the old one.
-      }
-
-      auto route = std::make_shared<Route>(*item.route);
-
-      auto& entry_storage = insertion.first->second;
-      entry_storage.entry = std::make_shared<RouteEntry>(
-        RouteEntry{
-          std::move(route),
-          participant,
-          route_id,
-          state.description
-        });
-
-      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+      add_route(
+        participant,
+        state,
+        item.id,
+        std::make_shared<const Route>(*item.route));
     }
   }
 };
@@ -245,12 +249,20 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
 }
 
 //==============================================================================
-rmf_utils::optional<Itinerary> Mirror::get_itinerary(
+std::optional<Itinerary> Mirror::get_itinerary(
   std::size_t participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
+  {
+    // If we don't have a state, it's possible that we have a description for
+    // this participant but never received a state. In that case we should
+    // return an empty itinerary, not a nullopt.
+    if (_pimpl->participant_ids.count(participant_id) > 0)
+      return {};
+
     return rmf_utils::nullopt;
+  }
 
   const auto& state = p->second;
   Itinerary itinerary;
@@ -276,7 +288,7 @@ std::shared_ptr<const Snapshot> Mirror::snapshot() const
     >;
 
   return std::make_shared<SnapshotType>(
-    _pimpl->timeline.snapshot(),
+    _pimpl->timeline.snapshot(nullptr),
     _pimpl->participant_ids,
     _pimpl->descriptions,
     _pimpl->latest_version);
@@ -290,55 +302,115 @@ Mirror::Mirror()
 }
 
 //==============================================================================
-Version Mirror::update(const Patch& patch)
+void Mirror::update_participants_info(
+  const ParticipantDescriptionsMap& participants)
 {
-  for (const auto& unregistered : patch.unregistered())
+  // First remove any participants that are no longer around.
+  // We create a removed_ids list to start, because otherwise we would be
+  // iterating through _pimpl->states while also erasing elements from it, which
+  // results in undefined behavior and may cause a segmentation fault.
+  std::unordered_set<ParticipantId> removed_ids;
+  for ([[maybe_unused]] const auto& [id, state]: _pimpl->states)
   {
-    const ParticipantId id = unregistered.id();
-    const auto p_it = _pimpl->states.find(id);
-    assert(p_it != _pimpl->states.end());
-    if (p_it == _pimpl->states.end())
-    {
-      std::cerr << "[Mirror::update] Unrecognized participant ["
-                << id << "] being unregistered" << std::endl;
-      continue;
-    }
+    const auto p_it = participants.find(id);
+    if (p_it == participants.end())
+      removed_ids.insert(id);
+  }
 
-    _pimpl->states.erase(p_it);
+  for (const auto id : removed_ids)
+  {
+    // This participant is not in the updated list of participants, so remove
+    // the mirror's copy of it
+    _pimpl->states.erase(id);
     _pimpl->descriptions.erase(id);
     _pimpl->participant_ids.erase(id);
   }
 
-  for (const auto& registered : patch.registered())
+  // Next add-or-update all participants that are currently present
+  for (const auto& [id, description]: participants)
   {
-    const auto description = std::make_shared<ParticipantDescription>(
-      registered.description());
-
-    const ParticipantId id = registered.id();
-    const bool inserted = _pimpl->states.insert(
-      std::make_pair(
-        id,
-        Implementation::ParticipantState{
-          {},
-          description
-        })).second;
-
-    _pimpl->descriptions.insert({id, description});
-    _pimpl->participant_ids.insert(id);
-
-    assert(inserted);
-    if (!inserted)
+    const auto p_it = _pimpl->states.find(id);
+    if (p_it == _pimpl->states.end())
     {
-      std::cerr << "[Mirror::update] Duplicate participant ID ["
-                << id << "] while trying to register a new participant"
-                << std::endl;
+      // This is a new participant. We need to add a new state entry for it.
+      // We do not add a state for it yet because we know nothing about its
+      // routes or itinerary version.
+      const auto description_ptr =
+        std::make_shared<const ParticipantDescription>(description);
+      _pimpl->descriptions.insert({id, description_ptr});
+      _pimpl->participant_ids.insert(id);
     }
+    else
+    {
+      // This is an existing participant. We need to overwrite the description
+      // and then replace all the timeline entries with new ones that contain
+      // the new description.
+      p_it->second.description =
+        std::make_shared<const ParticipantDescription>(description);
+
+      const auto participant_id = p_it->first;
+      auto& state = p_it->second;
+
+      // Make a copy of the routes before we clear them out
+      const auto old_storage = state.storage;
+
+      // Clear out the state's copy of the route information
+      p_it->second.storage.clear();
+
+      // Insert new routes that are equivalent to the old ones, but which have
+      // the updated description.
+      for (const auto& [route_id, route_storage] : old_storage)
+      {
+        const auto& route = route_storage.entry->route;
+        _pimpl->add_route(participant_id, state, route_id, route);
+      }
+    }
+  }
+}
+
+//==============================================================================
+bool Mirror::update(const Patch& patch)
+{
+  if (_pimpl->latest_version >= patch.latest_version())
+  {
+    // This patch is older than or equal to the information this mirror already
+    // has, so it can safely be ignored.
+    return true;
+  }
+
+  if (patch.base_version().has_value())
+  {
+    if (*patch.base_version() != _pimpl->latest_version)
+      return false;
+  }
+  else
+  {
+    // If the patch is assuming that we're starting from a blank slate, then
+    // we'll simply erase all the itineraries we currently have and apply the
+    // patch on top of a blank slate.
+    for (auto& [_, state] : _pimpl->states)
+      state.storage.clear();
   }
 
   for (const auto& p : patch)
   {
     const ParticipantId participant = p.participant_id();
-    Implementation::ParticipantState& state = _pimpl->states.at(participant);
+
+    // Check if the mirror knows about this participant yet, and insert a blank
+    // participant state if it does not.
+    const auto insertion = _pimpl->states.insert({participant, {}});
+    const auto p_it = insertion.first;
+    Implementation::ParticipantState& state = p_it->second;
+    state.itinerary_version = p.itinerary_version();
+    const auto newly_inserted = insertion.second;
+    if (newly_inserted)
+    {
+      // Unknown participant. We will create an empty description for it, unless
+      // the description already exists
+      const auto d_it = _pimpl->descriptions.insert({participant, {}}).first;
+      state.description = d_it->second;
+      _pimpl->participant_ids.insert(participant);
+    }
 
     Implementation::erase_routes(participant, state, p.erasures());
 
@@ -374,7 +446,30 @@ Version Mirror::update(const Patch& patch)
   }
 
   _pimpl->latest_version = patch.latest_version();
-  return _pimpl->latest_version;
+  return true;
+}
+
+//==============================================================================
+Database Mirror::fork() const
+{
+  Database output;
+
+  for (const auto& [id, description] : _pimpl->descriptions)
+    internal_register_participant(output, id, *description);
+
+  for (const auto& [participant, state] : _pimpl->states)
+  {
+    Writer::Input input;
+    input.reserve(state.storage.size());
+    for (const auto& [route_id, route] : state.storage)
+      input.emplace_back(Writer::Item{route_id, route.entry->route});
+
+    output.set(participant, input, state.itinerary_version);
+  }
+
+  set_initial_fork_version(output, _pimpl->latest_version);
+
+  return output;
 }
 
 } // schedule

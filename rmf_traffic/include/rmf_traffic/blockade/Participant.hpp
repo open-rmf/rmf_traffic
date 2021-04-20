@@ -99,10 +99,10 @@ private:
 ///   itself. If no factory is provided, we will assume the writer is always
 ///   perfectly reliable.
 Participant make_participant(
-    ParticipantId participant_id,
-    double radius,
-    std::shared_ptr<Writer> writer,
-    std::shared_ptr<RectificationRequesterFactory> rectifier_factory = nullptr);
+  ParticipantId participant_id,
+  double radius,
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory = nullptr);
 
 } // namespace blockade
 } // namespace rmf_traffic

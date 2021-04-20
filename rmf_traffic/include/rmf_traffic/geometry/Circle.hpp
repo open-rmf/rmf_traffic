@@ -49,6 +49,30 @@ public:
 
 };
 
+//==============================================================================
+/// Equality operator for Circle objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator==(
+  const Circle& lhs,
+  const Circle& rhs);
+
+//==============================================================================
+/// Non-equality operator for Circle objects.
+///
+/// \param[in] lhs
+///   A const reference to the left-hand-side of the comparison.
+///
+/// \param[in] rhs
+///   A const reference to the right-hand-side of the comparison.
+bool operator!=(
+  const Circle& lhs,
+  const Circle& rhs);
+
 } // namespace geometry
 } // namespace rmf_traffic
 

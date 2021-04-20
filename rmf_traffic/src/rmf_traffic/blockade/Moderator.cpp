@@ -112,13 +112,13 @@ public:
   FinalConstraints final_constraints;
 
   Implementation(
-      std::function<void(std::string)> info,
-      std::function<void(std::string)> debug,
-      const double min_conflict_angle_)
-    : info_logger(std::move(info)),
-      debug_logger(std::move(debug)),
-      min_conflict_angle(min_conflict_angle_),
-      assignments(Assignments::Implementation::make())
+    std::function<void(std::string)> info,
+    std::function<void(std::string)> debug,
+    const double min_conflict_angle_)
+  : info_logger(std::move(info)),
+    debug_logger(std::move(debug)),
+    min_conflict_angle(min_conflict_angle_),
+    assignments(Assignments::Implementation::make())
   {
     // Do nothing
   }
@@ -145,13 +145,13 @@ public:
       return Finished;
 
     const auto constraints_it =
-        final_constraints.should_go.find(check.participant_id);
+      final_constraints.should_go.find(check.participant_id);
     if (constraints_it == final_constraints.should_go.end())
     {
       // There are no constraints for this participant, so we will just allow it
       // to go all the way.
       Assignments::Implementation::modify(assignments)
-          .ranges[check.participant_id].end = check.checkpoint + 1;
+      .ranges[check.participant_id].end = check.checkpoint + 1;
       return Finished;
     }
 
@@ -159,7 +159,7 @@ public:
 
     const std::size_t current_end = s.end;
     const std::size_t i_max = (check.checkpoint+1) - (current_end+1);
-    for (std::size_t i=0; i <= i_max; ++i)
+    for (std::size_t i = 0; i <= i_max; ++i)
     {
       // We will try to expand the range of this participant's reservation,
       // preferably as far out as checkpoint+1, but if that fails then we will
@@ -172,7 +172,7 @@ public:
       // TODO(MXG): We could probably get slightly better performance here if
       // should_go used an ordered std::map instead of std::unordered_map.
       bool acceptable = true;
-      for (std::size_t c=s.begin; c < s.end; ++c)
+      for (std::size_t c = s.begin; c < s.end; ++c)
       {
         const auto it = constraints.find(c);
         if (it != constraints.end() && !it->second->evaluate(state))
@@ -196,9 +196,9 @@ public:
       if (acceptable)
       {
         Assignments::Implementation::modify(assignments)
-            .ranges[check.participant_id].end = check_end;
+        .ranges[check.participant_id].end = check_end;
 
-        if (i==0)
+        if (i == 0)
           return Finished;
 
         return Incomplete;
@@ -231,9 +231,9 @@ public:
   }
 
   void set(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      const Reservation& reservation)
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    const Reservation& reservation)
   {
     const auto insertion = last_known_reservation.insert(
       {participant_id, reservation_id});
@@ -261,14 +261,14 @@ public:
     current_reservation.reservation = reservation;
 
     const auto peer_blocker_insertion =
-        peer_blockers.insert({participant_id, {}});
+      peer_blockers.insert({participant_id, {}});
     const auto peer_blocker_inserted = peer_blocker_insertion.second;
     const auto peer_blocker_it = peer_blocker_insertion.first;
     if (!peer_blocker_inserted)
       peer_blocker_it->second.clear();
 
     const auto peer_aligned_insertion =
-        peer_alignment.insert({participant_id, {}});
+      peer_alignment.insert({participant_id, {}});
     const auto peer_aligned_inserted = peer_aligned_insertion.second;
     const auto peer_aligned_it = peer_aligned_insertion.first;
     if (!peer_aligned_inserted)
@@ -283,49 +283,49 @@ public:
       const auto& other_reservation = other_r.second.reservation;
 
       const auto brackets = compute_brackets(
-            reservation.path, reservation.radius,
-            other_reservation.path, other_reservation.radius,
-            min_conflict_angle);
+        reservation.path, reservation.radius,
+        other_reservation.path, other_reservation.radius,
+        min_conflict_angle);
 
       auto zero_order_blockers = compute_blockers(
-            brackets.conflicts,
-            participant_id, reservation.path.size(),
-            other_participant, other_reservation.path.size());
+        brackets.conflicts,
+        participant_id, reservation.path.size(),
+        other_participant, other_reservation.path.size());
 
       auto alignments = compute_alignments(brackets.alignments);
 
       const auto this_blocker_it =
-          peer_blocker_it->second.insert_or_assign(
-            other_participant, IndexToConstraint{});
+        peer_blocker_it->second.insert_or_assign(
+        other_participant, IndexToConstraint{});
       auto& this_blocker_map = this_blocker_it.first->second;
       this_blocker_map = std::move(zero_order_blockers.at(0));
 
       auto& other_peer_blocker_map = peer_blockers[other_participant];
       const auto other_peer_blocker_it =
-          other_peer_blocker_map.insert_or_assign(
-            participant_id, IndexToConstraint{});
+        other_peer_blocker_map.insert_or_assign(
+        participant_id, IndexToConstraint{});
       auto& other_blocker_map = other_peer_blocker_it.first->second;
       other_blocker_map = std::move(zero_order_blockers.at(1));
 
       const auto this_aligned_it =
-          peer_aligned_it->second.insert_or_assign(
-            other_participant, std::vector<Alignment>{});
+        peer_aligned_it->second.insert_or_assign(
+        other_participant, std::vector<Alignment>{});
       auto& this_aligned_map = this_aligned_it.first->second;
       this_aligned_map = std::move(alignments.at(0));
 
       auto& other_peer_aligned_map = peer_alignment[other_participant];
       const auto other_peer_aligned_it =
-          other_peer_aligned_map.insert_or_assign(
-            participant_id, std::vector<Alignment>{});
+        other_peer_aligned_map.insert_or_assign(
+        participant_id, std::vector<Alignment>{});
       auto& other_aligned_map = other_peer_aligned_it.first->second;
       other_aligned_map = std::move(alignments.at(1));
     }
 
     final_constraints = compute_final_ShouldGo_constraints(
-          peer_blockers, peer_alignment);
+      peer_blockers, peer_alignment);
 
     Assignments::Implementation::modify(assignments).ranges
-        .insert_or_assign(participant_id, ReservedRange{0, 0});
+    .insert_or_assign(participant_id, ReservedRange{0, 0});
 
     statuses[participant_id] = Status{reservation_id, std::nullopt, 0, false};
 
@@ -333,9 +333,9 @@ public:
   }
 
   void ready(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      const CheckpointId checkpoint)
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    const CheckpointId checkpoint)
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
@@ -362,15 +362,15 @@ public:
 
     status.last_ready = checkpoint;
     ready_queue.push_back(
-          ReadyInfo{participant_id, reservation_id, checkpoint});
+      ReadyInfo{participant_id, reservation_id, checkpoint});
 
     process_ready_queue();
   }
 
   void release(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      CheckpointId checkpoint)
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    CheckpointId checkpoint)
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
@@ -397,7 +397,7 @@ public:
     status.last_ready = new_ready;
 
     auto& range = Assignments::Implementation::modify(assignments)
-        .ranges.at(participant_id);
+      .ranges.at(participant_id);
 
     if (checkpoint < range.end)
       range.end = checkpoint;
@@ -440,9 +440,9 @@ public:
   }
 
   void reached(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id,
-      CheckpointId checkpoint)
+    const ParticipantId participant_id,
+    const ReservationId reservation_id,
+    CheckpointId checkpoint)
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
@@ -461,7 +461,7 @@ public:
       return;
 
     auto& range = Assignments::Implementation::modify(assignments)
-        .ranges.at(participant_id);
+      .ranges.at(participant_id);
 
     // TODO(MXG): Should this trigger a warning or exception?
     if (checkpoint > range.end)
@@ -496,8 +496,8 @@ public:
   }
 
   void cancel(
-      const ParticipantId participant_id,
-      const ReservationId reservation_id)
+    const ParticipantId participant_id,
+    const ReservationId reservation_id)
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
@@ -530,7 +530,7 @@ public:
     peer_blockers.erase(participant_id);
     peer_alignment.erase(participant_id);
     Assignments::Implementation::modify(assignments)
-        .ranges.erase(participant_id);
+    .ranges.erase(participant_id);
 
     for (auto& peer : peer_blockers)
       peer.second.erase(participant_id);
@@ -539,7 +539,7 @@ public:
       peer.second.erase(participant_id);
 
     final_constraints = compute_final_ShouldGo_constraints(
-          peer_blockers, peer_alignment);
+      peer_blockers, peer_alignment);
 
     process_ready_queue();
   }
@@ -547,57 +547,57 @@ public:
 
 //==============================================================================
 Moderator::Moderator(
-    std::function<void(std::string)> info,
-    std::function<void(std::string)> debug,
-    const double min_conflict_angle)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(info),
-             std::move(debug),
-             min_conflict_angle))
+  std::function<void(std::string)> info,
+  std::function<void(std::string)> debug,
+  const double min_conflict_angle)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      std::move(info),
+      std::move(debug),
+      min_conflict_angle))
 {
   // Do nothing
 }
 
 //==============================================================================
 void Moderator::set(
-    const ParticipantId participant_id,
-    const ReservationId reservation_id,
-    const Reservation& reservation)
+  const ParticipantId participant_id,
+  const ReservationId reservation_id,
+  const Reservation& reservation)
 {
   _pimpl->set(participant_id, reservation_id, reservation);
 }
 
 //==============================================================================
 void Moderator::ready(
-    const ParticipantId participant_id,
-    const ReservationId reservation_id,
-    const CheckpointId checkpoint)
+  const ParticipantId participant_id,
+  const ReservationId reservation_id,
+  const CheckpointId checkpoint)
 {
   _pimpl->ready(participant_id, reservation_id, checkpoint);
 }
 
 //==============================================================================
 void Moderator::release(
-    ParticipantId participant_id,
-    ReservationId reservation_id,
-    CheckpointId checkpoint)
+  ParticipantId participant_id,
+  ReservationId reservation_id,
+  CheckpointId checkpoint)
 {
   _pimpl->release(participant_id, reservation_id, checkpoint);
 }
 
 //==============================================================================
 void Moderator::reached(
-    const ParticipantId participant_id,
-    const ReservationId reservation_id,
-    const CheckpointId checkpoint)
+  const ParticipantId participant_id,
+  const ReservationId reservation_id,
+  const CheckpointId checkpoint)
 {
   _pimpl->reached(participant_id, reservation_id, checkpoint);
 }
 
 //==============================================================================
 void Moderator::cancel(
-    const ParticipantId participant_id,
-    const ReservationId reservation_id)
+  const ParticipantId participant_id,
+  const ReservationId reservation_id)
 {
   _pimpl->cancel(participant_id, reservation_id);
 }

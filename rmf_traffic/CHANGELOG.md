@@ -1,9 +1,10 @@
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Changelog for package rmf_traffic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+## Changelog for package rmf_traffic
 
 1.3.0 (2021-XX-XX)
 ------------------
+* Allow a Database to be forked off of a Mirror: [#17](https://github.com/open-rmf/rmf_traffic/pull/17)
+* Separate participant descriptions from schedule patches: [#14](https://github.com/open-rmf/rmf_traffic/pull/14)
+* Allow navigation graph lanes to be opened or closed: [#11](https://github.com/open-rmf/rmf_traffic/pull/11)
 * Add persistence to Traffic Schedule Participant IDs: [#242](https://github.com/osrf/rmf_core/pull/242)
 * Allow a minimum plan finish time to be specified: [#307](https://github.com/osrf/rmf_core/pull/307)
 * Check itinerary endpoints when negotiating: [#308](https://github.com/osrf/rmf_core/pull/308)

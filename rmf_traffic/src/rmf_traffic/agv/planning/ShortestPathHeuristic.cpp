@@ -44,8 +44,7 @@ public:
   };
 
   using SearchQueue =
-    std::priority_queue<
-      NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
+    std::priority_queue<NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
 
   bool quit(const NodePtr&, const SearchQueue&) const
   {
@@ -87,12 +86,12 @@ public:
       }
 
       auto new_node = std::make_shared<Node>(
-            Node{
-              _goal,
-              0.0,
-              current_cost + remaining_cost.value(),
-              top
-            });
+        Node{
+          _goal,
+          0.0,
+          current_cost + remaining_cost.value(),
+          top
+        });
 
       queue.push(std::move(new_node));
       return;
@@ -100,6 +99,9 @@ public:
 
     for (const auto l : _graph->original().lanes_from[current_wp_index])
     {
+      if (_graph->closures().is_closed(l))
+        continue;
+
       const auto& lane = _graph->original().lanes[l];
       const auto& exit = lane.exit();
       const auto next_waypoint_index = exit.waypoint_index();
@@ -112,7 +114,7 @@ public:
       }
 
       const std::optional<double> remaining_cost_estimate =
-          _heuristic.get(next_waypoint_index);
+        _heuristic.get(next_waypoint_index);
 
       if (!remaining_cost_estimate.has_value())
       {
@@ -138,28 +140,28 @@ public:
         local_cost += rmf_traffic::time::to_seconds(exit_event->duration());
 
       auto new_node = std::make_shared<Node>(
-            Node{
-              next_waypoint_index,
-              remaining_cost_estimate.value(),
-              current_cost + local_cost,
-              top
-            });
+        Node{
+          next_waypoint_index,
+          remaining_cost_estimate.value(),
+          current_cost + local_cost,
+          top
+        });
 
       queue.push(std::move(new_node));
     }
   }
 
   ShortestPathExpander(
-      std::size_t goal,
-      double max_speed,
-      const ShortestPathHeuristic::Storage& old_items,
-      Cache<EuclideanHeuristic> heuristic,
-      std::shared_ptr<const Supergraph> graph)
-    : _goal(goal),
-      _max_speed(max_speed),
-      _old_items(old_items),
-      _heuristic(std::move(heuristic)),
-      _graph(std::move(graph))
+    std::size_t goal,
+    double max_speed,
+    const ShortestPathHeuristic::Storage& old_items,
+    Cache<EuclideanHeuristic> heuristic,
+    std::shared_ptr<const Supergraph> graph)
+  : _goal(goal),
+    _max_speed(max_speed),
+    _old_items(old_items),
+    _heuristic(std::move(heuristic)),
+    _graph(std::move(graph))
   {
     // Do nothing
   }
@@ -175,23 +177,23 @@ private:
 
 //==============================================================================
 ShortestPathHeuristic::ShortestPathHeuristic(
-    std::size_t goal,
-    double max_speed,
-    std::shared_ptr<const Supergraph> graph,
-    CacheManagerPtr<EuclideanHeuristic> heuristic)
-  : _goal(goal),
-    _max_speed(max_speed),
-    _graph(std::move(graph)),
-    _heuristic(std::move(heuristic))
+  std::size_t goal,
+  double max_speed,
+  std::shared_ptr<const Supergraph> graph,
+  CacheManagerPtr<EuclideanHeuristic> heuristic)
+: _goal(goal),
+  _max_speed(max_speed),
+  _graph(std::move(graph)),
+  _heuristic(std::move(heuristic))
 {
   // Do nothing
 }
 
 //==============================================================================
 std::optional<double> ShortestPathHeuristic::generate(
-    const std::size_t& key,
-    const Storage& old_items,
-    Storage& new_items) const
+  const std::size_t& key,
+  const Storage& old_items,
+  Storage& new_items) const
 {
   auto heuristic = _heuristic->get();
   auto start_heuristic = heuristic.get(key);
@@ -255,10 +257,10 @@ ShortestPathHeuristicFactory::ShortestPathHeuristicFactory(
 
 //==============================================================================
 ConstShortestPathHeuristicPtr ShortestPathHeuristicFactory::make(
-    const std::size_t goal) const
+  const std::size_t goal) const
 {
   return std::make_shared<ShortestPathHeuristic>(
-        goal, _max_speed, _graph, _heuristic_cache.get(goal));
+    goal, _max_speed, _graph, _heuristic_cache.get(goal));
 }
 
 } // namespace planning
