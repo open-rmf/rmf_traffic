@@ -31,17 +31,26 @@
 
 #include <rmf_utils/catch.hpp>
 
-inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory* t,
-  rmf_traffic::Trajectory t2)
+inline void CHECK_EQUAL_TRAJECTORY(
+  const rmf_traffic::Trajectory& t1,
+  const rmf_traffic::Trajectory& t2)
 {
-  rmf_traffic::Trajectory t1 = *t;
   REQUIRE(t1.size() == t2.size());
+  REQUIRE(t1.start_time());
+  REQUIRE(t1.finish_time());
+  REQUIRE(t2.start_time());
+  REQUIRE(t2.finish_time());
 
-  for (auto it1 = t1.begin(), it2 = t2.begin(); it1 != t1.end(); it1++, it2++)
+  auto t1_it = t1.begin();
+  auto t2_it = t2.begin();
+
+  for (; t1_it != t1.end(); ++t1_it, ++t2_it)
   {
-    CHECK(it1->position() == it2->position());
-    CHECK(it1->velocity() == it2->velocity());
-    CHECK(it1->time() == it2->time());
+    REQUIRE((t1_it->position() - t2_it->position()).norm() == Approx(0.0).margin(
+        1e-6));
+    REQUIRE((t1_it->velocity() - t2_it->velocity()).norm() == Approx(0.0).margin(
+        1e-6));
+    REQUIRE((t1_it->time() - t2_it->time()).count() == Approx(0.0));
   }
 }
 
@@ -82,5 +91,22 @@ inline rmf_traffic::schedule::Writer::Input create_test_input(
   };
 }
 
+
+inline std::unordered_map<rmf_traffic::RouteId, rmf_traffic::ConstRoutePtr>
+convert_itinerary(rmf_traffic::schedule::Writer::Input input)
+{
+  std::unordered_map<rmf_traffic::RouteId, rmf_traffic::ConstRoutePtr>
+  itinerary;
+
+  itinerary.reserve(input.size());
+
+  for (const auto& item : input)
+  {
+    const auto result = itinerary.insert(std::make_pair(item.id, item.route));
+    assert(result.second);
+    (void)(result);
+  }
+  return itinerary;
+}
 
 #endif //RMF_TRAFFIC__TEST__UNIT__SCHEDULE__UTILS_TRAJECTORY_HPP
