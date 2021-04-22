@@ -76,7 +76,11 @@ struct OrientationTimeMap
     double yaw;
     TimeMap time_map;
 
-    void squash(const agv::RouteValidator* validator)
+    void squash(
+      const agv::RouteValidator* validator,
+      const double w_nom,
+      const double alpha_nom,
+      const double rotation_threshold)
     {
       assert(!time_map.empty());
       if (time_map.size() <= 2)
@@ -120,6 +124,21 @@ struct OrientationTimeMap
 
         Route new_route{node_low->route_from_parent.back().map(), {}};
         new_route.trajectory().insert(start_wp);
+        internal::interpolate_rotation(
+          new_route.trajectory(),
+          w_nom,
+          alpha_nom,
+          start_wp.time(),
+          start_wp.position(),
+          end_wp.position(),
+          rotation_threshold);
+
+        if (end_wp.time() < *new_route.trajectory().finish_time())
+        {
+          // This is very suspicious. Consider throwing an exception here.
+          continue;
+        }
+
         new_route.trajectory().insert(
           end_wp.time(),
           end_wp.position(),
@@ -155,12 +174,12 @@ struct OrientationTimeMap
       *node->route_from_parent.back().trajectory().finish_time();
 
     auto it = elements.begin();
-    for (; it != elements.end(); ++it)
-    {
-      // TODO(MXG): Make this condition configurable
-      if (std::abs(it->yaw - yaw) < 15.0*M_PI/180.0)
-        break;
-    }
+//    for (; it != elements.end(); ++it)
+//    {
+//      // TODO(MXG): Make this condition configurable
+//      if (std::abs(it->yaw - yaw) < 15.0*M_PI/180.0)
+//        break;
+//    }
 
     if (it == elements.end())
       elements.push_back({yaw, {{time, node}}});
@@ -176,7 +195,10 @@ struct OrientationTimeMap
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
   const NodePtr& finish_node,
-  const agv::RouteValidator* validator)
+  const agv::RouteValidator* validator,
+  const double w_nom,
+  const double alpha_nom,
+  const double rotation_threshold)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
 
@@ -199,7 +221,7 @@ std::vector<NodePtr> reconstruct_nodes(
   for (auto& cruft : cruft_map)
   {
     for (auto& duplicate : cruft.second.elements)
-      duplicate.squash(validator);
+      duplicate.squash(validator, w_nom, alpha_nom, rotation_threshold);
   }
 
   return reconstruct_nodes(finish_node);
@@ -1935,7 +1957,7 @@ public:
 
   PlanData make_plan(const SearchNodePtr& solution) const
   {
-    auto nodes = reconstruct_nodes(solution, _validator);
+    auto nodes = reconstruct_nodes(solution, _validator, _w_nom, _alpha_nom, _rotation_threshold);
     auto [routes, index] = reconstruct_routes(nodes);
     auto waypoints = reconstruct_waypoints(
       nodes, index, _supergraph->original());
