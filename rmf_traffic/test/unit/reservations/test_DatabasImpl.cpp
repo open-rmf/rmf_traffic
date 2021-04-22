@@ -100,7 +100,7 @@ SCENARIO("There is one request")
   }
 }
 
-SCENARIO("There are two requests with a small gap")
+SCENARIO("There are two requests with no gap")
 {
   Database::Implementation impl;
 
@@ -183,16 +183,110 @@ SCENARIO("There are two requests with a small gap")
   {
 
     // Here we are pushing n conflict tables back.
-    auto latest_times = impl.latest_start_time_computation(
-      impl._resource_schedules["resource"]
-    );
-
     auto conflict_table = impl.nth_conflict_times_push_back(
       impl._resource_schedules["resource"],
       impl._resource_schedules["resource"].begin(),
-      
-      *latest_times[res1.reservation_id()]
-    )
+      current_time
+    );
+    
+    //impl.debug_reservations(impl._resource_schedules["resource"]);
+
+    for(std::size_t i = 0; i < conflict_table.size(); i++)
+    {
+      std::cout << "Conflict table " << i << ": "
+        << (conflict_table[i].has_value() 
+          ? conflict_table[i]->count(): -1)
+        << std::endl;
+    }
   }
 }
+
+SCENARIO("There are two requests with a small gap")
+{
+  Database::Implementation impl;
+
+  auto negotiator = std::make_shared<YayaPapayaNegotiator>();
+
+  rmf_traffic::Time current_time = std::chrono::steady_clock::now();
+  current_time = current_time-current_time.time_since_epoch();
+
+  ReservationRequest req1 = 
+      ReservationRequest::make_request(
+          "resource",
+          0,
+          ReservationRequest::TimeRange::make_time_range(
+              {current_time + 100s},
+              {current_time + 200s}),
+          {200s}
+      );
+
+  Reservation res1 = Reservation::make_reservation(
+    current_time + 150s,
+    "resource",
+    0,
+    {200s},
+    {current_time + 150s}
+  );
+
+  std::vector<ReservationRequest> requests{req1};
+  auto req_id1 = impl.add_request_queue(requests, negotiator);
+  impl.associate_request_with_reservation(req_id1, res1);
+
+  ReservationRequest req2 = 
+      ReservationRequest::make_request(
+          "resource",
+          0,
+          ReservationRequest::TimeRange::make_time_range(
+              {current_time + 300s},
+              {current_time + 500s}),
+          {200s}
+      );
+
+  Reservation res2 = Reservation::make_reservation(
+    current_time + 400s,
+    "resource",
+    0,
+    {200s},
+    {current_time + 850s}
+  );
+
+  std::vector<ReservationRequest> requests2{req2};
+  auto req_id2 = impl.add_request_queue(requests2, negotiator);
+  impl.associate_request_with_reservation(req_id2, res2);
+  
+  WHEN("We attempt to push back a request within its fixed time range")
+  {
+    auto plan = impl.plan_push_back_reservations(
+      impl._resource_schedules["resource"],
+      current_time,
+      current_time+190s,
+      req_id1
+    );
+    REQUIRE(plan.has_value());
+    REQUIRE(plan->push_back_reservations.size() == 1);
+    REQUIRE(plan->bring_forward_reservations.size() == 0);
+  }
+
+  WHEN("We call nth_conflict_push_back")
+  {
+
+    // Here we are pushing n conflict tables back.
+    auto conflict_table = impl.nth_conflict_times_push_back(
+      impl._resource_schedules["resource"],
+      impl._resource_schedules["resource"].begin(),
+      current_time
+    );
+    
+    impl.debug_reservations(impl._resource_schedules["resource"]);
+
+    for(std::size_t i = 0; i < conflict_table.size(); i++)
+    {
+      std::cout << "Conflict table " << i << ": "
+        << (conflict_table[i].has_value() 
+          ? conflict_table[i]->count(): -1)
+        << std::endl;
+    }
+  }
+}
+
 

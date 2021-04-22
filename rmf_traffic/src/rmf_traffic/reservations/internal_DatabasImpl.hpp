@@ -418,9 +418,7 @@ public:
   std::vector<std::optional<Duration>> nth_conflict_times_bring_forward(
     ResourceSchedule& sched,
     ResourceSchedule::const_iterator iter,
-    Time desired_time,
-    Time time_limit
-  )
+    Time desired_time)
   {
 
     int conflicts = 0;
@@ -436,7 +434,7 @@ public:
       conflict_table.push_back(std::nullopt);
     }
 
-    while(iter->first >= time_limit)
+    while(true)
     {
       if(iter==sched.begin())
       {
@@ -459,9 +457,7 @@ public:
   std::vector<std::optional<Duration>> nth_conflict_times_push_back(
     ResourceSchedule& sched,
     ResourceSchedule::const_iterator iter,
-    Time desired_time,
-    Time time_limit
-  )
+    Time desired_time)
   {
     int conflicts = 0;
     std::vector<std::optional<Duration>> conflict_table;
@@ -482,14 +478,15 @@ public:
       conflict_table.push_back(std::nullopt);
     }
     conflict_table.push_back({conflict_duration}); 
-    while(iter->second.actual_finish_time() < time_limit)
+    
+    while(true)
     {
       auto _next_res = std::next(iter);
       if(_next_res==sched.end())
-      { 
+      {
         break;
       }
-      auto gap = *iter->second.actual_finish_time() - _next_res->first;
+      auto gap =  _next_res->first - *iter->second.actual_finish_time();
       //TODO: consider other constraints
       conflict_duration += gap;
       if(gap.count() == 0)
