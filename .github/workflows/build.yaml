@@ -23,10 +23,12 @@ jobs:
           colcon-defaults: |
             {
               "build": {
-                "mixin": ["coverage-gcc", "tsan"]
+                "cmake-args": [          
+                  "-DCMAKE_C_FLAGS='--coverage -fsanitize=thread -O2 -g -fno-omit-frame-pointer'",
+                  "-DCMAKE_CXX_FLAGS='--coverage -fsanitize=thread -O2 -g -fno-omit-frame-pointer'"
+                ]
               }
             }
-          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
