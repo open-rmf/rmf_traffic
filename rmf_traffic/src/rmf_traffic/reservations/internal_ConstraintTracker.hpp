@@ -37,12 +37,13 @@ public:
     enum Status
     {
       Pending,
-      assigned
+      Assigned
     };
     std::vector<ReservationRequest> requests;
     std::shared_ptr<Negotiator> negotiator;
     Status status;
     int assigned_index;
+    ReservationId assigned_reservation;
   };
 
   using RequestId = uint64_t;
@@ -154,17 +155,46 @@ public:
     auto i = satisfies(req_id, reservation);
     if(!i.has_value()) return;
     _request_tracker[req_id].assigned_index = *i;
-    _request_tracker[req_id].status = RequestStatus::Status::assigned;
+    _request_tracker[req_id].status = RequestStatus::Status::Assigned;
+    _request_tracker[req_id].assigned_reservation =
+      reservation.reservation_id();
     auto reservation_id = reservation.reservation_id();
     auto resource =  reservation.resource_name();
-    //_resource_schedules[resource].insert({reservation.start_time(), reservation});
-    //_reservation_mapping[reservation_id] = resource;
     _active_reservation_tracker[reservation_id] = req_id;
   }
 
-  void remove_request(RequestId req)
+  bool remove_request(RequestId req)
   {
-    
+    auto it = _request_tracker.find(req);
+    if(it == _request_tracker.end())
+    {
+      return false;
+    }
+
+    if(it->second.status == RequestStatus::Status::Assigned)
+    {
+      auto res_id = it->second.assigned_reservation;
+      _active_reservation_tracker.erase(res_id);
+    }
+
+    _request_tracker.erase(it);
+    return true;
+  }
+
+  std::optional<ReservationId> get_associated_reservation(RequestId req)
+  {
+    auto it = _request_tracker.find(req);
+    if(it == _request_tracker.end())
+    {
+      return std::nullopt;
+    }
+
+    if(it->second.status != RequestStatus::Status::Assigned)
+    {
+      return std::nullopt;
+    }
+
+    return it->second.assigned_reservation;
   }
 };
 }

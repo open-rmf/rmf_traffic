@@ -19,8 +19,6 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include <set>
 #include <map>
-#include <future>
-#include <execution>
 
 #include <iostream>
 
@@ -56,6 +54,7 @@ public:
 
 //=============================================================================
 // Stores the current schedule state.
+// This class performs no checks on whether the schedule 
 class CurrentScheduleState: AbstractScheduleState
 {
 public:
@@ -95,12 +94,12 @@ public:
     if(_reservation_mapping.count(reservation_id) == 0)
       return false;
 
-    //TODO: Modify in place.
     cancel_reservation(reservation.reservation_id());
-    _resource_schedules[resource]
-      .insert_or_assign(
-        reservation.start_time(),
-        reservation);
+    auto [_, res] = _resource_schedules[resource].insert(
+        {reservation.start_time(), reservation});
+
+    if(!res)
+      return false;
 
     _reservation_mapping[reservation_id] = {resource, reservation.start_time()};
     return true;
@@ -113,6 +112,7 @@ public:
 
     auto [resource_name, start_time] = _reservation_mapping[reservation_id];
     _resource_schedules[resource_name].erase(start_time);
+    _reservation_mapping.erase(reservation_id);
     return true;
   }
 
@@ -142,9 +142,10 @@ public:
 };
 
 //==============================================================================
-/// \brief This class is use by the SchedulePlanView to generate plans or create
+/// \brief This class is use by the planner to generate plans or create
 /// patches in the schedule. It contains changes performed on a.
-/// Currently this class implements a very inefficient copy-on-write protocol.
+/// Currently this class implements a very inefficient copy-on-write protocol
+/// which copies the *entire* ReservationSchedule for a given resource.
 /// TODO: This class should eventually be rewritten to prevent unessecary
 /// copying.
 class SchedulePatch: public AbstractScheduleState
@@ -156,6 +157,7 @@ public:
   using ReservationMapping = std::unordered_map<ReservationId,
     std::pair<std::string, Time>>;
   ReservationMapping _reservation_mapping_overlay;
+  std::unordered_set<ReservationId> cancelled;
 
   SchedulePatch(std::shared_ptr<const AbstractScheduleState> parent) :
     _parent(parent)
@@ -171,34 +173,46 @@ public:
     return sched_iter->second;
   }
 
+  bool check_if_in_cache(std::string resource) const
+  {
+    auto sched_iter = _resource_schedules_overlay.find(resource);
+    return sched_iter == _resource_schedules_overlay.end();
+  }
+
+  bool check_if_in_cache(ReservationId res) const
+  {
+    return _reservation_mapping_overlay.count(res) > 0 ||
+      cancelled.count(res) > 0;
+  }
+
+  void cache_resource(std::string resource)
+  {
+    try
+    {
+      auto sched = _parent->get_schedule(resource);
+      _resource_schedules_overlay[resource] = ResourceSchedule(sched);
+      for(auto &[time, reservation] : sched)
+      {
+        _reservation_mapping_overlay[reservation.reservation_id()] =
+          {resource, time};
+      }
+    }
+    catch(std::out_of_range &e)
+    {
+      // Do nothing, resource doesn't exist in parent. Lazily create it.
+    }
+  }
+
   bool add_reservation(Reservation& reservation) override
   {
     const auto resource = reservation.resource_name();
     const auto reservation_id = reservation.reservation_id();
 
-    auto sched_iter = _resource_schedules_overlay.find(resource);
-    if(sched_iter == _resource_schedules_overlay.end())
+    if(check_if_in_cache(resource))
     {
-      try
-      {
-        // Copy over schedule.
-        // Note: it may be better to use a more granular approach
-        auto sched = _parent->get_schedule(resource);
-        sched_iter->second = ResourceSchedule(sched);
-        for(auto res: sched_iter->second)
-        {
-          _reservation_mapping_overlay[reservation_id] = {
-            resource,
-            res.first
-         };
-        }
-      }
-      catch(const std::out_of_range& e)
-      {
-        return false;
-      }
+       cache_resource(resource);
     }
-    sched_iter->second.insert({reservation.start_time(), reservation});
+    _resource_schedules_overlay[resource].insert({reservation.start_time(), reservation});
     _reservation_mapping_overlay[reservation_id] =
       {resource, reservation.start_time()};
     return true;
@@ -206,73 +220,72 @@ public:
 
   bool update_reservation(Reservation& reservation) override
   {
-    const auto resource = reservation.resource_name();
-    const auto reservation_id = reservation.reservation_id();
+    auto original_res =
+        _parent->get_reservation_by_id(reservation.reservation_id());
+    if(!original_res.has_value())
+      return false;
 
-    auto sched_iter = _resource_schedules_overlay.find(resource);
-    if(sched_iter == _resource_schedules_overlay.end())
+    if(check_if_in_cache(original_res->resource_name()))
     {
-      try
-      {
-        auto sched = _parent->get_schedule(resource);
-        sched_iter->second = ResourceSchedule(sched);
-      }
-      catch(const std::out_of_range& e)
-      {
-        return false;
-      }
+      cache_resource(original_res->resource_name());
     }
-    sched_iter->second.insert({reservation.start_time(), reservation});
-    _reservation_mapping_overlay[reservation_id] =
-      {resource, reservation.start_time()};
+
+    if(check_if_in_cache(reservation.resource_name()))
+    {
+      cache_resource(reservation.resource_name());
+    }
+
+    _reservation_mapping_overlay[reservation.reservation_id()] =
+      {reservation.resource_name(), reservation.start_time()};
     return true;
   }
 
   bool cancel_reservation(ReservationId res) override
   {
-    auto reservation = _parent->get_reservation_by_id(res);
-    if(reservation.has_value())
+    if(!check_if_in_cache(res))
     {
-      return ;
-    }
-    const auto resource = reservation->resource_name();
-    const auto reservation_id = reservation->reservation_id();
-    // Copy schedule
-    // TODO(anyone): a more efficeint way wopuld be to have a cancelled
-    // set.
-    auto sched_iter = _resource_schedules_overlay.find(resource);
-    if(sched_iter == _resource_schedules_overlay.end())
-    {
-      try
-      {
-        auto sched = _parent->get_schedule(resource);
-        sched_iter->second = ResourceSchedule(sched);
-      }
-      catch(const std::out_of_range& e)
+      auto reservation = _parent->get_reservation_by_id(res);
+      if(!reservation.has_value())
       {
         return false;
       }
+      cache_resource(reservation->resource_name());
     }
-    if(_reservation_mapping_overlay.count(reservation_id) == 0)
-      return false;
 
-    auto [resource_name, start_time] = _reservation_mapping[reservation_id];
-    _resource_schedules[resource_name].erase(start_time);
+    auto &[resource_name, start_time] = _reservation_mapping_overlay[res];
+    _resource_schedules_overlay[resource_name].erase(start_time);
+    _reservation_mapping_overlay.erase(res);
+    cancelled.insert(res);
     return true;
-
   }
 
   std::optional<Reservation>
     get_reservation_by_id(ReservationId reservation_id) const override
   {
-   /* auto mapping = _reservation_mapping.find(reservation_id);
-    if(mapping == _reservation_mapping.end())
+    if(check_if_in_cache(reservation_id))
     {
-      return std::nullopt;
+      if(_reservation_mapping_overlay.count(reservation_id) == 0)
+      {
+        return std::nullopt;// reservation has been cancelled.
+      }
+      auto &[resource, time] = _reservation_mapping_overlay.at(reservation_id);
+      try
+      {
+        return _resource_schedules_overlay.at(resource).at(time);
+      }
+      catch(std::out_of_range &e)
+      {
+        return std::nullopt;
+      }
     }
-    return _resource_schedules[mapping->second.first][mapping->second.second];*/
+    else
+    {
+      return _parent->get_reservation_by_id(reservation_id);
+    }
   }
 };
+
+
 }
 }
 
