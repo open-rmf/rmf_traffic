@@ -55,7 +55,7 @@ public:
 //=============================================================================
 // Stores the current schedule state.
 // This class performs no checks on whether the schedule 
-class CurrentScheduleState: AbstractScheduleState
+class CurrentScheduleState: public AbstractScheduleState
 {
 public:
   //===========================================================================
