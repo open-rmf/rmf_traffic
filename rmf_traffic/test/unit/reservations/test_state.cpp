@@ -196,6 +196,13 @@ SCENARIO("Given a SchedulePatch with two items in its parent")
   }
   WHEN("we try to add a reservation tot he patch")
   {
-    
+    Reservation res3 = Reservation::make_reservation(
+      now+40min,
+      "node_1",
+      0,
+      {20min},
+      std::nullopt
+    );
+    patch.add_reservation(res3);
   }
 }

@@ -36,7 +36,7 @@ class AbstractScheduleState
 public:
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
 
-  //virtual const std::vector<std::string> get_all_resources() = 0;
+  //virtual const std::vector<std::string> get_all_resources() const = 0;
 
   virtual const ResourceSchedule get_schedule(std::string resource_name) const
     = 0;
@@ -212,7 +212,8 @@ public:
     {
        cache_resource(resource);
     }
-    _resource_schedules_overlay[resource].insert({reservation.start_time(), reservation});
+    _resource_schedules_overlay[resource]
+      .insert({reservation.start_time(), reservation});
     _reservation_mapping_overlay[reservation_id] =
       {resource, reservation.start_time()};
     return true;
@@ -235,6 +236,8 @@ public:
       cache_resource(reservation.resource_name());
     }
 
+    _resource_schedules_overlay[original_res->resource_name()]
+    
     _reservation_mapping_overlay[reservation.reservation_id()] =
       {reservation.resource_name(), reservation.start_time()};
     return true;
