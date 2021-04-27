@@ -133,3 +133,69 @@ SCENARIO("Given a schedule with two items")
     }
   }
 }
+
+SCENARIO("Given a SchedulePatch with two items in its parent")
+{
+  auto now = std::chrono::steady_clock::now();
+  auto state = std::make_shared<CurrentScheduleState>();
+
+  Reservation res1 = Reservation::make_reservation(
+    now+10min,
+    "node_1",
+    0,
+    {20min},
+    std::nullopt
+  );
+
+  Reservation res2 = Reservation::make_reservation(
+    now+40min,
+    "node_1",
+    0,
+    {20min},
+    std::nullopt
+  );
+
+  state->add_reservation(res1);
+  state->add_reservation(res2);
+
+  SchedulePatch patch(state);
+
+  WHEN("we try to update the time of the first reservation")
+  {
+    auto res1_updated = res1.propose_new_start_time(now+2h);
+    REQUIRE(patch.update_reservation(res1_updated));
+    THEN("the reservation should have changed time")
+    {
+      auto res = patch.get_reservation_by_id(res1.reservation_id());
+      REQUIRE(res.has_value());
+      REQUIRE(!(res.value() == res1));
+      REQUIRE(res.value() == res1_updated);
+      REQUIRE(patch.get_schedule("node_1").size() == 2);
+    }
+  }
+  WHEN("we try to overwrite the state")
+  {
+    auto res1_updated = res1.propose_new_start_time(now+2h);
+    THEN("the adddition should fail.")
+    {
+      REQUIRE(!patch.add_reservation(res1_updated));
+      auto res = patch.get_reservation_by_id(res1.reservation_id());
+      REQUIRE(res.has_value());
+      REQUIRE(res.value() == res1);
+    }
+  }
+  WHEN("we try to cancel the state")
+  {
+    patch.cancel_reservation(res1.reservation_id());
+    THEN("the reservation should be removed")
+    {
+      REQUIRE(patch.get_schedule("node_1").size() == 1);
+      auto res = patch.get_reservation_by_id(res1.reservation_id());
+      REQUIRE(!res.has_value());
+    }
+  }
+  WHEN("we try to add a reservation tot he patch")
+  {
+    
+  }
+}
