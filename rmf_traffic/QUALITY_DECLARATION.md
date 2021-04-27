@@ -48,7 +48,7 @@ All launch files in the installed `launch` directory are considered part of the 
 
 ### Contributor Origin [2.ii]
 
-`rmf_traffic` does not require a confirmation of contributor origin.
+`rmf_traffic` uses DCO as its confirmation of contributor origin policy. More information can be found in [CONTRIBUTING](../CONTRIBUTING.md).
 
 ### Peer Review Policy [2.iii]
 
@@ -68,7 +68,7 @@ All pull requests must resolve related documentation changes before merging.
 
 ### Feature Documentation [3.i]
 
-`rmf_traffic` does not provide documentation.
+`rmf_traffic` does not provide standalone feature documentation.
 
 ### Public API Documentation [3.ii]
 
@@ -94,18 +94,22 @@ This quality declaration has not been externally peer-reviewed and is not regist
 ### Feature Testing [4.i]
 
 Each feature in `rmf_traffic` has corresponding tests which simulate typical usage.
-They are located in the [`test`](https://github.com/open-rmf/rmf_traffic/tree/master/rmf_traffic/test) directory.
+They are located in the [`test`](https://github.com/open-rmf/rmf_traffic/tree/main/rmf_traffic/test) directory.
 New features are required to have tests before being added.
 
 ### Public API Testing [4.ii]
 
 Each part of the public API has tests, and new additions or changes to the public API require tests before being added.
-The tests are not run automatically.
-They are located in the [`test`](https://github.com/open-rmf/rmf_traffic/tree/master/rmf_traffic/test) directory.
+They are located in the [`test`](https://github.com/open-rmf/rmf_traffic/tree/main/rmf_traffic/test) directory.
 
 ### Coverage [4.iii]
 
-`rmf_traffic` does not track coverage statistics.
+`rmf_traffic` tracks code coverage statistics.
+There is no coverage target currently, but new changes are required to make a best effort to keep or increase coverage before being accepted.
+Decreases are allowed if properly justified and accepted by reviewers.
+Code coverage will be improved in the future as time allows.
+
+Current coverage statistics can be viewed [here](https://codecov.io/gh/open-rmf/rmf_traffic).
 
 ### Performance [4.iv]
 
@@ -125,7 +129,7 @@ Below are the required direct runtime ROS dependencies of `rmf_traffic` and thei
 
 #### rmf_utils
 
-`rmf_utils` is [**Quality Level 4**](https://github.com/open-rmf/rmf_utils/blob/master/rmf_core_utils/QUALITY_DECLARATION.md).
+`rmf_utils` is [**Quality Level 4**](https://github.com/open-rmf/rmf_utils/blob/main/rmf_utils/QUALITY_DECLARATION.md).
 
 ### Optional Direct Runtime ROS Dependencies [5.ii]
 
@@ -147,14 +151,14 @@ This is assumed to be **Quality Level 3** due to its provided documentation, use
 #### libfcl-dev
 
 `rmf_traffic` uses [`fcl` (the Flexible Collision Library)](https://github.com/flexible-collision-library/fcl).
-This is assumed to be **Quality Level 3** due to its provided feature documentation, use of testing, and version number above 1.0.0.
+This is assumed to be **Quality Level 4** due to its provided feature documentation, use of testing, and version number below 1.0.0.
 
 ## Platform Support [6]
 
 ### Target platforms [6.i]
 
 `rmf_traffic` does not support all of the tier 1 platforms as described in [REP-2000](https://www.ros.org/reps/rep-2000.html#support-tiers).
-`rmf_traffic` supports ROS Eloquent.
+`rmf_traffic` supports ROS Foxy.
 
 ## Security [7]
 
