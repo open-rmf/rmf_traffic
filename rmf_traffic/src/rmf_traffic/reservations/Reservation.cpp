@@ -122,6 +122,17 @@ schedule::ParticipantId Reservation::participant_id() const
 }
 
 //=============================================================================
+bool Reservation::operator==(const Reservation& other) const
+{
+  return other._pimpl->_res_id == _pimpl->_res_id
+    && other._pimpl->_start_time == _pimpl->_start_time
+    && other._pimpl->_pid == _pimpl->_pid
+    && other._pimpl->_resource_name == _pimpl->_resource_name
+    && other._pimpl->_duration == _pimpl->_duration
+    && other._pimpl->_finish_time == _pimpl->_finish_time;
+}
+
+//=============================================================================
 Reservation Reservation::make_reservation(
   rmf_traffic::Time start_time,
   std::string resource_name,

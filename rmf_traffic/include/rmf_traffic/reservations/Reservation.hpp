@@ -49,8 +49,10 @@ public:
   const std::optional<rmf_traffic::Time> actual_finish_time() const;
 
   const std::string resource_name() const;
-  
+
   ReservationId reservation_id() const;
+
+  bool operator==(const Reservation& other) const;
 
   schedule::ParticipantId participant_id() const;
 
