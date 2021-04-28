@@ -28,7 +28,7 @@ namespace rmf_traffic {
 namespace reservations {
 
 using ReservationId = uint64_t;
-//==============================================================================  
+//==============================================================================
 class Reservation
 {
 public:
