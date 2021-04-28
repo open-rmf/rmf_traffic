@@ -54,7 +54,7 @@ public:
 
 //=============================================================================
 // Stores the current schedule state.
-// This class performs no checks on whether the schedule 
+// This class performs no checks on whether the schedule
 class CurrentScheduleState: public AbstractScheduleState
 {
 public:
@@ -176,7 +176,7 @@ public:
   bool check_if_in_cache(std::string resource) const
   {
     auto sched_iter = _resource_schedules_overlay.find(resource);
-    return sched_iter == _resource_schedules_overlay.end();
+    return sched_iter != _resource_schedules_overlay.end();
   }
 
   bool check_if_in_cache(ReservationId res) const
@@ -208,12 +208,19 @@ public:
     const auto resource = reservation.resource_name();
     const auto reservation_id = reservation.reservation_id();
 
-    if(check_if_in_cache(resource))
+    if(!check_if_in_cache(resource))
     {
+       if(_parent->get_reservation_by_id(reservation_id).has_value())
+       {
+         return false;
+       }
        cache_resource(resource);
     }
-    _resource_schedules_overlay[resource]
+    auto [_, result]= _resource_schedules_overlay[resource]
       .insert({reservation.start_time(), reservation});
+
+    if(!result)
+      return false;
     _reservation_mapping_overlay[reservation_id] =
       {resource, reservation.start_time()};
     return true;
@@ -226,12 +233,12 @@ public:
     if(!original_res.has_value())
       return false;
 
-    if(check_if_in_cache(original_res->resource_name()))
+    if(!check_if_in_cache(original_res->resource_name()))
     {
       cache_resource(original_res->resource_name());
     }
 
-    if(check_if_in_cache(reservation.resource_name()))
+    if(!check_if_in_cache(reservation.resource_name()))
     {
       cache_resource(reservation.resource_name());
     }
@@ -300,6 +307,7 @@ public:
     }
   }
 };
+
 
 
 }

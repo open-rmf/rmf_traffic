@@ -194,7 +194,7 @@ SCENARIO("Given a SchedulePatch with two items in its parent")
       REQUIRE(!res.has_value());
     }
   }
-  WHEN("we try to add a reservation tot he patch")
+  WHEN("we try to add a reservation to the patch")
   {
     Reservation res3 = Reservation::make_reservation(
       now+40min,
