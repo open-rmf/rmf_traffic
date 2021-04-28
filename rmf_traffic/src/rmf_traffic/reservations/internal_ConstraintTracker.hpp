@@ -196,6 +196,14 @@ public:
 
     return it->second.assigned_reservation;
   }
+
+  std::optional<RequestId> get_associated_constraint(ReservationId id)
+  {
+    auto it = _active_reservation_tracker.find(id);
+    if(it == _active_reservation_tracker.end())
+      return std::nullopt;
+    return it->second;
+  }
 };
 }
 }

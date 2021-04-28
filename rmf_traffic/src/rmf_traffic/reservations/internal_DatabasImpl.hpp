@@ -477,8 +477,8 @@ public:
     {
       conflict_table.push_back(std::nullopt);
     }
-    conflict_table.push_back({conflict_duration}); 
-    
+    conflict_table.push_back({conflict_duration});
+
     while(true)
     {
       auto _next_res = std::next(iter);
@@ -512,7 +512,7 @@ public:
     Time latest_start_time,
     RequestId req_id)
   {
-    
+
   }
 
   /// \returns all reservations which conflict with the start range. 
@@ -521,7 +521,7 @@ public:
     ReservationRequest& req,
     RequestId req_id)
   {
-    
+
   }
 
   RequestId add_request_queue(
@@ -535,7 +535,7 @@ public:
       RequestStatus::Status::Pending,
       0
     }});
-    
+
     return counter++;
   }
 
