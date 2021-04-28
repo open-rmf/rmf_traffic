@@ -236,8 +236,21 @@ public:
       cache_resource(reservation.resource_name());
     }
 
-    _resource_schedules_overlay[original_res->resource_name()]
-    
+    _resource_schedules_overlay[original_res->resource_name()].erase(
+      original_res->start_time()
+    );
+    auto [_, inserted_succesfully] =
+      _resource_schedules_overlay[reservation.resource_name()].insert(
+        {reservation.start_time(), reservation}
+      );
+    if(!inserted_succesfully)
+    {
+      // Roll back changes
+      _resource_schedules_overlay[original_res->resource_name()].insert(
+        {original_res->start_time(), original_res.value()}
+      );
+      return false;
+    }
     _reservation_mapping_overlay[reservation.reservation_id()] =
       {reservation.resource_name(), reservation.start_time()};
     return true;
