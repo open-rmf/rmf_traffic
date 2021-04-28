@@ -4,7 +4,7 @@ The `rmf_traffic` package implements the algorithms and data structures that are
 
 ## RMF
 
-More about RMF, including build instructions, can be found [here](https://github.com/open-rmf/rmf)
+More about RMF, including build instructions, can be found [here](https://github.com/open-rmf/rmf).
 
 ## Support
 
