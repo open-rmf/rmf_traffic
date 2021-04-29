@@ -49,7 +49,8 @@ public:
   std::array<Eigen::Vector3d, 4> compute_knots(
     const Time start_time, const Time finish_time) const;
 
-  fcl::SplineMotion<double> to_fcl(const Time start_time, const Time finish_time) const;
+  fcl::SplineMotion<double> to_fcl(const Time start_time,
+    const Time finish_time) const;
 
   Time start_time() const;
   Time finish_time() const;
