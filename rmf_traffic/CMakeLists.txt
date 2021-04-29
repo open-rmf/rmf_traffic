@@ -20,19 +20,7 @@ endif()
 
 include(GNUInstallDirs)
 
-find_package(fcl 0.6 QUIET)
-if(fcl_FOUND)
-  set(FCL_LIBRARIES fcl)
-  set(using_new_fcl true)
-  message(STATUS "Using FCL version: ${FCL_VERSION}")
-else()
-  include(FindPkgConfig)
-  pkg_check_modules(PC_FCL REQUIRED fcl)
-  pkg_check_modules(PC_CCD REQUIRED ccd)
-  set(FCL_LIBRARIES ${PC_FCL_LIBRARIES} ${PC_CCD_LIBRARIES})
-  set(using_new_fcl)
-  message(STATUS "Using FCL version: ${PC_FCL_VERSION}")
-endif()
+find_package(fcl 0.6 REQUIRED)
 
 find_package(rmf_utils REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -54,13 +42,9 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
     TIMEOUT 300)
   target_link_libraries(test_rmf_traffic
       rmf_traffic
-      ${FCL_LIBRARIES}
+      fcl
       Threads::Threads
   )
-
-  if(using_new_fcl)
-    target_compile_definitions(test_rmf_traffic PRIVATE RMF_TRAFFIC__USING_FCL_0_6)
-  endif()
 
   target_include_directories(test_rmf_traffic
     PRIVATE
@@ -78,15 +62,11 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
   )
 endif()
 
-if(using_new_fcl)
-  target_compile_definitions(rmf_traffic PRIVATE RMF_TRAFFIC__USING_FCL_0_6)
-endif()
-
 target_link_libraries(rmf_traffic
   PUBLIC
     rmf_utils::rmf_utils
   PRIVATE
-    ${FCL_LIBRARIES}
+    fcl
 )
 
 target_include_directories(rmf_traffic
