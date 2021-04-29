@@ -36,7 +36,7 @@ class AbstractScheduleState
 public:
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
 
-  //virtual const std::vector<std::string> get_all_resources() const = 0;
+  virtual const std::unordered_set<std::string> get_all_resources() = 0;
 
   virtual const ResourceSchedule get_schedule(std::string resource_name) const
     = 0;
@@ -49,6 +49,8 @@ public:
 
   virtual std::optional<Reservation>
     get_reservation_by_id(ReservationId res) const = 0;
+
+  
 
 };
 
@@ -66,6 +68,34 @@ public:
   using ReservationMapping = std::unordered_map<ReservationId,
     std::pair<std::string, Time>>;
   ReservationMapping _reservation_mapping;
+  bool _modified = true;
+  std::unordered_set<std::string> _items; // Cache all item names
+
+  const std::unordered_set<std::string> get_all_resources() override
+  {
+    if(!_modified)
+      return _items;
+
+    _items.clear();
+    for(auto& r: _resource_schedules)
+    {
+      if(r.second.size() == 0)
+      {
+        continue;
+      }
+      _items.insert(r.first);
+    }
+    _modified = false;
+    return _items;
+  }
+
+  std::size_t hash()
+  {
+    for(auto [&resource_name, &schedule]: _resource_schedules)
+    {
+      for()
+    }
+  }
 
   const ResourceSchedule get_schedule(std::string name) const override
   {
@@ -83,6 +113,7 @@ public:
     _resource_schedules[resource]
         .insert({reservation.start_time(), reservation});
     _reservation_mapping[reservation_id] = {resource, reservation.start_time()};
+
     return true;
   }
 
@@ -163,6 +194,11 @@ public:
     _parent(parent)
   {
     //Do Nothing.
+  }
+
+  const std::unordered_set<std::string> get_all_resources() override
+  {
+    
   }
 
   const ResourceSchedule get_schedule(std::string resource) const override

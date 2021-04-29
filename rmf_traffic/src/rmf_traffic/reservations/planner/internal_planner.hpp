@@ -21,6 +21,7 @@
 #include "../internal_ConstraintTracker.hpp"
 #include <set>
 #include <map>
+#include <queue>
 
 namespace rmf_traffic {
 namespace reservations {
@@ -140,12 +141,91 @@ public:
   }
 };
 
-//class Planner
-//{
-//public:
-  //std::unordered_set<>
-//};
 
+
+class Planner
+{
+public:
+  class PlanSet
+  {
+  public:
+    virtual std::optional<const SchedulePatch> next_best() = 0;
+
+    virtual ~PlanSet() = default;
+  };
+
+  virtual void set_current_schedule(
+    std::shared_ptr<const AbstractScheduleState> state) = 0;
+
+  virtual std::shared_ptr<PlanSet> plan(
+    ConstraintTracker::RequestId request
+  ) = 0;
+
+  virtual std::shared_ptr<PlanSet> cancel(
+    ConstraintTracker::RequestId req_id
+  ) = 0;
+
+  virtual ~Planner() = default;
+};
+
+//==============================================================================
+// The min conflict planner is an example of a planner which services the
+// reservation. It's aim is to minimize the number of conflicts and thus the
+// amount of network bandwith used. This is essentially a greedy algortihm and
+// does not guarantee maximum satisfaction.
+class MinConflictPlanner : Planner
+{
+  class MinConflictPlanSet : Planner::PlanSet
+  {
+  public:
+    ConstraintTracker::RequestId request;
+    std::shared_ptr<const AbstractScheduleState> state;
+    std::shared_ptr<ConstraintTracker> tracker;
+    rmf::Duration sampling_interval;
+
+    struct PriorityQueueEntry
+    {
+      std::shared_ptr<const AbstractScheduleState> ;
+    }
+
+
+    void dijkstra()
+    {
+      
+    }
+
+    std::optional<const SchedulePatch> next_best()
+    {
+      
+    }
+  };
+
+  std::shared_ptr<const AbstractScheduleState> state;
+
+  std::shared_ptr<ConstraintTracker> tracker;
+
+  void set_current_schedule(
+    std::shared_ptr<const AbstractScheduleState> _state) override
+  {
+    this->state = _state;
+  }
+
+  std::shared_ptr<PlanSet> plan(ConstraintTracker::RequestId request) override
+  {
+    auto res = std::make_shared<MinConflictPlanSet>();
+    res->request = request;
+    res->state = state;
+    return res;
+  }
+
+  std::shared_ptr<PlanSet> cancel(ConstraintTracker::RequestId req_id)
+  {
+    return ;
+  }
+}
+
+//==============================================================================
+// Best-First-Search based planner. This has more fancy operations allowed.
 }
 }
 

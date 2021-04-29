@@ -35,7 +35,7 @@ public:
   public:
     const std::optional<Time> lower_bound() const;
     const std::optional<Time> upper_bound() const;
-    
+
     static TimeRange make_time_range(
       std::optional<Time> lower_bound,
       std::optional<Time> upper_bound
