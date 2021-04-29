@@ -20,7 +20,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <unordered_map>
+#include <optional>
 
 namespace rmf_traffic {
 namespace blockade {
