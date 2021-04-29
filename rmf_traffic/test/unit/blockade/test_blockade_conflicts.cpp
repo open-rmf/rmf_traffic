@@ -20,6 +20,7 @@
 #include "utils_blockade_simulation.hpp"
 #include "utils_blockade_scenarios.hpp"
 
+#include <array>
 #include <iostream>
 
 //==============================================================================
