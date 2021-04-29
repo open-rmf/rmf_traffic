@@ -18,6 +18,7 @@
 #ifndef TEST__UNIT__BLOCKADE__UTILS_BLOCKADE_SCENARIOS_HPP
 #define TEST__UNIT__BLOCKADE__UTILS_BLOCKADE_SCENARIOS_HPP
 
+#include <array>
 #include <rmf_traffic/blockade/Writer.hpp>
 
 //==============================================================================
