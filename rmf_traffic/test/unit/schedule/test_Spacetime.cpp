@@ -1542,7 +1542,7 @@ SCENARIO("Testing offset shapes with various spacetimes")
     region_box_shape
   };
 
-  GIVEN("A circle trajectory whose offset vicinity intersects with the spacetime region")
+  GIVEN("A straight line trajectory whose offset vicinity intersects with the spacetime region")
   {
     rmf_traffic::Trajectory t1;
     t1.insert(time, {-15, 2.5, 0}, {0, 0, 0});
@@ -1552,7 +1552,7 @@ SCENARIO("Testing offset shapes with various spacetimes")
     CHECK(rmf_traffic::internal::detect_conflicts(robot_profile, t1, region));
   }
 
-  GIVEN("A circle trajectory whose offset vicinity does not intersect with the spacetime region")
+  GIVEN("A straight line trajectory whose offset vicinity does not intersect with the spacetime region")
   {
     rmf_traffic::Trajectory t1;
     t1.insert(time, {-15, 3.5, 0}, {0, 0, 0});
@@ -1560,5 +1560,16 @@ SCENARIO("Testing offset shapes with various spacetimes")
     REQUIRE(t1.size() == 2);
 
     CHECK_FALSE(rmf_traffic::internal::detect_conflicts(robot_profile, t1, region));
+  }
+
+  GIVEN("A rotation on the spot trajectory whose offset vicinity intersects with the spacetime region")
+  {
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, {-6, 2, 0}, {0, 0, 0});
+    t1.insert(time+10s, {-6, 2, EIGEN_PI / 2.0}, {0, 0, 0});
+    REQUIRE(t1.size() == 2);
+
+    rmf_traffic::DetectConflict::Implementation::Conflicts c;
+    CHECK(rmf_traffic::internal::detect_conflicts(robot_profile, t1, region, &c));
   }
 }
