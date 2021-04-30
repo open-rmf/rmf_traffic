@@ -28,6 +28,7 @@
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/LaneClosure.hpp>
 
+#include <array>
 #include <map>
 
 namespace rmf_traffic {
