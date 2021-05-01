@@ -174,7 +174,7 @@ public:
 class SchedulePatch: public AbstractScheduleState
 {
 public:
-  std::shared_ptr<const AbstractScheduleState> _parent;
+  std::shared_ptr<AbstractScheduleState> _parent;
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
   ResourceSchedules _resource_schedules_overlay;
   using ReservationMapping = std::unordered_map<ReservationId,
@@ -182,7 +182,7 @@ public:
   ReservationMapping _reservation_mapping_overlay;
   std::unordered_set<ReservationId> cancelled;
 
-  SchedulePatch(std::shared_ptr<const AbstractScheduleState> parent) :
+  SchedulePatch(std::shared_ptr<AbstractScheduleState> parent) :
     _parent(parent)
   {
     //Do Nothing.
@@ -191,6 +191,21 @@ public:
   const std::unordered_set<std::string> get_all_resources() override
   {
     auto set = _parent->get_all_resources();
+    for(auto &[resource_name, schedule]: _resource_schedules_overlay)
+    {
+      if(set.count(resource_name) > 0)
+      {
+        if(schedule.size() == 0)
+        {
+          set.erase(resource_name);
+        }
+      }
+      else
+      {
+        set.insert(resource_name);
+      }
+    }
+    return set;
   }
 
   const ResourceSchedule get_schedule(std::string resource) const override
