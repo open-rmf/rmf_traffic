@@ -89,14 +89,6 @@ public:
     return _items;
   }
 
-  std::size_t hash()
-  {
-    for(auto [&resource_name, &schedule]: _resource_schedules)
-    {
-      for()
-    }
-  }
-
   const ResourceSchedule get_schedule(std::string name) const override
   {
     return _resource_schedules.at(name);
@@ -198,7 +190,7 @@ public:
 
   const std::unordered_set<std::string> get_all_resources() override
   {
-    
+    auto set = _parent->get_all_resources();
   }
 
   const ResourceSchedule get_schedule(std::string resource) const override
@@ -343,6 +335,34 @@ public:
     }
   }
 };
+
+std::size_t hash(std::shared_ptr<AbstractScheduleState> state)
+{
+  std::size_t seed = 0;
+
+  auto resources = state->get_all_resources();
+
+  for(auto &resource_name: resources)
+  {
+    for(auto &[start_time, reservation]: state->get_schedule(resource_name))
+    {
+      seed ^= std::hash<long>{}(start_time.time_since_epoch().count())
+        + 0x9e3779b9 + (seed << 6) + (seed >>2);
+      seed ^= std::hash<std::string>{}(resource_name)
+        + 0x9e3779b9 + (seed << 6) + (seed >>2);
+      if(reservation.actual_finish_time().has_value())
+      {
+        auto finish = reservation.actual_finish_time().value();
+        seed ^= std::hash<long>{}(finish.time_since_epoch().count())
+          + 0x9e3779b9 + (seed << 6) + (seed >>2);
+      }
+
+      seed ^= std::hash<long>{}(reservation.participant_id())
+          + 0x9e3779b9 + (seed << 6) + (seed >>2);
+    }
+  }
+  return seed;
+}
 
 }
 }
