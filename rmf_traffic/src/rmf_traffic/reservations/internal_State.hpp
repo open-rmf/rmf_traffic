@@ -49,9 +49,6 @@ public:
 
   virtual std::optional<Reservation>
     get_reservation_by_id(ReservationId res) const = 0;
-
-  
-
 };
 
 //=============================================================================
@@ -377,6 +374,52 @@ std::size_t hash(std::shared_ptr<AbstractScheduleState> state)
     }
   }
   return seed;
+}
+
+bool operator==(
+  std::shared_ptr<AbstractScheduleState>& a,
+  std::shared_ptr<AbstractScheduleState>& b)
+{
+  auto x = a->get_all_resources();
+  auto y = b->get_all_resources();
+
+  if (x != y)
+    return false;
+
+  for(auto &resource: x)
+  {
+    const auto sched1 = a->get_schedule(resource);
+    const auto sched2 = b->get_schedule(resource);
+
+    if(sched1.size() != sched2.size())
+      return false;
+
+    auto reservation1 = sched1.begin();
+    auto reservation2 = sched2.begin();
+
+    while(reservation1 != sched1.end())
+    {
+      if(reservation1->second.duration()
+        != reservation2->second.duration())
+        return false;
+
+      if(reservation1->second.finish_time()
+        != reservation2->second.finish_time())
+        return false;
+
+      if(reservation1->second.start_time()
+        != reservation2->second.start_time())
+        return false;
+
+      if(reservation1->second.participant_id()
+        != reservation2->second.participant_id())
+        return false;
+
+      reservation1 = std::next(reservation1);
+      reservation2 = std::next(reservation2);
+    }
+  }
+  return true;
 }
 
 }
