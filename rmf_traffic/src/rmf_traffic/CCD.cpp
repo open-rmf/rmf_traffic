@@ -10,8 +10,7 @@
 
 namespace rmf_traffic {
 
-// Check osrf/rmf_planner_viz for a demo of these 2 functions
-
+//==============================================================================
 struct SeperationComputation
 {
   int support_vertex_a = -1;
@@ -280,6 +279,7 @@ struct SeperationComputation
   }
 };
 
+//==============================================================================
 enum MOTION_ADVANCEMENT_RESULT
 {
   ADV_RESTART = 0,
@@ -287,6 +287,7 @@ enum MOTION_ADVANCEMENT_RESULT
   ADV_SEPERATED,
 };
 
+//==============================================================================
 static inline MOTION_ADVANCEMENT_RESULT max_motion_advancement(double current_t,
   double t_max,
   std::shared_ptr<fcl::MotionBased> motion_a, 
@@ -420,6 +421,7 @@ static inline MOTION_ADVANCEMENT_RESULT max_motion_advancement(double current_t,
   return ADV_RESTART;
 }
 
+//==============================================================================
 inline bool collide_pairwise_shapes(
   std::shared_ptr<fcl::MotionBased> motion_a, 
   std::shared_ptr<fcl::MotionBased> motion_b,
@@ -590,6 +592,7 @@ inline bool collide_pairwise_shapes(
   return false;
 }
 
+//==============================================================================
 bool collide_seperable_shapes(
   std::shared_ptr<fcl::MotionBased> motion_a, 
   std::shared_ptr<fcl::MotionBased> motion_b,
@@ -630,6 +633,7 @@ bool collide_seperable_shapes(
   return false;
 }
 
+//==============================================================================
 uint get_sweep_divisions(std::shared_ptr<fcl::MotionBased> motion_a,
   std::shared_ptr<fcl::MotionBased> motion_b)
 {
@@ -676,4 +680,4 @@ uint get_sweep_divisions(std::shared_ptr<fcl::MotionBased> motion_a,
   return a_intervals > b_intervals ? a_intervals : b_intervals;
 }
 
-}
+} // namespace rmf_traffic

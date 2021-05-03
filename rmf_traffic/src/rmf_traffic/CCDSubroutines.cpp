@@ -4,6 +4,7 @@
 
 namespace rmf_traffic {
 
+//==============================================================================
 inline double distsq_lineseg_to_pt(
   const Eigen::Vector3d (&pts)[4], int ls_idx_start, int ls_idx_end,
   const Eigen::Vector3d& pt, int* pt_on_lineseg_idx = nullptr)
@@ -35,6 +36,7 @@ inline double distsq_lineseg_to_pt(
   return distsq;
 }
 
+//==============================================================================
 inline double min_distsq_lineseg_to_lineseg(
   const Eigen::Vector3d& p1, const Eigen::Vector3d& q1,
   const Eigen::Vector3d& p2, const Eigen::Vector3d& q2,
@@ -103,13 +105,14 @@ inline double min_distsq_lineseg_to_lineseg(
   return (c2 - c1).squaredNorm();
 }
 
-
+//==============================================================================
 static const int INSIDE = 0b0000;
 static const int LEFT   = 0b0001;
 static const int RIGHT  = 0b0010;
 static const int BOTTOM = 0b0100;
 static const int TOP    = 0b1000;
 
+//==============================================================================
 double sphere_box_closest_features(
   const fcl::Sphered& sphere,
   const fcl::Transform3d& tx_a,
@@ -284,6 +287,7 @@ double sphere_box_closest_features(
   return -1.0;
 }
 
+//==============================================================================
 double box_box_closest_features(
   const fcl::Boxd& box_a,
   const fcl::Transform3d& tx_a,
@@ -447,5 +451,4 @@ double box_box_closest_features(
   return -1.0;
 }
 
-
-}
+} // namespace rmf_traffic

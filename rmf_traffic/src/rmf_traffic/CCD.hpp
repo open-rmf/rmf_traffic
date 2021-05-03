@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__CCD_HPP
-#define SRC__CCD_HPP
+#ifndef SRC__RMF_TRAFFIC__CCD_HPP
+#define SRC__RMF_TRAFFIC__CCD_HPP
 
 #include <algorithm>
 #include <rmf_traffic/geometry/ConvexShape.hpp>
@@ -27,9 +27,10 @@
 
 namespace rmf_traffic {
 
+//==============================================================================
+/// Contains seperation information including closest features. Internal use for CCD.
 struct SeperationInfo
 {
-  // closest features
   int count_a = 0;
   int count_b = 0;
   int pointindices_a[2] = { -1, -1 };
@@ -86,7 +87,9 @@ struct SeperationInfo
   }
 };
 
-
+//==============================================================================
+/// Get closest features between a sphere and a box. 
+/// Indices of boxes are bottom left, moving anticlockwise.
 double sphere_box_closest_features(
   const fcl::Sphered& sphere,
   const fcl::Transform3d& tx_a,
@@ -94,6 +97,9 @@ double sphere_box_closest_features(
   const fcl::Transform3d& tx_b,
   SeperationInfo& seperation_info);
 
+//==============================================================================
+/// Get closest features between 2 boxes. 
+/// Indices of boxes are bottom left, moving anticlockwise.
 double box_box_closest_features(
   const fcl::Boxd& box_a,
   const fcl::Transform3d& tx_a,
@@ -101,6 +107,8 @@ double box_box_closest_features(
   const fcl::Transform3d& tx_b,
   SeperationInfo& seperation_info);
 
+//==============================================================================
+/// Collide seperable shapes, including shapes with offsets.
 bool collide_seperable_shapes(
   std::shared_ptr<fcl::MotionBased> motion_a,
   std::shared_ptr<fcl::MotionBased> motion_b,
@@ -111,9 +119,10 @@ bool collide_seperable_shapes(
   uint safety_maximum_iterations = 120,
   double tolerance = 0.001);
 
+/// Get sweep divisions based off a pair of spline's rotations.
 uint get_sweep_divisions(std::shared_ptr<fcl::MotionBased> motion_a,
   std::shared_ptr<fcl::MotionBased> motion_b);
 
 } // namespace rmf_traffic
 
-#endif // SRC__CCD_HPP
+#endif // SRC__RMF_TRAFFIC__CCD_HPP

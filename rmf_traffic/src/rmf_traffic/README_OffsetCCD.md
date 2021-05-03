@@ -8,12 +8,12 @@ All offset shapes are defined and finalized using `rmf_traffic::geometry::make_f
 
 ## Bilateral Advancement
 
-Reference: https://github.com/erincatto/box2d/blob/master/src/collision/b2_time_of_impact.cpp
+We break down our spline motions into simple 1d distance functions then employ bilateral advancement to try to find the root of the function. Note that we avoid using the GJK algorithm and use circle or box feature extraction functions instead.
 
+References:
+https://github.com/erincatto/box2d/blob/master/src/collision/b2_time_of_impact.cpp
 [GDC: Physics for Game Programmers; Continuous Collision](https://www.youtube.com/watch?v=7_nKOET6zwI)
 [PDF] (https://box2d.org/files/ErinCatto_ContinuousCollision_GDC2013.pdf)
-
-The only difference is that we avoid using the GJK algorithm and use circle or box feature extraction functions instead.
 
 ## Limitations
 
@@ -23,4 +23,5 @@ The bilateral advancement algorithm can miss collisions due to large rotations (
 
 ### Curved trajectories
 
-Similar to the above, we can miss collisions for curved trajectories. Currently unsupported.
+Similar to the above, we can miss collisions for curved trajectories. Theoretically we can analyze curvature and break up the sweeps but this is currently unsupported.
+
