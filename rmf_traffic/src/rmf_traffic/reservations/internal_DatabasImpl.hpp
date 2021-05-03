@@ -355,7 +355,7 @@ public:
         auto prev_it = std::prev(it);
         const auto& prev_reservation = prev_it->second;
         auto prev_time = prev_it->first;
-        
+
         // Get the latest start time of the next reservation.
         auto get_latest_start = [=](const Reservation& res) -> std::optional<Time> 
         {
@@ -385,7 +385,7 @@ public:
               = {std::min(*prev_latest_start, *curr_latest_start)};
           }
         }
-        
+
       }
     }
 

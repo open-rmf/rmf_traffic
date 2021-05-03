@@ -181,17 +181,11 @@ class MinConflictPlanner : Planner
     ConstraintTracker::RequestId request;
     std::shared_ptr<const AbstractScheduleState> state;
     std::shared_ptr<ConstraintTracker> tracker;
-    rmf::Duration sampling_interval;
+    Duration sampling_interval;
 
     struct PriorityQueueEntry
     {
-      std::shared_ptr<const AbstractScheduleState> ;
-    }
-
-
-    void dijkstra()
-    {
-      
+      //std::shared_ptr<const AbstractScheduleState> ;
     }
 
     std::optional<const SchedulePatch> next_best()

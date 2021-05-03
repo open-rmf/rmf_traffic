@@ -25,7 +25,7 @@
 namespace rmf_traffic {
 namespace reservations {
 
-//=============================================================================
+//==============================================================================
 // An AbstractScheduleState represents a schedule of reservations.
 // Operations on this class can be performed by the planner or the current
 // reservation store. Note: the schedule state may contain inconsitent
@@ -51,13 +51,13 @@ public:
     get_reservation_by_id(ReservationId res) const = 0;
 };
 
-//=============================================================================
+//==============================================================================
 // Stores the current schedule state.
 // This class performs no checks on whether the schedule
 class CurrentScheduleState: public AbstractScheduleState
 {
 public:
-  //===========================================================================
+  //============================================================================
   // Storage Classes - These classes store the actual reservation
   // and the requests
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
