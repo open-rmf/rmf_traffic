@@ -406,9 +406,10 @@ rmf_utils::optional<double> check_collision(
     double impact_time = 0.0;
     uint iterations = 0;
     const uint max_dist_checks = 120;
+    const double tolerance = 0.01;
     bool collide = collide_seperable_shapes(motion_a, motion_b, sweeps,
       geometry::to_final_shape_group(shapes_a), geometry::to_final_shape_group(shapes_b), 
-      impact_time, iterations, max_dist_checks);
+      impact_time, iterations, max_dist_checks, tolerance);
 
     // std::cout << "dist_checks " << dist_checks << std::endl;
     if (collide)
@@ -1000,9 +1001,10 @@ bool detect_conflicts(
       double impact_time = 0.0;
       uint iterations = 0;
       const uint max_dist_checks = 120;
+      const double tolerance = 0.01;
       bool collide = collide_seperable_shapes(motion_trajectory, motion_region, sweeps, 
         geometry::to_final_shape_group(vicinity), shapes, 
-        impact_time, iterations, max_dist_checks);
+        impact_time, iterations, max_dist_checks, tolerance);
 
       if (collide)
       {
