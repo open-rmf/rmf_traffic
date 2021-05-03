@@ -404,14 +404,16 @@ static inline MOTION_ADVANCEMENT_RESULT max_motion_advancement(double current_t,
         s2 = s;
       }
 
-      if (rootfind_iter >= 25)
+      const uint max_rootfind_iters = 25;
+      if (rootfind_iter >= max_rootfind_iters)
         break;
       ++rootfind_iter;
     }
 
     iterations = iterations + rootfind_iter + outerloop_iter;
-    //if (pushBackIter == b2_maxPolygonVertices)
-    if (outerloop_iter >= 6)
+    
+    const uint max_otherloop = 6;
+    if (outerloop_iter >= max_otherloop)
       break;
     ++outerloop_iter;
   }
@@ -570,7 +572,7 @@ inline bool collide_pairwise_shapes(
     ++dist_checks;
     ++iter;
     
-    //infinite loop prevention. you should increase safety_maximum_checks if you still want a solution
+    //infinite loop prevention. increase safety_maximum_checks if you still want a solution
     if (dist_checks > safety_maximum_checks)
       break;
   }

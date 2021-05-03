@@ -18,7 +18,6 @@
 #ifndef RMF_TRAFFIC__TRAJECTORY_HPP
 #define RMF_TRAFFIC__TRAJECTORY_HPP
 
-#include <rmf_traffic/geometry/ConvexShape.hpp>
 #include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>

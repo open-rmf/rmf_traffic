@@ -25,7 +25,7 @@
 #include <memory>
 #include <vector>
 #include <Eigen/Dense>
-#include <fcl/common/types.h>
+#include <Eigen/Geometry>
 
 namespace rmf_traffic {
 
@@ -91,7 +91,7 @@ public:
   Eigen::Vector2d get_offset() const;
 
   /// Get the local offset of this shape as a transform
-  fcl::Transform3d get_offset_transform() const;
+  Eigen::Isometry3d get_offset_transform() const;
 
   /// Check if there is a local offset for this shape
   bool has_offset() const;
