@@ -43,6 +43,7 @@ public:
     std::shared_ptr<Negotiator> negotiator;
     Status status;
     int assigned_index;
+    int priority;
     ReservationId assigned_reservation;
   };
 
@@ -207,3 +208,5 @@ public:
 };
 }
 }
+
+#endif

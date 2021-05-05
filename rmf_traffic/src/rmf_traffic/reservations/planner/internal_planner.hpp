@@ -142,7 +142,6 @@ public:
 };
 
 
-
 class Planner
 {
 public:
@@ -173,7 +172,7 @@ public:
 // reservation. It's aim is to minimize the number of conflicts and thus the
 // amount of network bandwith used. This is essentially a greedy algortihm and
 // does not guarantee maximum satisfaction.
-class MinConflictPlanner : Planner
+/*class MinConflictPlanner //: Planner
 {
   class MinConflictPlanSet : Planner::PlanSet
   {
@@ -183,12 +182,7 @@ class MinConflictPlanner : Planner
     std::shared_ptr<ConstraintTracker> tracker;
     Duration sampling_interval;
 
-    struct PriorityQueueEntry
-    {
-      //std::shared_ptr<const AbstractScheduleState> ;
-    }
-
-    std::optional<const SchedulePatch> next_best()
+    std::optional<const SchedulePatch> next_best() override
     {
       
     }
@@ -209,17 +203,17 @@ class MinConflictPlanner : Planner
     auto res = std::make_shared<MinConflictPlanSet>();
     res->request = request;
     res->state = state;
-    return res;
+
+    std::shared_ptr<PlanSet> plan(res);
+    return plan;
   }
 
   std::shared_ptr<PlanSet> cancel(ConstraintTracker::RequestId req_id)
   {
     return ;
   }
-}
+}*/
 
-//==============================================================================
-// Best-First-Search based planner. This has more fancy operations allowed.
 }
 }
 

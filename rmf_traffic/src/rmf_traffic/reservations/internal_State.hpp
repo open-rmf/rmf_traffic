@@ -348,7 +348,7 @@ public:
   }
 };
 
-std::size_t hash(std::shared_ptr<AbstractScheduleState> state)
+/*std::size_t hash(std::shared_ptr<AbstractScheduleState> state)
 {
   std::size_t seed = 0;
 
@@ -420,7 +420,7 @@ bool operator==(
     }
   }
   return true;
-}
+}*/
 
 }
 }
