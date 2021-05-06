@@ -46,13 +46,110 @@ public:
   std::vector<std::optional<Duration>> conflict_table_push_back;
   std::vector<std::optional<Duration>> conflict_table_bring_forward;
 
+  struct Iterator
+  {
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type   = std::ptrdiff_t;
+    using value_type        = std::pair<Time, int>;
+    using pointer           = value_type*;  // or also value_type*
+    using reference         = pointer&;
+
+    reference operator*() const
+    {
+      return val;
+    }
+
+    pointer operator->()
+    {
+      return &val;
+    }
+
+    // Prefix increment
+    Iterator& operator++()
+    {
+      if(push_forward_idx == 0)
+      {
+        num_conflicts++;
+        push_forward_idx = num_conflicts;
+        push_back_idx = 0;
+        while(
+          !push_back->at(push_back_idx).has_value()
+          || !push_forward->at(push_forward_idx).has_value())
+        {
+          push_back_idx++;
+          push_forward_idx--;
+        }
+      }
+      else
+      {
+        do
+        {
+          push_back_idx++;
+          push_forward_idx--;
+        } while(
+          (!push_back->at(push_back_idx).has_value()
+          || !push_forward->at(push_forward_idx).has_value())
+          && push_forward_idx > 0);
+      }
+      val = {time, num_conflicts};
+      return *this;
+    }
+
+    // Postfix increment
+    Iterator operator++(int) {
+      Iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    friend bool operator== (const Iterator& a, const Iterator& b)
+    {
+      return a.push_back_idx == b.push_back_idx
+        && a.push_back == b.push_back
+        && a.push_forward_idx == b.push_forward_idx
+        && a.push_forward == b.push_forward;
+    };
+
+    friend bool operator!= (const Iterator& a, const Iterator& b)
+    {
+      return a.push_back_idx != b.push_back_idx
+        || a.push_back != b.push_back
+        || a.push_forward_idx != b.push_forward_idx
+        || a.push_forward != b.push_forward;
+    };
+
+    Iterator(
+      std::vector<std::optional<Duration>>* _push_back,
+      std::vector<std::optional<Duration>>* _push_forward,
+      Duration _gap_duration,
+      Time _start_time,
+      int _push_back_idx = 0,
+      int _push_forward_idx = 0)
+    {
+      push_back = _push_back;
+      push_forward = _push_forward;
+      gap_duration = _gap_duration;
+      start_time =_start_time;
+
+      push_back_idx = _push_back_idx;
+      push_forward_idx = _push_forward_idx;
+    }
+  private:
+    int num_conflicts = 0;
+    Duration gap_duration;
+    std::vector<std::optional<Duration>>* push_back, *push_forward;
+    int push_back_idx, push_forward_idx;
+    Time time, start_time;
+    value_type val;
+  };
+
+
   Gap(
     AbstractScheduleState::ResourceSchedule& sched,
     AbstractScheduleState::ResourceSchedule::const_iterator it
   )
   {
     auto it_next = std::next(it);
-    std::cout << __FILE__ << ": " << __LINE__ <<std::endl;
     if(it_next == sched.end())
     {
       throw std::runtime_error("Reached end of schedule. Not a gap");
@@ -64,9 +161,23 @@ public:
     this->r1 = it->second.reservation_id();
     this->r2 = it_next->second.reservation_id();
     this->time_gap = time_end - time_start;
+
+    //For now pre compute everything. In future, we should compute on demand.
+    // This will save time complexity.
     nth_conflict_times_bring_forward(sched, it);
     nth_conflict_times_push_back(sched, it_next);
   }
+
+  Iterator begin()
+  {
+
+  }
+
+  Iterator end()
+  {
+
+  }
+
 private:
   void nth_conflict_times_bring_forward(
     AbstractScheduleState::ResourceSchedule& sched,
