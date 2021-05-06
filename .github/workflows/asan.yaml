@@ -1,7 +1,7 @@
-name: tsan
+name: asan
 on: [push, pull_request]
 jobs:
-  tsan:
+  asan:
     name: asan
     runs-on: ubuntu-20.04
     steps:
