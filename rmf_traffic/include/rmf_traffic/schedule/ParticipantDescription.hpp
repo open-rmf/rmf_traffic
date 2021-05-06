@@ -18,6 +18,9 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__PARTICIPANTDESCRIPTION_HPP
 #define RMF_TRAFFIC__SCHEDULE__PARTICIPANTDESCRIPTION_HPP
 
+#include <string>
+#include <unordered_map>
+
 #include <rmf_traffic/Profile.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>

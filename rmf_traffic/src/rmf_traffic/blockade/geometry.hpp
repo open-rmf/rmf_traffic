@@ -18,6 +18,7 @@
 #ifndef SRC__RMF_TRAFFIC__BLOCKADE__GEOMETRY_HPP
 #define SRC__RMF_TRAFFIC__BLOCKADE__GEOMETRY_HPP
 
+#include <array>
 #include <Eigen/Geometry>
 
 namespace rmf_traffic {

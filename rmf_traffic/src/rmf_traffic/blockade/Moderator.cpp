@@ -22,6 +22,7 @@
 #include "conflicts.hpp"
 
 #include <list>
+#include <array>
 #include <sstream>
 
 namespace rmf_traffic {
