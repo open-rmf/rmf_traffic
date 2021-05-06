@@ -1,5 +1,0 @@
-# ThreadSanitizer suppressions file for rmf_traffic
-
-# Use of std::shared_ptr<bool> in Planner options
-race:interrupt_flag
-
