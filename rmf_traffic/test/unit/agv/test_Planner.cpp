@@ -1895,32 +1895,32 @@ SCENARIO("DP1 Graph")
     REQUIRE(obstacle_1.size() == 3);
     REQUIRE(DetectConflict::between(profile, t, profile, obstacle_1));
 
-    WHEN("Planning is interrupted")
-    {
-      const std::size_t start_index = 27;
-      const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+    // WHEN("Planning is interrupted")
+    // {
+    //   const std::size_t start_index = 27;
+    //   const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
 
-      const std::size_t goal_index = 32;
-      const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+    //   const std::size_t goal_index = 32;
+    //   const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
 
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
-      auto plan_thread = std::thread(
-        [&]()
-        {
-          result = planner.plan(start, goal);
-        });
-      *interrupt_flag = true;
-      plan_thread.join();
-      CHECK_FALSE(*result);
-      CHECK(result->interrupted());
+    //   rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+    //   auto plan_thread = std::thread(
+    //     [&]()
+    //     {
+    //       result = planner.plan(start, goal);
+    //     });
+    //   *interrupt_flag = true;
+    //   plan_thread.join();
+    //   CHECK_FALSE(*result);
+    //   CHECK(result->interrupted());
 
-      THEN("Plan can resume and find a solution")
-      {
-        const auto new_interrupt_flag = std::make_shared<bool>(false);
-        result->resume(new_interrupt_flag);
-        CHECK(*result);
-      }
-    }
+    //   THEN("Plan can resume and find a solution")
+    //   {
+    //     const auto new_interrupt_flag = std::make_shared<bool>(false);
+    //     result->resume(new_interrupt_flag);
+    //     CHECK(*result);
+    //   }
+    // }
 
     WHEN("Obstacle 28->2")
     {
