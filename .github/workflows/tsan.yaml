@@ -5,7 +5,6 @@ jobs:
     name: tsan
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v1
       - name: deps
         uses: ros-tooling/setup-ros@v0.1
         with:
@@ -15,7 +14,6 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-          TSAN_OPTIONS: "suppressions=${{ github.workspace }}/.github/workflows/tsan_suppressions.txt"
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
