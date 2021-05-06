@@ -15,7 +15,7 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-          TSAN_OPTIONS: "suppressions=${{ env.GITHUB_WORKSPACE }}/.github/workflows/tsan_suppressions.txt"
+          TSAN_OPTIONS: "suppressions=${{ github.workspace }}/.github/workflows/tsan_suppressions.txt"
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
