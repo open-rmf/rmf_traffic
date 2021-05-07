@@ -18,6 +18,7 @@
 #ifndef RMF_TRAFFIC__BLOCKADE__WRITER_HPP
 #define RMF_TRAFFIC__BLOCKADE__WRITER_HPP
 
+#include <vector>
 #include <Eigen/Geometry>
 
 #include <rmf_traffic/Time.hpp>

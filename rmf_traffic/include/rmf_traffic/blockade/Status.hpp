@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 
 namespace rmf_traffic {

@@ -20,6 +20,7 @@
 
 #include <rmf_utils/catch.hpp>
 
+#include <array>
 #include <random>
 
 #include "utils_blockade_scenarios.hpp"
