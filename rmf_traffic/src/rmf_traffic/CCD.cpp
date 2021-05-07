@@ -539,7 +539,7 @@ inline bool collide_pairwise_shapes(
   
   double t = t_min;
   uint iter = 0;
-  while (dist_to_cover > 0.0 && t < t_max)
+  while (dist_to_cover > tolerance && t < t_max)
   {
 #ifdef DO_LOGGING
     printf("======= iter:%d\n", iter);
@@ -552,9 +552,10 @@ inline bool collide_pairwise_shapes(
       seperation_info,
       target_length, tolerance, dist_checks, t);
     if (collide_result == ADV_COLLIDE)
-      break;
-    else if (collide_result == ADV_SEPERATED)
-      return false;
+    {
+      impact_time = t;
+      return true;
+    }
 
 #ifdef DO_LOGGING
     printf("max_motion_advancement returns t: %f\n", t);
@@ -572,15 +573,17 @@ inline bool collide_pairwise_shapes(
     ++dist_checks;
     ++iter;
     
+    if (collide_result == ADV_SEPERATED)
+      break;
     //infinite loop prevention. increase safety_maximum_checks if you still want a solution
     if (dist_checks > safety_maximum_checks)
       break;
   }
   
-  if (dist_checks > safety_maximum_checks)
-    return false;
-
-  if (t >= t_min && t < t_max)
+#ifdef DO_LOGGING
+  printf("dist_to_cover: %f\n", dist_to_cover);
+#endif
+  if (dist_to_cover <= tolerance)
   {
     impact_time = t;
 #ifdef DO_LOGGING
