@@ -9,8 +9,9 @@ jobs:
         uses: ros-tooling/setup-ros@v0.1
         with:
           required-ros-distributions: foxy
-      - name: build_and_test
+      - name: tsan_build_test
         uses: ros-tooling/action-ros-ci@v0.2
+        id: tsan_build_test
         env:
           CC: clang
           CXX: clang++
@@ -29,4 +30,10 @@ jobs:
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
+      - name: upload_artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: colcon-logs
+          path: ${{ steps.tsan_build_test.outputs.ros-workspace-directory-name }}/log
+        if: always()
 
