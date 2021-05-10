@@ -30,10 +30,10 @@ jobs:
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-      - name: upload_artifact
-        uses: actions/upload-artifact@v1
+      - name: upload_test_stream
+        uses: actions/upload-artifact@v2
         with:
-          name: colcon-logs
-          path: ${{ steps.tsan_build_test.outputs.ros-workspace-directory-name }}/log
+          name: colcon-test-logs
+          path: ${{ steps.tsan_build_test.outputs.ros-workspace-directory-name }}/log/latest_test/rmf_traffic/streams.log
         if: always()
 
