@@ -44,6 +44,10 @@ public:
   /// `it`.
   Spline(const internal::WaypointList::const_iterator& it);
 
+  /// Compute parameters for a hermite spline at certain times
+  void compute_hermite_params(const Time start_time, const Time finish_time,
+    Eigen::Vector3d& x0, Eigen::Vector3d& x1, Eigen::Vector3d& v0, Eigen::Vector3d& v1) const;
+
   /// Compute the knots for the motion of this spline from start_time to
   /// finish_time, scaled to a "time" range of [0, 1].
   std::array<Eigen::Vector3d, 4> compute_knots(
@@ -54,6 +58,8 @@ public:
 
   fcl::SplineMotion<double> to_fcl(
     const std::array<Eigen::Vector3d, 4>& knots) const;
+  
+  std::vector<double> get_ccd_sweep_markers(const Time start_time, const Time finish_time);
 
   Time start_time() const;
   Time finish_time() const;
@@ -83,11 +89,14 @@ private:
 
 };
 
-fcl::SplineMotion<double> to_fcl(
-    const Eigen::Vector3d& x0,
-    const Eigen::Vector3d& x1,
-    const Eigen::Vector3d& v0,
-    const Eigen::Vector3d& v1);
+std::array<Eigen::Vector4d, 3> compute_coefficients(
+  const Eigen::Vector3d& x0,
+  const Eigen::Vector3d& x1,
+  const Eigen::Vector3d& v0,
+  const Eigen::Vector3d& v1);
+
+/// Combine marker root values for ccd that are within threshold
+void combine_non_duplicate_roots(std::vector<double>& roots, const std::vector<double>& newroots);
 
 //==============================================================================
 /// This class helps compute the differentials of the distance between two

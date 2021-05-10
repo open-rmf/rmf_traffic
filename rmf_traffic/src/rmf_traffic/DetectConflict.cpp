@@ -352,27 +352,10 @@ rmf_utils::optional<double> check_collision(
   const std::shared_ptr<fcl::SplineMotion<double>>& motion_a,
   const geometry::ConstFinalConvexShapeGroup& shapes_b,
   const std::shared_ptr<fcl::SplineMotion<double>>& motion_b,
-  const fcl::ContinuousCollisionRequestd& request)
+  const fcl::ContinuousCollisionRequestd& request,
+  const std::vector<double>& ccd_sweeps = std::vector<double>())
 {
-  bool has_offset = false;
-  for (auto shape : shapes_a)
-  {
-    if (shape->has_offset())
-    {
-      has_offset = true;
-      break;
-    }
-  }
-  for (auto shape : shapes_b)
-  {
-    if (shape->has_offset())
-    {
-      has_offset = true;
-      break;
-    }
-  }
-  
-  if (!has_offset)
+  if (ccd_sweeps.empty())
   {
     motion_a->integrate(0.0);
     motion_b->integrate(0.0);
@@ -399,7 +382,6 @@ rmf_utils::optional<double> check_collision(
   }
   else
   {
-    uint sweeps = get_sweep_divisions(motion_a, motion_b);
     motion_a->integrate(0.0);
     motion_b->integrate(0.0);
 
@@ -407,7 +389,7 @@ rmf_utils::optional<double> check_collision(
     uint iterations = 0;
     const uint max_dist_checks = 120;
     const double tolerance = 0.01;
-    bool collide = collide_seperable_shapes(motion_a, motion_b, sweeps,
+    bool collide = collide_seperable_shapes(motion_a, motion_b, ccd_sweeps,
       geometry::to_final_shape_group(shapes_a), geometry::to_final_shape_group(shapes_b), 
       impact_time, iterations, max_dist_checks, tolerance);
 
@@ -603,6 +585,15 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
     *motion_a = spline_a->to_fcl(start_time, finish_time);
     *motion_b = spline_b->to_fcl(start_time, finish_time);
 
+    std::vector<double> ccd_sweeps;
+    if (profile_a.has_offset_shape() || profile_b.has_offset_shape())
+    {
+      ccd_sweeps = spline_a->get_ccd_sweep_markers(start_time, finish_time);
+      auto sweeps_b = spline_b->get_ccd_sweep_markers(start_time, finish_time);
+      rmf_traffic::combine_non_duplicate_roots(ccd_sweeps, sweeps_b);
+      std::sort(ccd_sweeps.begin(), ccd_sweeps.end());
+    }
+
     const auto bound_a = get_bounding_profile(*spline_a, profile_a);
     const auto bound_b = get_bounding_profile(*spline_b, profile_b);
 
@@ -610,7 +601,7 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
     {
       if (const auto collision = check_collision(
           profile_a.footprint, motion_a,
-          profile_b.vicinity, motion_b, request))
+          profile_b.vicinity, motion_b, request, ccd_sweeps))
       {
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
@@ -625,7 +616,7 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
     {
       if (const auto collision = check_collision(
           profile_b.footprint, motion_b,
-          profile_a.vicinity, motion_a, request))
+          profile_a.vicinity, motion_a, request, ccd_sweeps))
       {
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
@@ -990,10 +981,8 @@ bool detect_conflicts(
     }
     else
     {
-      uint sweeps = get_sweep_divisions(motion_trajectory, motion_region);
-      motion_trajectory->integrate(0.0);
-      motion_region->integrate(0.0);
-
+      auto sweep_intervals = spline_trajectory.get_ccd_sweep_markers(
+        spline_start_time, spline_finish_time);
       
       geometry::ConstShapeGroup shapes;
       shapes.push_back(region.shape);
@@ -1002,7 +991,7 @@ bool detect_conflicts(
       uint iterations = 0;
       const uint max_dist_checks = 120;
       const double tolerance = 0.01;
-      bool collide = collide_seperable_shapes(motion_trajectory, motion_region, sweeps, 
+      bool collide = collide_seperable_shapes(motion_trajectory, motion_region, sweep_intervals, 
         geometry::to_final_shape_group(vicinity), shapes, 
         impact_time, iterations, max_dist_checks, tolerance);
 

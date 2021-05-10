@@ -112,16 +112,12 @@ double box_box_closest_features(
 bool collide_seperable_shapes(
   std::shared_ptr<fcl::MotionBased> motion_a,
   std::shared_ptr<fcl::MotionBased> motion_b,
-  uint sweeps,
+  const std::vector<double>&  sweeps,
   const geometry::ConstShapeGroup& a_shapes,
   const geometry::ConstShapeGroup& b_shapes,
   double& impact_time, uint& iterations, 
   uint safety_maximum_iterations = 120,
   double tolerance = 0.001);
-
-/// Get sweep divisions based off a pair of spline's rotations.
-uint get_sweep_divisions(std::shared_ptr<fcl::MotionBased> motion_a,
-  std::shared_ptr<fcl::MotionBased> motion_b);
 
 } // namespace rmf_traffic
 

@@ -55,6 +55,31 @@ public:
      return l;
   }
 
+  bool has_offset_footprint_shape() const
+  {
+    for (auto shape : footprint)
+    {
+      if (shape->has_offset())
+        return true;
+    }
+    return false;
+  }
+
+  bool has_offset_vicinity_shape() const
+  {
+    for (auto shape : vicinity)
+    {
+      if (shape->has_offset())
+        return true;
+    }
+    return false;
+  }
+
+  bool has_offset_shape() const
+  {
+    return has_offset_footprint_shape() || has_offset_vicinity_shape();
+  }
+
 };
 
 } // namespace rmf_traffic

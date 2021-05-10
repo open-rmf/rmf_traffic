@@ -10,6 +10,7 @@
 
 namespace rmf_traffic {
 
+//#define DO_LOGGING 1
 //==============================================================================
 struct SeperationComputation
 {
@@ -543,10 +544,7 @@ inline bool collide_pairwise_shapes(
   {
 #ifdef DO_LOGGING
     printf("======= iter:%d\n", iter);
-    auto d = seperation_info.a_to_b;
-    std::cout << "a_to_b: \n" << d << std::endl;
     std::cout << "dist_to_cover: " << dist_to_cover << std::endl;
-    rmf_planner_viz::draw::IMDraw::draw_arrow(sf::Vector2f(0, 0), sf::Vector2f(d.x(), d.y()));
 #endif
     auto collide_result = max_motion_advancement(t, t_max, motion_a, motion_b, shape_a, shape_b, 
       seperation_info,
@@ -575,14 +573,12 @@ inline bool collide_pairwise_shapes(
     
     if (collide_result == ADV_SEPERATED)
       break;
+      
     //infinite loop prevention. increase safety_maximum_checks if you still want a solution
     if (dist_checks > safety_maximum_checks)
       break;
   }
   
-#ifdef DO_LOGGING
-  printf("dist_to_cover: %f\n", dist_to_cover);
-#endif
   if (dist_to_cover <= tolerance)
   {
     impact_time = t;
@@ -601,7 +597,7 @@ inline bool collide_pairwise_shapes(
 bool collide_seperable_shapes(
   std::shared_ptr<fcl::MotionBased> motion_a, 
   std::shared_ptr<fcl::MotionBased> motion_b,
-  uint sweeps,
+  const std::vector<double>& sweeps,
   const geometry::ConstShapeGroup& shapes_a,
   const geometry::ConstShapeGroup& shapes_b,
   double& impact_time, uint& iterations, uint safety_maximum_iterations,
@@ -612,11 +608,13 @@ bool collide_seperable_shapes(
     for (const auto& shape_b : shapes_b)
     {
       uint iterations_this_pair = 0;
-      double t_per_sweep = 1.0 / (double)sweeps;
-      for (uint i=0; i<sweeps; ++i)
+      for (uint i=1; i<sweeps.size(); ++i)
       {
-        double t_min = t_per_sweep * (double)i;
-        double t_max = t_per_sweep * (double)(i + 1);
+        double t_min = sweeps[i - 1];
+        double t_max = sweeps[i];
+#ifdef DO_LOGGING
+        printf("sweep range:[%f, %f]\n", t_min, t_max);
+#endif
 
         double toi = 0.0;
         bool collide = collide_pairwise_shapes(
@@ -627,7 +625,6 @@ bool collide_seperable_shapes(
         iterations += iterations_this_pair;
         if (collide)
         {
-          //we can have some leeway on accurancy of the TOI
           impact_time = toi; 
           return true;
         }
@@ -636,53 +633,6 @@ bool collide_seperable_shapes(
     }
   }
   return false;
-}
-
-//==============================================================================
-uint get_sweep_divisions(std::shared_ptr<fcl::MotionBased> motion_a,
-  std::shared_ptr<fcl::MotionBased> motion_b)
-{
-  motion_a->integrate(0.0);
-  motion_b->integrate(0.0);
-
-  fcl::Transform3d tx_a, tx_b;
-  motion_a->getCurrentTransform(tx_a);
-  motion_b->getCurrentTransform(tx_b);
-
-  auto get_rotation_about_z = [](std::shared_ptr<fcl::MotionBased> motion, double t)
-    -> double
-  {
-    motion->integrate(t);
-
-    fcl::Transform3d tx;
-    motion->getCurrentTransform(tx);
-    
-    auto mtx = tx.linear();
-    Eigen::AngleAxisd angleaxis(mtx);
-    
-    if (angleaxis.axis().isApprox(Eigen::Vector3d(0,0,1)))
-    {
-      return angleaxis.angle();
-    }
-    else
-      return 0.0;
-  };
-
-  
-  double start_rot_a = get_rotation_about_z(motion_a, 0.0);
-  double end_rot_a   = get_rotation_about_z(motion_a, 1.0);
-  double rot_diff_a  = end_rot_a - start_rot_a;
-
-  double start_rot_b = get_rotation_about_z(motion_b, 0.0);
-  double end_rot_b   = get_rotation_about_z(motion_b, 1.0);
-  double rot_diff_b  = end_rot_b - start_rot_b;
-
-  double half_pi = EIGEN_PI * 0.5;
-  uint a_intervals = (uint)std::ceil(rot_diff_a / half_pi);
-  uint b_intervals = (uint)std::ceil(rot_diff_b / half_pi);
-  if (a_intervals == 0 && b_intervals == 0)
-    return 1;
-  return a_intervals > b_intervals ? a_intervals : b_intervals;
 }
 
 } // namespace rmf_traffic

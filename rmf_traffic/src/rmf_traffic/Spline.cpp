@@ -21,7 +21,7 @@
 
 namespace rmf_traffic {
 
-namespace {
+const double time_tolerance = 1e-4;
 
 //==============================================================================
 std::array<Eigen::Vector4d, 3> compute_coefficients(
@@ -46,6 +46,81 @@ std::array<Eigen::Vector4d, 3> compute_coefficients(
 }
 
 //==============================================================================
+/// Get the quadratic roots of the coefficients, but only if they fall in the
+/// domain t = [0, 1]
+// TODO(MXG): This will always return 2, 1, or 0 results, so a bounded vector
+// would be preferable for a return value.
+std::vector<double> compute_roots_in_unit_domain(const Eigen::Vector3d coeffs)
+{
+  const double tol = 1e-5;
+
+  const double a = coeffs[2];
+  const double b = coeffs[1];
+  const double c = coeffs[0];
+
+  if (std::abs(a) < tol)
+  {
+    if (std::abs(b) < tol)
+    {
+      return {};
+    }
+
+    const double t = -c/b;
+    if (0.0 <= t && t <= 1.0)
+    {
+      return {t};
+    }
+
+    return {};
+  }
+
+  const double determinate = (b*b - 4*a*c);
+  if (determinate < 0.0)
+  {
+    return {};
+  }
+
+  std::vector<double> output;
+  const double t_m = (-b - std::sqrt(determinate))/(2*a);
+  if (0.0 <= t_m && t_m <= 1.0)
+    output.push_back(t_m);
+
+  const double t_p = (-b + std::sqrt(determinate))/(2*a);
+  if (0.0 <= t_p && t_p <= 1.0 && std::abs(t_p - t_m) > time_tolerance)
+    output.push_back(t_p);
+
+  return output;
+}
+
+//==============================================================================
+Eigen::Vector3d compute_deriv_coeffs(const Eigen::Vector4d& coeffs)
+{
+  return {coeffs[1], 2.0*coeffs[2], 3.0*coeffs[3]};
+}
+
+//==============================================================================
+void combine_non_duplicate_roots(std::vector<double>& roots, const std::vector<double>& newroots)
+{
+  for (auto newroot : newroots)
+  {
+    bool skip = false;
+    for (auto root : roots)
+    {
+      if (abs(newroot - root) <= 0.01)
+      {
+        skip = true;
+        break;
+      }
+    }
+
+    if (!skip)
+      roots.push_back(newroot);
+  }
+}
+
+namespace {
+
+//==============================================================================
 Eigen::Matrix4d make_M_inv()
 {
   Eigen::Matrix4d M;
@@ -59,8 +134,6 @@ Eigen::Matrix4d make_M_inv()
 
 //==============================================================================
 const Eigen::Matrix4d M_inv = make_M_inv();
-
-const double time_tolerance = 1e-4;
 
 //==============================================================================
 double compute_delta_t(const Time& finish_time, const Time& start_time)
@@ -218,8 +291,8 @@ Spline::Spline(const internal::WaypointList::const_iterator& it)
 }
 
 //==============================================================================
-std::array<Eigen::Vector3d, 4> Spline::compute_knots(
-  const Time start_time, const Time finish_time) const
+void Spline::compute_hermite_params(const Time start_time, const Time finish_time,
+    Eigen::Vector3d& x0, Eigen::Vector3d& x1, Eigen::Vector3d& v0, Eigen::Vector3d& v1) const
 {
   assert(params.time_range[0] <= start_time);
   assert(finish_time <= params.time_range[1]);
@@ -230,14 +303,19 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   const double scaled_start_time = compute_scaled_time(start_time, params);
   const double scaled_finish_time = compute_scaled_time(finish_time, params);
 
-  const Eigen::Vector3d x0 =
-    rmf_traffic::compute_position(params, scaled_start_time);
-  const Eigen::Vector3d x1 =
-    rmf_traffic::compute_position(params, scaled_finish_time);
-  const Eigen::Vector3d v0 =
-    scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_start_time);
-  const Eigen::Vector3d v1 =
-    scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
+  x0 = rmf_traffic::compute_position(params, scaled_start_time);
+  x1 = rmf_traffic::compute_position(params, scaled_finish_time);
+  v0 = scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_start_time);
+  v1 = scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
+}
+
+//==============================================================================
+std::array<Eigen::Vector3d, 4> Spline::compute_knots(
+  const Time start_time, const Time finish_time) const
+{
+  Eigen::Vector3d x0, x1;
+  Eigen::Vector3d v0, v1;
+  compute_hermite_params(start_time, finish_time, x0, x1, v0, v1);
 
   const std::array<Eigen::Vector4d, 3> subspline_coeffs =
     compute_coefficients(x0, x1, v0, v1);
@@ -259,6 +337,47 @@ fcl::SplineMotion<double> Spline::to_fcl(
 {
   std::array<Eigen::Vector3d, 4> knots = compute_knots(start_time, finish_time);
   return to_fcl(knots);
+}
+
+//==============================================================================
+std::vector<double> Spline::get_ccd_sweep_markers(const Time start_time, const Time finish_time)
+{
+  // this function introduces sweep markers to account for all the edge cases
+  // where the CCD algorithm will miss
+
+  Eigen::Vector3d x0, x1;
+  Eigen::Vector3d v0, v1;
+  compute_hermite_params(start_time, finish_time, x0, x1, v0, v1);
+
+  std::vector<double> markers = { 0.0, 1.0 };
+
+  // for rotations more than 90 degrees : add in even intervals
+  double rot_diff = std::abs(x1.z() - x0.z());
+  double half_pi = EIGEN_PI * 0.5;
+  uint rotation_intervals = (uint)std::ceil(rot_diff / half_pi);
+
+  double t_per_interval = 1.0 / rotation_intervals;
+  for (uint i=1; i<rotation_intervals; ++i)
+  {
+    double t = (double)i * t_per_interval;
+    markers.emplace_back(t);
+  }
+
+  // split curved trajectories up based off derivatives x=0 or y=0
+  
+  auto coeff = compute_coefficients(x0, x1, v0, v1);
+  std::array<Eigen::Vector3d, 3> derivative_coeff;
+  for (uint axis=0; axis<3; ++axis)
+    derivative_coeff[axis] = compute_deriv_coeffs(coeff[axis]);
+
+  auto roots_y_eq_0 = compute_roots_in_unit_domain(derivative_coeff[0]);
+  auto roots_x_eq_0 = compute_roots_in_unit_domain(derivative_coeff[1]);
+
+  combine_non_duplicate_roots(markers, roots_y_eq_0);
+  combine_non_duplicate_roots(markers, roots_x_eq_0);
+
+  std::sort(markers.begin(), markers.end());
+  return markers;
 }
 
 //==============================================================================
@@ -395,59 +514,6 @@ bool is_second_derivative_of_distance_negative(
     compute_acceleration(params, t).block<2, 1>(0, 0);
 
   return dv.dot(dv) + dp.dot(da) < 0.0;
-}
-
-//==============================================================================
-/// Get the quadratic roots of the coefficients, but only if they fall in the
-/// domain t = [0, 1]
-// TODO(MXG): This will always return 2, 1, or 0 results, so a bounded vector
-// would be preferable for a return value.
-std::vector<double> compute_roots_in_unit_domain(const Eigen::Vector3d coeffs)
-{
-  const double tol = 1e-5;
-
-  const double a = coeffs[2];
-  const double b = coeffs[1];
-  const double c = coeffs[0];
-
-  if (std::abs(a) < tol)
-  {
-    if (std::abs(b) < tol)
-    {
-      return {};
-    }
-
-    const double t = -c/b;
-    if (0.0 <= t && t <= 1.0)
-    {
-      return {t};
-    }
-
-    return {};
-  }
-
-  const double determinate = (b*b - 4*a*c);
-  if (determinate < 0.0)
-  {
-    return {};
-  }
-
-  std::vector<double> output;
-  const double t_m = (-b - std::sqrt(determinate))/(2*a);
-  if (0.0 <= t_m && t_m <= 1.0)
-    output.push_back(t_m);
-
-  const double t_p = (-b + std::sqrt(determinate))/(2*a);
-  if (0.0 <= t_p && t_p <= 1.0 && std::abs(t_p - t_m) > time_tolerance)
-    output.push_back(t_p);
-
-  return output;
-}
-
-//==============================================================================
-Eigen::Vector3d compute_deriv_coeffs(const Eigen::Vector4d& coeffs)
-{
-  return {coeffs[1], 2.0*coeffs[2], 3.0*coeffs[3]};
 }
 
 } // anonymous namespace

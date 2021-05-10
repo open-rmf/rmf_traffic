@@ -19,7 +19,7 @@ https://github.com/erincatto/box2d/blob/master/src/collision/b2_time_of_impact.c
 
 ### Rotations > 180
 
-The bilateral advancement algorithm can miss collisions due to large rotations (slide 40) and the root finder being unable to find a minima. To fix that, we deduce that if the rotation >= 180 degrees we divide up the CCD sweeping, ie. perform bilateral advancement from [0,0.5] of the spline and the same for [0.5,1] of the spline. See the `get_sweep_divisions` function.
+The bilateral advancement algorithm can miss collisions due to large rotations (slide 40) and the root finder being unable to find a minima. To fix that, we deduce that if the rotation >= 180 degrees we divide up the CCD sweeping, ie. perform bilateral advancement from [0,0.5] of the spline and the same for [0.5,1] of the spline. See the `Spline::get_ccd_sweep_markers` function.
 
 ### Curved trajectories
 
