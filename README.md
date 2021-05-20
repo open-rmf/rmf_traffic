@@ -1,5 +1,8 @@
 # rmf\_traffic package
 
+![](https://github.com/open-rmf/rmf_traffic/workflows/build/badge.svg)
+[![codecov](https://codecov.io/gh/open-rmf/rmf_traffic/branch/main/graph/badge.svg)](https://codecov.io/gh/open-rmf/rmf_traffic)
+
 The `rmf_traffic` package implements the algorithms and data structures that are used for scheduling and negotiating mobile robot traffic between multiple agents.
 
 ## RMF
