@@ -1,6 +1,5 @@
 name: tsan
 on: 
-  push:
   pull_request:
   schedule:
     - cron: '36 0 * * *'
