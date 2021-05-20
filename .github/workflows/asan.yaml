@@ -1,6 +1,5 @@
 name: asan
 on: 
-  push:
   pull_request:
   schedule:
     - cron: '42 0 * * *'
