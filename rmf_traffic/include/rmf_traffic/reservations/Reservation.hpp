@@ -56,7 +56,6 @@ public:
   static Reservation make_reservation(
     rmf_traffic::Time start_time,
     std::string resource_name,
-    schedule::ParticipantId pid,
     std::optional<rmf_traffic::Duration> duration,
     std::optional<rmf_traffic::Time> finish_time);
 

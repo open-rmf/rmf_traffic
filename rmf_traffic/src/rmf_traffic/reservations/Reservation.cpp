@@ -119,7 +119,6 @@ bool Reservation::operator==(const Reservation& other) const
 {
   return other._pimpl->_res_id == _pimpl->_res_id
     && other._pimpl->_start_time == _pimpl->_start_time
-    && other._pimpl->_pid == _pimpl->_pid
     && other._pimpl->_resource_name == _pimpl->_resource_name
     && other._pimpl->_duration == _pimpl->_duration
     && other._pimpl->_finish_time == _pimpl->_finish_time;
@@ -129,7 +128,6 @@ bool Reservation::operator==(const Reservation& other) const
 Reservation Reservation::make_reservation(
   rmf_traffic::Time start_time,
   std::string resource_name,
-  schedule::ParticipantId pid,
   std::optional<rmf_traffic::Duration> duration,
   std::optional<rmf_traffic::Time> finish_time)
 {
@@ -138,18 +136,16 @@ Reservation Reservation::make_reservation(
 
   res._pimpl->_res_id = counter;
   res._pimpl->_start_time = start_time;
-  res._pimpl->_pid = pid;
   res._pimpl->_resource_name = resource_name;
   res._pimpl->_duration = duration;
   res._pimpl->_finish_time = finish_time;
-  
   counter++;
 
   return res;
 }
 
 //=============================================================================
-Reservation::Reservation(): 
+Reservation::Reservation():
   _pimpl(rmf_utils::make_impl<Implementation>())
 {
 

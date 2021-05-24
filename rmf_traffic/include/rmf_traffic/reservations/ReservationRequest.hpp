@@ -25,6 +25,9 @@
 
 namespace rmf_traffic {
 namespace reservations {
+
+using RequestId = uint64_t;
+
 class ReservationRequest
 {
 
@@ -59,7 +62,6 @@ public:
 
   static ReservationRequest make_request(
     std::string resource_name,
-    schedule::ParticipantId participant,
     std::optional<TimeRange> start = std::nullopt,
     std::optional<Duration> duration = std::nullopt,
     std::optional<Time> finish = std::nullopt
