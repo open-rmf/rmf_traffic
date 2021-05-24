@@ -28,12 +28,12 @@ public:
 };
 
 
-const std::optional<Time> 
+const std::optional<Time>
   ReservationRequest::TimeRange::lower_bound() const
 {
   return _pimpl->_lower_bound;
 }
-const std::optional<Time> 
+const std::optional<Time>
   ReservationRequest::TimeRange::upper_bound() const
 {
   return _pimpl->_upper_bound;
@@ -66,7 +66,7 @@ public:
 };
 
 //=============================================================================
-const std::optional<ReservationRequest::TimeRange> 
+const std::optional<ReservationRequest::TimeRange>
     ReservationRequest::start_time() const
 {
   return _pimpl->_start;
@@ -99,14 +99,12 @@ bool ReservationRequest::is_indefinite() const
 //=============================================================================
 ReservationRequest ReservationRequest::make_request(
   std::string resource_name,
-  schedule::ParticipantId participant,
   std::optional<TimeRange> start,
   std::optional<Duration> duration,
   std::optional<Time> finish)
 {
   ReservationRequest req;
   req._pimpl->_resource_name = resource_name;
-  req._pimpl->_participant = participant;
   req._pimpl->_start = start;
   req._pimpl->_finish = finish;
   req._pimpl->_duration = duration;
