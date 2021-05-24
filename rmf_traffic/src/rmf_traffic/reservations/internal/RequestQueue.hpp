@@ -23,7 +23,46 @@
 
 namespace rmf_traffic {
 namespace reservations {
-}
-}
 
+class RequestQueue
+{
+public:
+  struct ReservationInfo {
+    int priority;
+    std::vector<ReservationRequest> request_options;
+  };
+
+  void enqueue_reservation(
+    ParticipantId pid,
+    RequestId req,
+    int priority,
+    std::vector<ReservationRequest>& reservation
+  )
+  {
+    _reservation_info[pid].insert({
+      req,
+      {
+        priority,
+        std::move(reservation)
+      }
+    });
+  }
+
+  void erase_participant_requests(
+    ParticipantId pid
+  ){
+    auto entry = _reservation_info.find(pid);
+    if(entry == _reservation_info.end())
+      return;
+    _reservation_info.erase(entry);
+  }
+
+private:
+  std::unordered_map<ParticipantId,
+    std::unordered_map<RequestId, ReservationInfo>
+    >  _reservation_info;
+};
+
+}
+}
 #endif

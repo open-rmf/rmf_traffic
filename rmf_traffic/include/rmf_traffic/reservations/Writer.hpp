@@ -43,7 +43,7 @@ public:
     int priority = 0
   ) = 0;
 
-  virtual void cancel_request(RequestId req) = 0;
+  virtual void cancel_request(ParticipantId id, RequestId req) = 0;
 };
 }
 }

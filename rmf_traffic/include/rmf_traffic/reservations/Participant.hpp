@@ -28,7 +28,7 @@ using ParticipantId = uint64_t;
 class Participant
 {
 public:
-  virtual void request_assignment_received(
+  virtual bool request_assignment_received(
     RequestId id,
     Reservation& res
   ) = 0;

@@ -41,7 +41,7 @@ public:
     int priority = 0
   ) override;
 
-  void cancel_request(RequestId req) override;
+  void cancel_request(ParticipantId id, RequestId req) override;
 
   Database();
 
