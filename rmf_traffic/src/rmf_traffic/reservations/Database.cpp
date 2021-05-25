@@ -80,7 +80,7 @@ void Database::request_reservation(
   ParticipantId id,
   RequestId req,
   std::vector<ReservationRequest>& request_options,
-  int priority = 0)
+  int priority)
 {
   _pimpl->request_reservation(id, req, request_options, priority);
 }

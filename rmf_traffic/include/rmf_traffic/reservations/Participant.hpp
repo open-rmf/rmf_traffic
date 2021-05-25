@@ -19,7 +19,7 @@
 #define RMF_TRAFFIC__PARTICIPANT_HPP
 
 #include <rmf_traffic/reservations/Reservation.hpp>
-
+#include <rmf_traffic/reservations/ReservationRequest.hpp>
 namespace rmf_traffic {
 namespace reservations {
 

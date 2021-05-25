@@ -55,12 +55,18 @@ public:
 
   }
 
-  State delay_reservations_after(ReservationId id, Duration dur)
+  State remove_reservation(ReservationId res)
   {
 
   }
 
-  State bring_forward_reservations_before(ReservationId id, Duration dur)
+  std::optional<State> delay_reservations_after(ReservationId id, Duration dur)
+  {
+
+  }
+
+  std::optional<State>
+    bring_forward_reservations_before(ReservationId id, Duration dur)
   {
 
   }
@@ -78,3 +84,4 @@ private:
 
 }
 }
+#endif
