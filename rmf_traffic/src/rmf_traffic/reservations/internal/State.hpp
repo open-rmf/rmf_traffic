@@ -145,6 +145,7 @@ public:
     return {new_state}; //RIP another invocation of copy constructor
   }
 
+  // TODO: Implement later so we have more flexibility.
   std::optional<State>
     bring_forward_reservations_before(ReservationId id, Duration dur)
   {
@@ -153,7 +154,8 @@ public:
 
   bool operator==(State& other) const
   {
-
+    return _resource_schedules == other._resource_schedules
+      && _assignments == other._assignments;
   }
 
   std::size_t hash()
@@ -188,7 +190,6 @@ private:
     _reservation_timings[res_id] = new_time;
   }
 
-  
   ResourceSchedules _resource_schedules;
   ParticipantAssignment _assignments;
   ReservationAssignment _reservation_assignment;
