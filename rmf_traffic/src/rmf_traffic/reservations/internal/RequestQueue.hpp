@@ -18,7 +18,8 @@
 #ifndef RMF_TRAFFIC__RESERVATIONS__INTERNAL_REQUESTQUEUE_HPP
 #define RMF_TRAFFIC__RESERVATIONS__INTERNAL_REQUESTQUEUE_HPP
 
-#include <rmf_traffic/reservations/Database.hpp>
+#include <rmf_traffic/reservations/ReservationRequest.hpp>
+#include <rmf_traffic/reservations/Reservation.hpp>
 #include <unordered_map>
 
 namespace rmf_traffic {
@@ -57,6 +58,77 @@ public:
     _reservation_info.erase(entry);
   }
 
+  bool satisfies(ReservationRequest& req, Reservation reservation)
+  {
+    //Check upper bound
+    if(req.start_time()->lower_bound().has_value())
+    {
+      if(reservation.start_time() < req.start_time()->lower_bound().value())
+      {
+        return false;
+      }
+    }
+
+    //Check upper bound
+    if(req.start_time()->upper_bound().has_value())
+    {
+      if(reservation.start_time() > req.start_time()->upper_bound().value())
+      {
+        return false;
+      }
+    }
+
+    if(req.duration().has_value())
+    {
+      if(reservation.is_indefinite())
+      {
+        return false;
+      }
+      if(req.duration().value()
+        > *reservation.actual_finish_time() - reservation.start_time())
+      {
+        return false;
+      }
+    }
+
+    if(req.finish_time().has_value())
+    {
+      if(reservation.is_indefinite())
+      {
+        return false;
+      }
+      if(req.finish_time().value() > *reservation.actual_finish_time())
+      {
+        return false;
+      }
+    }
+
+    if(req.is_indefinite() && !reservation.is_indefinite()
+      || !req.is_indefinite() && reservation.is_indefinite())
+    {
+      return false;
+    }
+
+    if(req.resource_name() != reservation.resource_name())
+    {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool satisfies(
+    ParticipantId pid,
+    RequestId reqid,
+    Reservation& res
+  ){
+    for(auto req: _reservation_info[pid][reqid].request_options)
+    {
+      if(satisfies(req, res))
+        return true;
+    }
+    return false;
+  }
 private:
   std::unordered_map<ParticipantId,
     std::unordered_map<RequestId, ReservationInfo>

@@ -28,7 +28,12 @@ using ParticipantId = uint64_t;
 class Participant
 {
 public:
-  virtual bool request_assignment_received(
+  virtual bool request_proposal_received(
+    RequestId id,
+    Reservation& res
+  ) = 0;
+
+  virtual bool request_proposal_confirmed(
     RequestId id,
     Reservation& res
   ) = 0;

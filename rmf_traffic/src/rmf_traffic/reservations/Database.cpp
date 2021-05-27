@@ -24,7 +24,8 @@ namespace reservations {
 class Database::Implementation
 {
 public:
-  Implementation()
+  Implementation():
+    _request_queue(std::make_shared<RequestQueue>())
   {
 
   }
@@ -41,7 +42,7 @@ public:
   )
   {
     _participant_store.remove_participant(id);
-    _request_queue.erase_participant_requests(id);
+    _request_queue->erase_participant_requests(id);
   }
 
   void request_reservation(
@@ -58,7 +59,7 @@ public:
   }
 private:
   ParticipantStore _participant_store;
-  RequestQueue _request_queue;
+  std::shared_ptr<RequestQueue> _request_queue;
 };
 
 void Database::register_participant(
