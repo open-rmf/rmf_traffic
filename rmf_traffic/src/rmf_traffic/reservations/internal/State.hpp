@@ -28,6 +28,7 @@
 namespace rmf_traffic {
 namespace reservations {
 
+struct NextStateGenerator;
 //TODO: Currrently uses a lot of copying. In future we should use a parent based
 //hierarchy
 class State
@@ -41,22 +42,37 @@ class State
     }
   };
 public:
+
+  struct ReservationAssignmentIndex
+  {
+    ParticipantId participant;
+    RequestId reqid;
+    std::size_t index;
+  };
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
-  using ParticipantAssignment = std::unordered_map<
-    ParticipantId, std::unordered_map<RequestId, ReservationId>>;
   using ReservationAssignment = std::unordered_map<
     ParticipantId, std::unordered_map<ReservationId, RequestId>>;
 
   using ReservationTimings = std::unordered_map<ReservationId, Time>;
   using ReservationResources = std::unordered_map<ReservationId, std::string>;
+  using ReservationRequestId = std::unordered_map<ReservationId,
+    ReservationAssignmentIndex>;
   using UnassignedSet = std::unordered_set<
     std::pair<ParticipantId, RequestId>, pair_hash>;
 
-  State(std::shared_ptr<const RequestQueue> queue) :
+  State(std::shared_ptr<RequestQueue> queue) :
     _queue(queue)
   {
     //Do nothing
+  }
+
+  NextStateGenerator begin()
+  {
+  }
+
+  NextStateGenerator end()
+  {
   }
   /// Adds a request to the state
   State add_request(
@@ -80,7 +96,7 @@ public:
       new_state._unassigned.erase(req);
       return new_state;
     }
-    auto reservation_id = new_state._assignments[pid][reqid];
+    auto reservation_id = new_state._reservation_assignments[pid][reqid];
     auto findings = new_state._reservation_timings.find(reservation_id);
     if(findings == new_state._reservation_timings.end())
     {
@@ -92,9 +108,8 @@ public:
 
     new_state._resource_schedules[resource].erase(time);
     new_state._reservation_resources.erase(reservation_id);
-    new_state._reservation_assignment.erase(reservation_id);
+    new_state._reservation_assignments.erase(reservation_id);
     new_state._reservation_timings.erase(findings);
-
     return new_state;
   }
 
@@ -142,20 +157,13 @@ public:
       if(!ok) return std::nullopt;
     }
 
-    return {new_state}; //RIP another invocation of copy constructor
-  }
-
-  // TODO: Implement later so we have more flexibility.
-  std::optional<State>
-    bring_forward_reservations_before(ReservationId id, Duration dur)
-  {
-
+    return {new_state};
   }
 
   bool operator==(State& other) const
   {
     return _resource_schedules == other._resource_schedules
-      && _assignments == other._assignments;
+      && _reservation_assignments == other._reservation_assignments;
   }
 
   std::size_t hash()
@@ -165,15 +173,16 @@ public:
 
   State(const State& other) :
     _resource_schedules(other._resource_schedules),
-    _assignments(other._assignments),
     _unassigned(other._unassigned),
     _reservation_timings(other._reservation_timings),
     _queue(other._queue),
     _reservation_resources(other._reservation_resources),
-    _reservation_assignment(other._reservation_assignment)
+    _reservation_assignments(other._reservation_assignments),
+    _reservation_request_ids(other._reservation_request_ids)
   {
     // Do nothing
   }
+
 private:
   // Returns true if a shift could be successfully applied. Else returns false.
   bool shift_reservation_start_time(
@@ -182,21 +191,154 @@ private:
     rmf_traffic::Time new_time)
   {
     auto original_time = _reservation_timings[res_id];
-    auto new_start =
+    auto new_reservation =
       _resource_schedules[resource][original_time]
         .propose_new_start_time(new_time);
-
+    auto request_info = _reservation_request_ids[res_id];
+    auto index = _queue->satisfies(
+      request_info.participant,
+      request_info.reqid,
+      new_reservation);
+    if(!index.has_value())
+    {
+      return false;
+    }
+    _reservation_request_ids[res_id].reqid = *index;
     _resource_schedules[resource].erase(original_time);
+    _resource_schedules[resource][new_time] = new_reservation;
     _reservation_timings[res_id] = new_time;
+    return true;
   }
 
-  ResourceSchedules _resource_schedules;
-  ParticipantAssignment _assignments;
-  ReservationAssignment _reservation_assignment;
-  UnassignedSet _unassigned;
-  ReservationTimings _reservation_timings;
-  ReservationResources _reservation_resources;
-  std::shared_ptr<const RequestQueue> _queue;
+  ResourceSchedules _resource_schedules; // resource_name => Schedules
+  ReservationAssignment _reservation_assignments; // {participant, req_id} => {reservation_id
+  UnassignedSet _unassigned; // {participant, req_id}
+  ReservationTimings _reservation_timings; // reservation => time
+  ReservationResources _reservation_resources; // reservation => resource
+  ReservationRequestId _reservation_request_ids; // reservation => req_id
+
+  std::shared_ptr<RequestQueue> _queue;
+  friend NextStateGenerator;
+};
+struct NextStateGenerator
+{
+  //TODO: RAW_POINTER-FOO
+  State* start_state;
+  std::optional<State> current_state;
+  enum PotentialActionMode
+  {
+    ASSIGN_ITEMS,
+    REMOVE_ITEMS,
+    END
+  };
+  PotentialActionMode mode = ASSIGN_ITEMS;
+  State::UnassignedSet::const_iterator unassigned_iter;
+  
+  ReservationRequest curr_request;
+  State::ResourceSchedule::const_iterator insertion_point_iter;
+  State::ResourceSchedules::const_iterator remove_iter;
+  std::size_t request_index = 0;
+
+  using difference_type = std::ptrdiff_t;
+  using value_type = State;
+  using pointer = State*;
+  using reference = State;
+  using iterator_category= std::input_iterator_tag;
+
+  State operator*() const {
+    return *current_state;
+  }
+
+  State::ResourceSchedule::const_iterator
+    get_search_start(ReservationRequest req)
+  {
+    if(req.start_time().has_value() &&
+      req.start_time().value().lower_bound().has_value())
+    {
+      return start_state->
+        _resource_schedules[req.resource_name()]
+        .lower_bound(
+          curr_request.start_time().value().lower_bound().value());
+    }
+    else
+    {
+      return start_state->_resource_schedules[req.resource_name()].begin();
+    }
+  }
+
+  State::ResourceSchedule::const_iterator
+    get_search_end(ReservationRequest req)
+  {
+    if(req.start_time().has_value() &&
+      req.start_time().value().lower_bound().has_value())
+    {
+      return start_state->
+        _resource_schedules[req.resource_name()]
+        .upper_bound(
+          curr_request.start_time().value().upper_bound().value());
+    }
+    else
+    {
+      return start_state->_resource_schedules[req.resource_name()].end();
+    }
+  }
+
+  std::optional<State> next_state() {
+    if(mode == PotentialActionMode::ASSIGN_ITEMS)
+    {
+      if(unassigned_iter == start_state->_unassigned.end())
+      {
+        mode = PotentialActionMode::REMOVE_ITEMS;
+      }
+      else
+      {
+        auto [participant_id, request_id] = *unassigned_iter;
+        auto info =
+          start_state->_queue->get_request_info(participant_id, request_id);
+        if(request_index >= info.request_options.size())
+        {
+          unassigned_iter++;
+        }
+        else
+        {
+          auto curr_request = info.request_options[request_index];
+          // Get all reservations within current request and attempt insertion
+          
+          request_index++;
+        }
+      }
+    }
+    else if(mode == REMOVE_ITEMS)
+    {
+
+    }
+  }
+
+  NextStateGenerator& operator++() {
+    current_state = next_state();
+    return *this;
+  }
+
+  NextStateGenerator operator++(int) {
+    NextStateGenerator r = *this;
+    ++(*this);
+    return r;
+  }
+
+  bool operator==(const NextStateGenerator& other)
+  {
+    if(mode == PotentialActionMode::END
+    && other.mode == PotentialActionMode::END)
+    {
+      return true;
+    }
+    return false;
+  }
+
+  bool operator!=(const NextStateGenerator& other)
+  {
+    return !(*this == other);
+  }
 };
 
 }

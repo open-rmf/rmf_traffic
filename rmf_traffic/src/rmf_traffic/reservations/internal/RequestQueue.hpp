@@ -28,10 +28,18 @@ namespace reservations {
 class RequestQueue
 {
 public:
-  struct ReservationInfo {
+  struct RequestInfo {
     int priority;
     std::vector<ReservationRequest> request_options;
   };
+
+  RequestInfo get_request_info(
+    ParticipantId pid,
+    RequestId req)
+  {
+    //TODO: Sanitize
+    return _reservation_info[pid][req];
+  }
 
   void enqueue_reservation(
     ParticipantId pid,
@@ -117,21 +125,23 @@ public:
     return true;
   }
 
-  bool satisfies(
+  std::optional<std::size_t> satisfies(
     ParticipantId pid,
     RequestId reqid,
     Reservation& res
-  ){
-    for(auto req: _reservation_info[pid][reqid].request_options)
+  ) {
+    for(std::size_t i = 0;
+      i < _reservation_info[pid][reqid].request_options.size();
+      i++)
     {
-      if(satisfies(req, res))
-        return true;
+      if(satisfies(_reservation_info[pid][reqid].request_options[i], res))
+        return i;
     }
-    return false;
+    return std::nullopt;
   }
 private:
   std::unordered_map<ParticipantId,
-    std::unordered_map<RequestId, ReservationInfo>
+    std::unordered_map<RequestId, RequestInfo>
     >  _reservation_info;
 };
 
