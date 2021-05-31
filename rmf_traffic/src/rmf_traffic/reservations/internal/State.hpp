@@ -160,6 +160,12 @@ public:
     return {new_state};
   }
 
+  
+  void purge_up_to_time(Time time)
+  {
+
+  }
+
   bool operator==(State& other) const
   {
     return _resource_schedules == other._resource_schedules
@@ -185,6 +191,20 @@ public:
 
 private:
   // Returns true if a shift could be successfully applied. Else returns false.
+  void unassign_reservation(ResourceSchedule::const_iterator iter)
+  {
+    auto res_id = iter->second.reservation_id();
+    auto resource_name = iter->second.resource_name();
+
+    _reservation_timings.erase(res_id);
+    _reservation_resources.erase(res_id);
+    auto request = _reservation_request_ids[res_id];
+
+    _unassigned.insert({request.participant , request.reqid});
+    _reservation_assignments[request.participant].erase(request.reqid);
+    _reservation_request_ids.erase(res_id);
+  }
+
   bool shift_reservation_start_time(
     std::string resource,
     ReservationId res_id,
@@ -215,7 +235,7 @@ private:
   UnassignedSet _unassigned; // {participant, req_id}
   ReservationTimings _reservation_timings; // reservation => time
   ReservationResources _reservation_resources; // reservation => resource
-  ReservationRequestId _reservation_request_ids; // reservation => req_id
+  ReservationRequestId _reservation_request_ids; // reservation => {part_id, req_id, index}
 
   std::shared_ptr<RequestQueue> _queue;
   friend NextStateGenerator;
@@ -231,12 +251,15 @@ struct NextStateGenerator
     REMOVE_ITEMS,
     END
   };
+
   PotentialActionMode mode = ASSIGN_ITEMS;
   State::UnassignedSet::const_iterator unassigned_iter;
-  
   ReservationRequest curr_request;
   State::ResourceSchedule::const_iterator insertion_point_iter;
-  State::ResourceSchedules::const_iterator remove_iter;
+
+  // For iterating through removals
+  State::ResourceSchedules::const_iterator remove_resource_iter;
+  State::ResourceSchedule::const_iterator remove_iter;
   std::size_t request_index = 0;
 
   using difference_type = std::ptrdiff_t;
@@ -281,6 +304,29 @@ struct NextStateGenerator
     {
       return start_state->_resource_schedules[req.resource_name()].end();
     }
+  }
+
+  std::optional<State> advance_assignments()
+  {
+    
+  }
+
+  std::optional<State> advance_removals()
+  {
+    if(remove_resource_iter == start_state->_resource_schedules.end())
+    {
+      return std::nullopt;
+    }
+    while(remove_iter == remove_resource_iter->second.end())
+    {
+      remove_resource_iter++;
+      remove_iter = remove_resource_iter->second.begin();
+    }
+
+    State new_state(start_state);
+    new_state.remove_request(remove_iter);
+    remove_iter++;
+    return new_state;
   }
 
   std::optional<State> next_state() {
