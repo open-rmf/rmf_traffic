@@ -192,6 +192,44 @@ public:
   }
 
 private:
+  void push_back(
+    std::string resource,
+    ResourceSchedule::const_iterator res_iter,
+    Duration dur
+  )
+  {
+    auto prev_iter = res_iter;
+    std::next(res_iter);
+
+    // TODO: This is extremely inefficient. Do in-place.
+    std::map<Time, ReservationId> new_times;
+    auto gap_left = dur;
+    while(
+      res_iter != new_state._resource_schedules[resource->second].end()
+      && prev_iter->second.actual_finish_time().has_value()
+      && gap_left.count() > 0)
+    {
+      auto new_time = res_iter->first + gap_left;
+      auto gap = res_iter->first - prev_iter->second.actual_finish_time().value();
+      if(gap < gap_left)
+        gap_left -= gap;
+      else
+        gap_left -= gap_left;
+      new_times[new_time] = res_iter->second.reservation_id();
+      prev_iter = res_iter;
+      std::next(res_iter);
+    }
+
+    for(auto iter = new_times.rbegin(); iter != new_times.rend(); iter++)
+    {
+      bool ok  = new_state.shift_reservation_start_time(
+        resource->second,
+        iter->second,
+        iter->first);
+
+      if(!ok) return std::nullopt;
+    }
+  }
   // Returns true if a shift could be successfully applied. Else returns false.
   void unassign_reservation(ReservationId res_id, std::string resource_name)
   {
@@ -235,9 +273,14 @@ private:
       auto next_reservation = _resource_schedules[res.resource_name()].lower_bound(
         res.start_time()
       );
-      if(next_reservation->second.start_time() < res.actual_finish_time())
+      if(next_reservation != _resource_schedules[res.resource_name()].end()
+        && res.actual_finish_time().has_value()
+        && next_reservation->second.start_time() < res.actual_finish_time().value())
       {
-
+        push_back(
+          res.resource_name(),
+          next_reservation,
+          res.actual_finish_time().value());
       }
 
     }
