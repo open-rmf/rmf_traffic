@@ -29,6 +29,14 @@ namespace rmf_traffic {
 namespace reservations {
 
 struct NextStateGenerator;
+
+// Ripped from https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
 //TODO: Currrently uses a lot of copying. In future we should use a parent based
 //hierarchy
 class State
@@ -73,6 +81,9 @@ public:
 
   NextStateGenerator end()
   {
+    NextStateGenerator gen;
+    gen.mode == NextStateGenerator::PotentialActionMode::END;
+    return gen;
   }
   /// Adds a request to the state
   State add_request(
@@ -118,6 +129,31 @@ public:
 
   }
 
+  void debug_state()
+  {
+    for(auto &[resource, schedule]: _resource_schedules)
+    {
+      std::cout << "________________________" <<std::endl;
+      std::cout << "Resource: " << std::endl;
+      for(auto &[time, reservation]: schedule)
+      {
+        std::cout << "\t======"
+        std::cout << "\tReservation: " << reservation.reservation_id() << std::endl;
+        std::cout << "\tStart time: " << time.time_since_epoch().count()/1e9<< std::endl;
+        if(!reservation.is_indefinite())
+          std::cout << "\tEnd time: " <<
+            reservation.actual_finish_time()->time_since_epoch().count()/1e9
+            << std::endl;
+        std::cout << "\tParticipant: " <<
+          _reservation_request_ids[reservation.reservation_id()].participant
+          << std::endl;
+        std::cout << "\tRequestID: " <<
+          _reservation_request_ids[reservation.resource_name()].request
+          << std::endl;
+      }
+    }
+  }
+
   bool operator==(State& other) const
   {
     return _resource_schedules == other._resource_schedules
@@ -126,7 +162,21 @@ public:
 
   std::size_t hash()
   {
-
+    std::size_t seed = 0x928193843;
+    for(auto &[resource, schedule]: _resource_schedules)
+    {
+      for(auto &[time, reservation]: schedule)
+      {
+        hash_combine(seed, time.time_since_epoch().count());
+        hash_combine(
+          seed,
+          _reservation_request_ids[reservation.reservation_id()].participant);
+        hash_combine(
+          seed,
+          _reservation_request_ids[reservation.reservation_id()].reqid);
+      }
+    }
+    return seed;
   }
 
   State(const State& other) :
@@ -407,7 +457,15 @@ struct NextStateGenerator
   }
 
   std::optional<State> next_state() {
-    
+    auto assignment = advance_assignments();
+    if(assignment.has_value())
+      return assignment;
+    mode = PotentialActionMode::REMOVE_ITEMS;
+    auto removals = advance_removals();
+    if(removals.has_value())
+      return removals;
+    mode = PotentialActionMode::END;
+    return std::nullopt;
   }
 
   NextStateGenerator& operator++() {
