@@ -77,6 +77,60 @@ public:
 
   NextStateGenerator begin()
   {
+    NextStateGenerator gen;
+    gen.mode = NextStateGenerator::PotentialActionMode::ASSIGN_ITEMS;
+    gen.start_state = this;
+    if(_unassigned.size() > 0)
+    {
+      auto current_request = _queue->get_request_info(
+        _unassigned.begin()->first,
+        _unassigned.begin()->second).request_options[0];
+
+      gen.unassigned_iter = _unassigned.begin();
+      gen.insertion_point_iter = gen.get_search_start(current_request);
+      gen.insertion_point_end = gen.get_search_end(current_request);
+
+      State next_state(*this);
+      auto new_res = [=]() -> Reservation {
+        if(gen.insertion_point_end != gen.insertion_point_iter)
+        {
+          return Reservation::make_reservation(
+            gen.insertion_point_iter->second.actual_finish_time().value(),
+            resource_name,
+            current_request.duration(),
+            current_request.finish_time()
+          );
+        }
+        else
+        {
+          if(current_request.start_time().has_value())
+          {
+            return Reservation::make_reservation(
+              current_request.start_time().value(),
+              resource_name,
+              current_request.duration(),
+              current_request.finish_time()
+            );
+          }
+          else
+          {
+            //TODO some API for time syncing
+          }
+        }
+      }();
+      next_state.assign_reservation(
+        unassigned_iter->first,
+        unassigned_iter->second,
+        new_res
+      )
+      gen.next_state = next_state;
+    }
+    gen.remove_resource_iter = _resource_schedules.begin();
+    if(_resource_schedules.size() > 0)
+    {
+      gen.remove_iter = gen.remove_resource_iter->first;
+    }
+    return gen;
   }
 
   NextStateGenerator end()
