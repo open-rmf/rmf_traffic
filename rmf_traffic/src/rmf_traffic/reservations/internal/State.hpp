@@ -21,6 +21,7 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include <unordered_map>
 #include <unordered_set>
+#include <iostream>
 #include <map>
 
 #include "RequestQueue.hpp"
@@ -75,70 +76,8 @@ public:
     //Do nothing
   }
 
-  NextStateGenerator begin()
-  {
-    NextStateGenerator gen;
-    gen.mode = NextStateGenerator::PotentialActionMode::ASSIGN_ITEMS;
-    gen.start_state = this;
-    if(_unassigned.size() > 0)
-    {
-      auto current_request = _queue->get_request_info(
-        _unassigned.begin()->first,
-        _unassigned.begin()->second).request_options[0];
-
-      gen.unassigned_iter = _unassigned.begin();
-      gen.insertion_point_iter = gen.get_search_start(current_request);
-      gen.insertion_point_end = gen.get_search_end(current_request);
-
-      State next_state(*this);
-      auto new_res = [=]() -> Reservation {
-        if(gen.insertion_point_end != gen.insertion_point_iter)
-        {
-          return Reservation::make_reservation(
-            gen.insertion_point_iter->second.actual_finish_time().value(),
-            resource_name,
-            current_request.duration(),
-            current_request.finish_time()
-          );
-        }
-        else
-        {
-          if(current_request.start_time().has_value())
-          {
-            return Reservation::make_reservation(
-              current_request.start_time().value(),
-              resource_name,
-              current_request.duration(),
-              current_request.finish_time()
-            );
-          }
-          else
-          {
-            //TODO some API for time syncing
-          }
-        }
-      }();
-      next_state.assign_reservation(
-        unassigned_iter->first,
-        unassigned_iter->second,
-        new_res
-      )
-      gen.next_state = next_state;
-    }
-    gen.remove_resource_iter = _resource_schedules.begin();
-    if(_resource_schedules.size() > 0)
-    {
-      gen.remove_iter = gen.remove_resource_iter->first;
-    }
-    return gen;
-  }
-
-  NextStateGenerator end()
-  {
-    NextStateGenerator gen;
-    gen.mode == NextStateGenerator::PotentialActionMode::END;
-    return gen;
-  }
+  NextStateGenerator begin();
+  NextStateGenerator end();
   /// Adds a request to the state
   State add_request(
     ParticipantId pid,
@@ -166,7 +105,7 @@ public:
     if(findings == new_state._reservation_timings.end())
     {
       // Non existant pid-reqid pair
-      return;
+      return new_state;
     }
     auto time = findings->second;
     auto resource = new_state._reservation_resources[reservation_id];
@@ -191,7 +130,7 @@ public:
       std::cout << "Resource: " << std::endl;
       for(auto &[time, reservation]: schedule)
       {
-        std::cout << "\t======"
+        std::cout << "\t======";
         std::cout << "\tReservation: " << reservation.reservation_id() << std::endl;
         std::cout << "\tStart time: " << time.time_since_epoch().count()/1e9<< std::endl;
         if(!reservation.is_indefinite())
@@ -202,7 +141,7 @@ public:
           _reservation_request_ids[reservation.reservation_id()].participant
           << std::endl;
         std::cout << "\tRequestID: " <<
-          _reservation_request_ids[reservation.resource_name()].request
+          _reservation_request_ids[reservation.reservation_id()].reqid
           << std::endl;
       }
     }
@@ -246,7 +185,7 @@ public:
   }
 
 private:
-  void push_back(
+  bool push_back(
     std::string resource,
     ResourceSchedule::const_iterator res_iter,
     Duration dur
@@ -259,7 +198,7 @@ private:
     std::map<Time, ReservationId> new_times;
     auto gap_left = dur;
     while(
-      res_iter != new_state._resource_schedules[resource->second].end()
+      res_iter != _resource_schedules[resource].end()
       && prev_iter->second.actual_finish_time().has_value()
       && gap_left.count() > 0)
     {
@@ -276,13 +215,15 @@ private:
 
     for(auto iter = new_times.rbegin(); iter != new_times.rend(); iter++)
     {
-      bool ok  = new_state.shift_reservation_start_time(
-        resource->second,
+      bool ok  = shift_reservation_start_time(
+        resource,
         iter->second,
         iter->first);
 
-      if(!ok) return std::nullopt;
+      if(!ok) return false;
     }
+
+    return true;
   }
   // Returns true if a shift could be successfully applied. Else returns false.
   void unassign_reservation(ReservationId res_id, std::string resource_name)
@@ -331,10 +272,14 @@ private:
         && res.actual_finish_time().has_value()
         && next_reservation->second.start_time() < res.actual_finish_time().value())
       {
-        push_back(
+        auto ok = push_back(
           res.resource_name(),
           next_reservation,
-          res.actual_finish_time().value());
+          res.actual_finish_time().value() - next_reservation->second.start_time());
+        if(!ok)
+        {
+          return false;
+        }
       }
 
     }
@@ -592,6 +537,72 @@ struct NextStateGenerator
   }
 };
 
+NextStateGenerator State::begin()
+{
+  NextStateGenerator gen;
+  gen.mode = NextStateGenerator::PotentialActionMode::ASSIGN_ITEMS;
+  gen.start_state = this;
+  if(_unassigned.size() > 0)
+  {
+    auto current_request = _queue->get_request_info(
+      _unassigned.begin()->first,
+      _unassigned.begin()->second).request_options[0];
+
+    gen.unassigned_iter = _unassigned.begin();
+    gen.insertion_point_iter = gen.get_search_start(current_request);
+    gen.insertion_point_end = gen.get_search_end(current_request);
+
+    State next_state(*this);
+    auto new_res = [=]() -> Reservation {
+      if(gen.insertion_point_end != gen.insertion_point_iter)
+      {
+        return Reservation::make_reservation(
+          gen.insertion_point_iter->second.actual_finish_time().value(),
+          current_request.resource_name(),
+          current_request.duration(),
+          current_request.finish_time()
+        );
+      }
+      else
+      {
+        if(current_request.start_time().has_value()
+        && current_request.start_time()->lower_bound().has_value()
+        )
+        {
+          return Reservation::make_reservation(
+            current_request.start_time()->lower_bound().value(),
+            current_request.resource_name(),
+            current_request.duration(),
+            current_request.finish_time()
+          );
+        }
+        else
+        {
+          //TODO some API for time syncing
+        }
+      }
+    }();
+    next_state.assign_reservation(
+      gen.unassigned_iter->first,
+      gen.unassigned_iter->second,
+      new_res
+    );
+    gen.visiting_state = next_state;
+  }
+  gen.remove_resource_iter = _resource_schedules.begin();
+  if(_resource_schedules.size() > 0)
+  {
+    gen.remove_iter = gen.remove_resource_iter->second.begin();
+  }
+  return gen;
+}
+
+NextStateGenerator State::end()
+{
+  NextStateGenerator gen;
+  gen.mode = NextStateGenerator::PotentialActionMode::END;
+  return gen;
+}
 }
 }
 #endif

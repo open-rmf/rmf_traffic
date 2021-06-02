@@ -18,6 +18,7 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include "internal/ParticipantStore.hpp"
 #include "internal/RequestQueue.hpp"
+#include "internal/State.hpp"
 namespace rmf_traffic {
 namespace reservations {
 

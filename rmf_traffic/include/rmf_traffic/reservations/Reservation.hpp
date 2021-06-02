@@ -60,8 +60,9 @@ public:
     std::optional<rmf_traffic::Time> finish_time);
 
   class Implementation;
-private:
+
   Reservation();
+private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 } // end namespace reservations
