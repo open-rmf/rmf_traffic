@@ -24,7 +24,7 @@ namespace schedule {
 
 //==============================================================================
 Rectifier Rectifier::Implementation::make(
-  Participant::Implementation& participant)
+  const std::shared_ptr<Participant::Implementation::Shared>& participant)
 {
   Rectifier rectifier;
   rectifier._pimpl = rmf_utils::make_unique_impl<Implementation>(
@@ -38,7 +38,8 @@ void Rectifier::retransmit(
   const std::vector<Range>& ranges,
   ItineraryVersion last_known_version)
 {
-  _pimpl->participant.retransmit(ranges, last_known_version);
+  if (const auto shared = _pimpl->participant.lock())
+    shared->retransmit(ranges, last_known_version);
 }
 
 //==============================================================================

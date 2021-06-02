@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_PARTICIPANT_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_PARTICIPANT_HPP
 
 #include <rmf_traffic/schedule/Participant.hpp>
 
@@ -37,11 +37,44 @@ public:
     std::shared_ptr<Writer> writer,
     std::shared_ptr<RectificationRequesterFactory> rectifier_factory);
 
-  void retransmit(
-    const std::vector<Rectifier::Range>& from,
-    ItineraryVersion last_known);
+  class Shared
+  {
+  public:
 
-  ItineraryVersion current_version() const;
+    Shared(
+      const Writer::Registration& registration,
+      ParticipantDescription description,
+      std::shared_ptr<Writer> writer);
+
+    void retransmit(
+      const std::vector<Rectifier::Range>& from,
+      ItineraryVersion last_known);
+
+    ItineraryVersion current_version() const;
+
+    ~Shared();
+
+  private:
+    friend class Participant;
+
+    Writer::Input make_input(std::vector<Route> itinerary);
+    ItineraryVersion get_next_version();
+
+    const ParticipantId _id;
+    ItineraryVersion _version;
+    RouteId _last_route_id;
+    const ParticipantDescription _description;
+    std::shared_ptr<Writer> _writer;
+    std::unique_ptr<RectificationRequester> _rectification;
+
+    using ChangeHistory =
+      std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
+
+    Writer::Input _current_itinerary;
+
+    ChangeHistory _change_history;
+    rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
+  };
 
   // Note: It would be better if this constructor were private, but we need to
   // make it public so it can be used by rmf_utils::make_unique_impl
@@ -50,31 +83,12 @@ public:
     ParticipantDescription description,
     std::shared_ptr<Writer> writer);
 
-  ~Implementation();
-
 private:
   friend class Participant;
-
-  Writer::Input make_input(std::vector<Route> itinerary);
-  ItineraryVersion get_next_version();
-
-  const ParticipantId _id;
-  ItineraryVersion _version;
-  RouteId _last_route_id;
-  const ParticipantDescription _description;
-  std::shared_ptr<Writer> _writer;
-  std::unique_ptr<RectificationRequester> _rectification;
-
-  using ChangeHistory =
-    std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
-
-  Writer::Input _current_itinerary;
-
-  ChangeHistory _change_history;
-  rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
+  std::shared_ptr<Shared> _shared;
 };
 
 } // namespace schedule
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_PARTICIPANT_HPP

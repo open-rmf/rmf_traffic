@@ -34,33 +34,47 @@ public:
     std::shared_ptr<Writer> writer,
     std::shared_ptr<RectificationRequesterFactory> rectifier_factory);
 
-  void check(const Status& status);
+  class Shared
+  {
+  public:
 
-  void check();
+    Shared(
+      const ParticipantId id,
+      double radius,
+      std::shared_ptr<Writer> writer);
+
+    void check(const Status& status);
+
+    void check();
+
+    ~Shared();
+
+  private:
+    friend class Participant;
+
+    void _send_reservation();
+    void _send_ready();
+    void _send_release(CheckpointId checkpoint);
+    void _send_reached();
+
+    ParticipantId _id;
+    std::shared_ptr<Writer> _writer;
+    std::unique_ptr<RectificationRequester> _rectification;
+
+    Writer::Reservation _current_reservation;
+    std::optional<ReservationId> _reservation_id;
+    std::optional<CheckpointId> _last_ready;
+    CheckpointId _last_reached;
+  };
 
   Implementation(
     ParticipantId id,
     double radius,
     std::shared_ptr<Writer> writer);
 
-  ~Implementation();
-
 private:
   friend class Participant;
-
-  void _send_reservation();
-  void _send_ready();
-  void _send_release(CheckpointId checkpoint);
-  void _send_reached();
-
-  ParticipantId _id;
-  std::shared_ptr<Writer> _writer;
-  std::unique_ptr<RectificationRequester> _rectification;
-
-  Writer::Reservation _current_reservation;
-  std::optional<ReservationId> _reservation_id;
-  std::optional<CheckpointId> _last_ready;
-  CheckpointId _last_reached;
+  std::shared_ptr<Shared> _shared;
 
 };
 

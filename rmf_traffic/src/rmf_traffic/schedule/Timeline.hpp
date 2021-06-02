@@ -456,6 +456,14 @@ public:
 
     for (const auto& other_entry : other)
     {
+      if (!other_entry)
+      {
+        throw std::runtime_error(
+          "[rmf_traffic::schedule::Timeline::clone_bucket] INTERNAL ERROR: "
+          "nullptr value for bucket entry. Please report this bug to the "
+          "maintainers!");
+      }
+
       if (check_relevant)
       {
         if (!check_relevant(*other_entry))
@@ -504,6 +512,14 @@ public:
   std::shared_ptr<Handle> insert(
     const std::shared_ptr<Entry>& entry)
   {
+    if (!entry)
+    {
+      throw std::runtime_error(
+        "[rmf_traffic::schedule::Timeline::insert] INTERNAL ERROR: "
+        "nullptr value for entry being inserted. Please report this bug to the "
+        "maintainers!");
+    }
+
     std::vector<std::weak_ptr<Bucket>> buckets;
     this->_all_bucket->push_back(entry);
     buckets.emplace_back(this->_all_bucket);
