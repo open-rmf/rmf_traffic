@@ -378,7 +378,9 @@ public:
         _interpolate.rotation_thresh, {initial_map_name});
     }
 
-    const double rotation_cost = rotation_info->minimum_cost;
+    const double rotation_cost = rotation_info.has_value() ?
+          rotation_info->minimum_cost : 0.0;
+
     auto oriented_node =
       std::make_shared<SearchNode>(
       SearchNode{
