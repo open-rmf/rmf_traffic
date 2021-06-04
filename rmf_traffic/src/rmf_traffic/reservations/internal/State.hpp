@@ -594,6 +594,10 @@ NextStateGenerator State::begin()
   {
     gen.remove_iter = gen.remove_resource_iter->second.begin();
   }
+  else if(_unassigned.size() == 0)
+  {
+    return end();
+  }
   return gen;
 }
 
