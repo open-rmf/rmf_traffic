@@ -132,10 +132,15 @@ public:
       {
         std::cout << "\t======";
         std::cout << "\tReservation: " << reservation.reservation_id() << std::endl;
-        std::cout << "\tStart time: " << time.time_since_epoch().count()/1e9<< std::endl;
+        std::cout << "\tStart time: " << 
+          std::chrono::duration_cast<std::chrono::seconds>(
+            time.time_since_epoch()
+          ).count() << std::endl;
         if(!reservation.is_indefinite())
           std::cout << "\tEnd time: " <<
-            reservation.actual_finish_time()->time_since_epoch().count()/1e9
+            std::chrono::duration_cast<std::chrono::seconds>(
+              reservation.actual_finish_time()->time_since_epoch()
+            ).count()
             << std::endl;
         std::cout << "\tParticipant: " <<
           _reservation_request_ids[reservation.reservation_id()].participant
