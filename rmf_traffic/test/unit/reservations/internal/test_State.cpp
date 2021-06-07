@@ -40,7 +40,16 @@ SCENARIO("A few reservations in a state")
         {10s}
     );
 
-    auto request1 = std::vector{request1_alt1};
+    auto request1_alt2 = ReservationRequest::make_request(
+        "table_at_koufu",
+        ReservationRequest::TimeRange::make_time_range(
+            now,
+            now+10s
+        ),
+        {10s}
+    );
+
+    auto request1 = std::vector{request1_alt1, request1_alt2};
     queue->enqueue_reservation(0, 0, 1, request1);
     start_state = start_state.add_request(0, 0);
 
