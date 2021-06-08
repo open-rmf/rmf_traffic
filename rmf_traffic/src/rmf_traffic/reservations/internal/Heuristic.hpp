@@ -15,45 +15,42 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__RESERVATIONS__INTERNAL_OPTIMIZER_HPP
-#define RMF_TRAFFIC__RESERVATIONS__INTERNAL_OPTIMIZER_HPP
+#ifndef RMF_TRAFFIC__RESERVATIONS__INTERNAL_HEURISTIC_HPP
+#define RMF_TRAFFIC__RESERVATIONS__INTERNAL_HEURISTIC_HPP
 
-#include "Heuristic.hpp"
+#include "State.hpp"
 
 namespace rmf_traffic {
 namespace reservations {
 
-struct StateHash {
-   size_t operator() (const State &state) const {
-     return state.hash();
-   }
-};
-class Optimizer
+class Heuristic
 {
 public:
-  class Solution
-  {
-  public:
-    std::optional<State> next_solution()
-    {
-      
-    }
-  private:
-    std::unordered_set<State> visited;
-    State last_solution;
-  };
-  Optimizer(std::unique_ptr<Heuristic> heuristic):
-    _heuristic(std::move(heuristic))
-  {
-  }
+  virtual float score(State& state);
+};
 
-  Solution optimize(State& state)
+class PriorityBasedScorer: Heuristic
+{
+public:
+  PriorityBasedScorer(std::shared_ptr<RequestQueue> queue) :
+    _queue(queue)
   {
-    
+
+  }
+  float score(State& state) override
+  {
+    auto score = 0;
+    for(auto [part_id, req_id]: state.unassigned())
+    {
+      score += _queue->get_request_info(part_id, req_id).priority;
+    }
+    return score;
   }
 private:
-  std::unique_ptr<Heuristic> _heuristic;
+  std::shared_ptr<RequestQueue> _queue;
 };
+
+}
 }
 
 #endif

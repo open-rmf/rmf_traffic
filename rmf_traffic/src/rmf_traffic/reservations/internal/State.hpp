@@ -154,7 +154,7 @@ public:
       && _reservation_assignments == other._reservation_assignments;
   }
 
-  std::size_t hash()
+  std::size_t hash() const
   {
     std::size_t seed = 0x928193843;
     for(auto &[resource, schedule]: _resource_schedules)
@@ -162,12 +162,10 @@ public:
       for(auto &[time, reservation]: schedule)
       {
         hash_combine(seed, time.time_since_epoch().count());
-        hash_combine(
-          seed,
-          _reservation_request_ids[reservation.reservation_id()].participant);
-        hash_combine(
-          seed,
-          _reservation_request_ids[reservation.reservation_id()].reqid);
+        auto val =
+          _reservation_request_ids.find(reservation.reservation_id())->second;
+        hash_combine(seed, val.participant);
+        hash_combine(seed, val.reqid);
       }
     }
     return seed;
@@ -176,6 +174,11 @@ public:
   void set_current_time(Time time)
   {
     _current_time = time;
+  }
+
+  UnassignedSet unassigned() const
+  {
+    return _unassigned;
   }
 
   State(const State& other) :
