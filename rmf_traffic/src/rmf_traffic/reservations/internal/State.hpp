@@ -531,8 +531,16 @@ struct NextStateGenerator
       part_id,
       req_id).request_options.size();
 
+    
+
     while(request_index_iter < num_alternative)
     {
+      // Reset resource iterators
+      auto curr_request = start_state->_queue->get_request_info(part_id, req_id)
+        .request_options[request_index_iter];
+      insertion_point_iter = get_search_start(curr_request);
+      insertion_point_end = get_search_end(curr_request);
+      proceed_next_resource = false;
       auto state = advance_within_resource();
       if(state.has_value())
       {
