@@ -53,12 +53,35 @@ SCENARIO("A few reservations in a state")
     queue->enqueue_reservation(0, 0, 1, request1);
     start_state = start_state.add_request(0, 0);
 
-    std::cout << "Start State:" <<std::endl;
-    start_state.debug_state();
+    auto request2_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+            now,
+            now+10s
+        ),
+        {10s}
+    );
+    auto request2 = std::vector{request2_alt1};
+    queue->enqueue_reservation(1, 0, 1, request2);
+    start_state = start_state.add_request(1, 0);
+
+    std::vector<State> child_states;
 
     for(auto next_state: start_state)
     {
-        std::cout << "Next State:" <<std::endl;
+        //std::cout << "Next State:" <<std::endl;
+        //next_state.debug_state();
+        child_states.push_back(next_state);
+    }
+
+    REQUIRE(child_states.size() == 3);
+
+    std::cout << "Start State:" <<std::endl;
+    child_states[0].debug_state();
+
+    std::cout << "Child states: " <<std::endl;
+    for(auto next_state: child_states[0])
+    {
         next_state.debug_state();
     }
 }

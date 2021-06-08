@@ -117,16 +117,11 @@ public:
     return new_state;
   }
 
-  void purge_up_to_time(Time time)
-  {
-
-  }
-
   void debug_state()
   {
+    std::cout << "________________________" <<std::endl;
     for(auto &[resource, schedule]: _resource_schedules)
     {
-      std::cout << "________________________" <<std::endl;
       std::cout << "Resource: " << resource << std::endl;
       for(auto &[time, reservation]: schedule)
       {
@@ -203,9 +198,10 @@ private:
     Duration dur
   )
   {
+    assert(dur.count() > 0);
+
     auto prev_iter = res_iter;
     std::next(res_iter);
-
     // TODO: This is extremely inefficient. Do in-place.
     std::map<Time, ReservationId> new_times;
     auto gap_left = dur;
@@ -231,7 +227,6 @@ private:
         resource,
         iter->second,
         iter->first);
-
       if(!ok) return false;
     }
 
@@ -280,6 +275,7 @@ private:
       auto next_reservation = _resource_schedules[res.resource_name()].lower_bound(
         res.start_time()
       );
+
       if(next_reservation != _resource_schedules[res.resource_name()].end()
         && res.actual_finish_time().has_value()
         && next_reservation->second.start_time() < res.actual_finish_time().value())
@@ -287,7 +283,7 @@ private:
         auto ok = push_back(
           res.resource_name(),
           next_reservation,
-          res.actual_finish_time().value() - next_reservation->second.start_time());
+          next_reservation->second.start_time() - res.actual_finish_time().value());
         if(!ok)
         {
           return false;
@@ -531,8 +527,6 @@ struct NextStateGenerator
       part_id,
       req_id).request_options.size();
 
-    
-
     while(request_index_iter < num_alternative)
     {
       // Reset resource iterators
@@ -554,7 +548,28 @@ struct NextStateGenerator
 
   std::optional<State> advance_assignments()
   {
-    return advance_within_query();
+    auto state = advance_within_query();
+    if(state.has_value())
+    {
+      return state;
+    }
+    unassigned_iter++;
+    while(unassigned_iter != start_state->_unassigned.end())
+    {
+      auto [part_id, req_id] = *unassigned_iter;
+      request_index_iter = 0;
+      auto curr_request = start_state->_queue->get_request_info(part_id, req_id)
+        .request_options[request_index_iter];
+      insertion_point_iter = get_search_start(curr_request);
+      insertion_point_end = get_search_end(curr_request);
+      proceed_next_resource = false;
+      auto state = advance_within_query();
+      if(state.has_value())
+      {
+        return state;
+      }
+    }
+    return std::nullopt;
   }
 
   std::optional<State> advance_removals()
@@ -566,6 +581,10 @@ struct NextStateGenerator
     while(remove_iter == remove_resource_iter->second.end())
     {
       remove_resource_iter++;
+      if(remove_resource_iter == start_state->_resource_schedules.end())
+      {
+        return std::nullopt;
+      }
       remove_iter = remove_resource_iter->second.begin();
     }
 
@@ -578,21 +597,22 @@ struct NextStateGenerator
   }
 
   std::optional<State> next_state() {
-
-    auto assignment = advance_assignments();
-    if(assignment.has_value())
+    if(mode == PotentialActionMode::ASSIGN_ITEMS)
     {
-      visiting_state = assignment;
-      return assignment;
+      auto assignment = advance_assignments();
+      if(assignment.has_value())
+      {
+        visiting_state = assignment;
+        return assignment;
+      }
+      mode = PotentialActionMode::REMOVE_ITEMS;
     }
-    mode = PotentialActionMode::REMOVE_ITEMS;
-    std::cout << "finished insertions" << std::endl;
-    /*auto removals = advance_removals();
+    auto removals = advance_removals();
 
     if(removals.has_value())
     {
       return removals;
-    }*/
+    }
     mode = PotentialActionMode::END;
     return std::nullopt;
   }
