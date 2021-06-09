@@ -25,7 +25,7 @@ jobs:
           colcon-defaults: |
             {
               "build": {
-                "mixin": ["asan"],
+                "mixin": ["asan-gcc"],
                 "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug"]
               }
             }
