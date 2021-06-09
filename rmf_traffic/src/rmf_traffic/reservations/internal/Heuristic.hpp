@@ -29,7 +29,7 @@ public:
   virtual float score(const State& state);
 };
 
-class PriorityBasedScorer: Heuristic
+class PriorityBasedScorer: public Heuristic
 {
 public:
   PriorityBasedScorer(std::shared_ptr<RequestQueue> queue) :

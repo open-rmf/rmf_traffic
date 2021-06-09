@@ -111,8 +111,8 @@ public:
       }
     }
 
-    if(req.is_indefinite() && !reservation.is_indefinite()
-      || !req.is_indefinite() && reservation.is_indefinite())
+    if((req.is_indefinite() && !reservation.is_indefinite())
+      || (!req.is_indefinite() && reservation.is_indefinite()))
     {
       return false;
     }

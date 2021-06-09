@@ -149,7 +149,7 @@ public:
     }
   }
 
-  bool operator==(State& other) const
+  bool operator==(const State& other) const
   {
     return _resource_schedules == other._resource_schedules
       && _unassigned == other._unassigned;

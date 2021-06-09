@@ -16,6 +16,8 @@
 */
 
 #include "../../../../src/rmf_traffic/reservations/internal/State.hpp"
+#include "../../../../src/rmf_traffic/reservations/internal/Heuristic.hpp"
+#include "../../../../src/rmf_traffic/reservations/internal/Optimizer.hpp"
 
 #include <rmf_utils/catch.hpp>
 
@@ -84,4 +86,8 @@ SCENARIO("A few reservations in a state")
     {
         next_state.debug_state();
     }
+
+    /*auto heuristic = std::make_shared<PriorityBasedScorer>();
+    GreedyBestFirstSearchOptimizer opt(start_state, heuristic);*/
+
 }

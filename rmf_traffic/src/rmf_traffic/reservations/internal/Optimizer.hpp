@@ -19,7 +19,7 @@
 #define RMF_TRAFFIC__RESERVATIONS__INTERNAL_OPTIMIZER_HPP
 
 #include "Heuristic.hpp"
-#include "priority_queue.hpp"
+#include <queue>
 
 namespace rmf_traffic {
 namespace reservations {
