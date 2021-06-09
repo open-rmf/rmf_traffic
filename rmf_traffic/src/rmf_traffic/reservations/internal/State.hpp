@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <iostream>
 #include <map>
+#include <set>
 
 #include "RequestQueue.hpp"
 
@@ -151,14 +152,23 @@ public:
   bool operator==(State& other) const
   {
     return _resource_schedules == other._resource_schedules
-      && _reservation_assignments == other._reservation_assignments;
+      && _unassigned == other._unassigned;
   }
 
   std::size_t hash() const
   {
     std::size_t seed = 0x928193843;
+    std::set<std::string> resources;
+
+    // Make sure the order of iteration is correct
     for(auto &[resource, schedule]: _resource_schedules)
     {
+      resources.insert(resource);
+    }
+
+    for(auto resource: resources)
+    {
+      auto schedule = _resource_schedules.find(resource)->second;
       for(auto &[time, reservation]: schedule)
       {
         hash_combine(seed, time.time_since_epoch().count());

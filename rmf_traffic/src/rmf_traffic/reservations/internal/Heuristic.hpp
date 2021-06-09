@@ -26,7 +26,7 @@ namespace reservations {
 class Heuristic
 {
 public:
-  virtual float score(State& state);
+  virtual float score(const State& state);
 };
 
 class PriorityBasedScorer: Heuristic
@@ -37,11 +37,12 @@ public:
   {
 
   }
-  float score(State& state) override
+  float score(const State& state) override
   {
     auto score = 0;
     for(auto [part_id, req_id]: state.unassigned())
     {
+      // TODO: Incorporate 
       score += _queue->get_request_info(part_id, req_id).priority;
     }
     return score;

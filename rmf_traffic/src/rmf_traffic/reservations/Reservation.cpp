@@ -117,8 +117,9 @@ ReservationId Reservation::reservation_id() const
 //=============================================================================
 bool Reservation::operator==(const Reservation& other) const
 {
-  return other._pimpl->_res_id == _pimpl->_res_id
-    && other._pimpl->_start_time == _pimpl->_start_time
+  // We purposely ignore the reservation id here... Lets see if we regret that
+  // later.
+  return other._pimpl->_start_time == _pimpl->_start_time
     && other._pimpl->_resource_name == _pimpl->_resource_name
     && other._pimpl->_duration == _pimpl->_duration
     && other._pimpl->_finish_time == _pimpl->_finish_time;
