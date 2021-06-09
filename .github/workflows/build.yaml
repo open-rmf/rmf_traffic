@@ -13,7 +13,7 @@ jobs:
       - name: pwd
         run: pwd
       - name: deps
-        uses: ros-tooling/setup-ros@v0.1
+        uses: ros-tooling/setup-ros@v0.2
         with:
           required-ros-distributions: foxy
       - name: build
