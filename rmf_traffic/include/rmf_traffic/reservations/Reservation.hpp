@@ -53,6 +53,8 @@ public:
 
   bool operator==(const Reservation& other) const;
 
+  bool operator!=(const Reservation& other) const;
+
   static Reservation make_reservation(
     rmf_traffic::Time start_time,
     std::string resource_name,
@@ -62,6 +64,7 @@ public:
   class Implementation;
 
   Reservation();
+
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };

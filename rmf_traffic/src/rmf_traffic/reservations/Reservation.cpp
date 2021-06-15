@@ -126,6 +126,12 @@ bool Reservation::operator==(const Reservation& other) const
 }
 
 //=============================================================================
+bool Reservation::operator!=(const Reservation& other) const
+{
+  return !(*this == other);
+}
+
+//=============================================================================
 Reservation Reservation::make_reservation(
   rmf_traffic::Time start_time,
   std::string resource_name,
@@ -149,7 +155,7 @@ Reservation Reservation::make_reservation(
 Reservation::Reservation():
   _pimpl(rmf_utils::make_impl<Implementation>())
 {
-
+  // do nothing
 }
 
 }

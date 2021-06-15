@@ -27,7 +27,7 @@ using namespace std::chrono_literals;
 
 SCENARIO("A few reservations in a state")
 {
-    auto queue = std::make_shared<RequestQueue>();
+    auto queue = std::make_shared<RequestStore>();
     State start_state(queue);
 
     auto now = std::chrono::steady_clock::now();
@@ -87,7 +87,11 @@ SCENARIO("A few reservations in a state")
         next_state.debug_state();
     }
 
-    /*auto heuristic = std::make_shared<PriorityBasedScorer>();
-    GreedyBestFirstSearchOptimizer opt(start_state, heuristic);*/
-
+    auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
+    GreedyBestFirstSearchOptimizer opt(heuristic);
+    auto solutions = opt.optimize(start_state);
+    while(auto solution = solutions.next_solution())
+    {
+        solution->debug_state();
+    }
 }

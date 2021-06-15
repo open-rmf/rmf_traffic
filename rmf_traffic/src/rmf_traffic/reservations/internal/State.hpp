@@ -25,12 +25,14 @@
 #include <map>
 #include <set>
 
-#include "RequestQueue.hpp"
+#include "RequestStore.hpp"
 
 namespace rmf_traffic {
 namespace reservations {
 
 struct NextStateGenerator;
+
+class StateDiff;
 
 // Ripped from https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
 template <class T>
@@ -62,7 +64,7 @@ public:
   using ResourceSchedule = std::map<rmf_traffic::Time, Reservation>;
   using ResourceSchedules = std::unordered_map<std::string, ResourceSchedule>;
   using ReservationAssignment = std::unordered_map<
-    ParticipantId, std::unordered_map<ReservationId, RequestId>>;
+    ParticipantId, std::unordered_map<RequestId, ReservationId>>;
 
   using ReservationTimings = std::unordered_map<ReservationId, Time>;
   using ReservationResources = std::unordered_map<ReservationId, std::string>;
@@ -71,10 +73,15 @@ public:
   using UnassignedSet = std::unordered_set<
     std::pair<ParticipantId, RequestId>, pair_hash>;
 
-  State(std::shared_ptr<RequestQueue> queue) :
+  State(std::shared_ptr<RequestStore> queue) :
     _queue(queue)
   {
     //Do nothing
+  }
+
+  void update_reservation_store(std::shared_ptr<RequestStore> store)
+  {
+    _queue = store;
   }
 
   NextStateGenerator begin();
@@ -113,7 +120,7 @@ public:
 
     new_state._resource_schedules[resource].erase(time);
     new_state._reservation_resources.erase(reservation_id);
-    new_state._reservation_assignments.erase(reservation_id);
+    new_state._reservation_assignments[pid].erase(reqid);
     new_state._reservation_timings.erase(findings);
     return new_state;
   }
@@ -189,6 +196,16 @@ public:
   UnassignedSet unassigned() const
   {
     return _unassigned;
+  }
+
+  ResourceSchedules resource_schedule() const
+  {
+    return _resource_schedules;
+  }
+
+  ReservationRequestId request_ids() const
+  {
+    return _reservation_request_ids;
   }
 
   State(const State& other) :
@@ -353,10 +370,11 @@ private:
   ReservationResources _reservation_resources; // reservation => resource
   ReservationRequestId _reservation_request_ids; // reservation => {part_id, req_id, index}
 
-  std::shared_ptr<RequestQueue> _queue;
+  std::shared_ptr<RequestStore> _queue;
 
   Time _current_time;
   friend NextStateGenerator;
+  friend StateDiff;
 };
 struct NextStateGenerator
 {

@@ -26,13 +26,13 @@ namespace reservations {
 class Heuristic
 {
 public:
-  virtual float score(const State& state);
+  virtual float score(const State& state) = 0;
 };
 
 class PriorityBasedScorer: public Heuristic
 {
 public:
-  PriorityBasedScorer(std::shared_ptr<RequestQueue> queue) :
+  PriorityBasedScorer(std::shared_ptr<RequestStore> queue) :
     _queue(queue)
   {
 
@@ -42,13 +42,13 @@ public:
     auto score = 0;
     for(auto [part_id, req_id]: state.unassigned())
     {
-      // TODO: Incorporate 
+      // TODO: Incorporate
       score += _queue->get_request_info(part_id, req_id).priority;
     }
     return score;
   }
 private:
-  std::shared_ptr<RequestQueue> _queue;
+  std::shared_ptr<RequestStore> _queue;
 };
 
 }

@@ -110,7 +110,8 @@ public:
 
   Solution optimize(State& state)
   {
-    
+    Solution solution(state, _heuristic);
+    return solution;
   }
 private:
   std::shared_ptr<Heuristic> _heuristic;

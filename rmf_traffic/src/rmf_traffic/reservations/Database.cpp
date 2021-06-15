@@ -17,7 +17,7 @@
 
 #include <rmf_traffic/reservations/Database.hpp>
 #include "internal/ParticipantStore.hpp"
-#include "internal/RequestQueue.hpp"
+#include "internal/RequestStore.hpp"
 #include "internal/State.hpp"
 namespace rmf_traffic {
 namespace reservations {
@@ -26,7 +26,7 @@ class Database::Implementation
 {
 public:
   Implementation():
-    _request_queue(std::make_shared<RequestQueue>())
+    _request_queue(std::make_shared<RequestStore>())
   {
 
   }
@@ -43,7 +43,6 @@ public:
   )
   {
     _participant_store.remove_participant(id);
-    _request_queue->erase_participant_requests(id);
   }
 
   void request_reservation(
@@ -57,10 +56,11 @@ public:
 
   void cancel_request(ParticipantId id, RequestId req)
   {
+    
   }
 private:
   ParticipantStore _participant_store;
-  std::shared_ptr<RequestQueue> _request_queue;
+  std::shared_ptr<RequestStore> _request_queue;
 };
 
 void Database::register_participant(

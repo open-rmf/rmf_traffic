@@ -20,7 +20,12 @@
 
 #include <rmf_traffic/reservations/ReservationRequest.hpp>
 #include <rmf_traffic/reservations/Reservation.hpp>
+#include <rmf_traffic/reservations/Participant.hpp>
 #include <unordered_map>
+#include <deque>
+#include <mutex>
+#include <condition_variable>
+#include "RequestStore.hpp"
 
 namespace rmf_traffic {
 namespace reservations {
@@ -28,123 +33,81 @@ namespace reservations {
 class RequestQueue
 {
 public:
-  struct RequestInfo {
+  enum ActionType
+  {
+    ADD,
+    REMOVE,
+    REMOVE_PARTICIPANT
+  };
+  struct Action
+  {
+    ActionType type;
+    ParticipantId participant_id;
+    RequestId request_id;
+    std::vector<ReservationRequest>& request_options;
     int priority;
-    std::vector<ReservationRequest> request_options;
   };
 
-  RequestInfo get_request_info(
-    ParticipantId pid,
-    RequestId req)
+  struct QueueElement
   {
-    //TODO: Sanitize
-    return _reservation_info[pid][req];
-  }
+    Action action;
+    std::shared_ptr<RequestStore> request_store;
+  };
 
-  void enqueue_reservation(
-    ParticipantId pid,
-    RequestId req,
-    int priority,
-    std::vector<ReservationRequest>& reservation
-  )
+  void add_action(Action action)
   {
-    _reservation_info[pid].insert({
-      req,
+    {
+      std::lock_guard lock(_mutex);
+
+      std::shared_ptr<RequestStore>
+        req_store = [=]() -> std::shared_ptr<RequestStore>
+        {
+          if(_request_store_queue.empty())
+            return std::make_shared<RequestStore>();
+          else
+            return std::make_shared<RequestStore>(
+              _request_store_queue.back().request_store.get()
+            );
+        }();
+
+      if(action.type == ActionType::ADD)
       {
-        priority,
-        std::move(reservation)
+        req_store->enqueue_reservation(
+          action.participant_id,
+          action.request_id,
+          action.priority,
+          action.request_options);
       }
-    });
+      else if(action.type == ActionType::REMOVE)
+      {
+        req_store->cancel(action.participant_id, action.request_id);
+      }
+      else
+      {
+        req_store->erase_participant_requests(action.participant_id);
+      }
+      _request_store_queue.push_back({action, req_store});
+    }
+    _cond.notify_one();
   }
 
-  void erase_participant_requests(
-    ParticipantId pid
-  ){
-    auto entry = _reservation_info.find(pid);
-    if(entry == _reservation_info.end())
-      return;
-    _reservation_info.erase(entry);
-  }
-
-  bool satisfies(ReservationRequest& req, Reservation reservation)
+  std::shared_ptr<QueueElement> deque()
   {
-    //Check upper bound
-    if(req.start_time()->lower_bound().has_value())
-    {
-      if(reservation.start_time() < req.start_time()->lower_bound().value())
-      {
-        return false;
-      }
-    }
-
-    //Check upper bound
-    if(req.start_time()->upper_bound().has_value())
-    {
-      if(reservation.start_time() > req.start_time()->upper_bound().value())
-      {
-        return false;
-      }
-    }
-
-    if(req.duration().has_value())
-    {
-      if(reservation.is_indefinite())
-      {
-        return false;
-      }
-      if(req.duration().value()
-        > *reservation.actual_finish_time() - reservation.start_time())
-      {
-        return false;
-      }
-    }
-
-    if(req.finish_time().has_value())
-    {
-      if(reservation.is_indefinite())
-      {
-        return false;
-      }
-      if(req.finish_time().value() > *reservation.actual_finish_time())
-      {
-        return false;
-      }
-    }
-
-    if((req.is_indefinite() && !reservation.is_indefinite())
-      || (!req.is_indefinite() && reservation.is_indefinite()))
-    {
-      return false;
-    }
-
-    if(req.resource_name() != reservation.resource_name())
-    {
-      return false;
-    }
-
-    return true;
+    std::unique_lock loc(_mutex);
+    _cond.wait(loc, [=](){return !_request_store_queue.empty();});
+    auto front = _request_store_queue.front();
+    _request_store_queue.pop_front();
+    loc.unlock();
+    return front;
   }
 
-  std::optional<std::size_t> satisfies(
-    ParticipantId pid,
-    RequestId reqid,
-    Reservation& res
-  ) {
-    for(std::size_t i = 0;
-      i < _reservation_info[pid][reqid].request_options.size();
-      i++)
-    {
-      if(satisfies(_reservation_info[pid][reqid].request_options[i], res))
-        return i;
-    }
-    return std::nullopt;
-  }
 private:
-  std::unordered_map<ParticipantId,
-    std::unordered_map<RequestId, RequestInfo>
-    >  _reservation_info;
+  std::deque<QueueElement> _request_store_queue;
+  std::mutex _mutex;
+  std::condition_variable _cond;
 };
 
 }
 }
+
 #endif
