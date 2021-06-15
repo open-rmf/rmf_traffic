@@ -463,7 +463,7 @@ public:
           continue;
       }
 
-      output.push_back(std::make_shared<BaseRouteEntry>(*other_entry));
+      output.emplace_back(std::make_shared<BaseRouteEntry>(*other_entry));
     }
 
     return std::make_shared<BaseBucket>(std::move(output));
