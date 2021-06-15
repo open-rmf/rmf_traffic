@@ -66,6 +66,15 @@ void Participant::Implementation::Shared::check(const Status& status)
 {
   if (status.reservation != _reservation_id)
   {
+    if (!_reservation_id.has_value())
+    {
+      // If _reservation_id is a nullopt, but the blockade moderator believes we
+      // have a reservation, then we should remind the blockade moderator that
+      // we have canceled that reservation.
+      _writer->cancel(_id, status.reservation);
+      return;
+    }
+
     _send_reservation();
 
     if (_last_ready)

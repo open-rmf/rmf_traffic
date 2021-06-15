@@ -456,21 +456,14 @@ public:
 
     for (const auto& other_entry : other)
     {
-      if (!other_entry)
-      {
-        throw std::runtime_error(
-          "[rmf_traffic::schedule::Timeline::clone_bucket] INTERNAL ERROR: "
-          "nullptr value for bucket entry. Please report this bug to the "
-          "maintainers!");
-      }
-
+      assert(other_entry);
       if (check_relevant)
       {
         if (!check_relevant(*other_entry))
           continue;
       }
 
-      output.emplace_back(std::make_shared<BaseRouteEntry>(*other_entry));
+      output.push_back(std::make_shared<BaseRouteEntry>(*other_entry));
     }
 
     return std::make_shared<BaseBucket>(std::move(output));
