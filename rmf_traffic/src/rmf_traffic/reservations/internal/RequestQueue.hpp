@@ -91,7 +91,7 @@ public:
     _cond.notify_one();
   }
 
-  std::shared_ptr<QueueElement> deque()
+  QueueElement deque()
   {
     std::unique_lock loc(_mutex);
     _cond.wait(loc, [=](){return !_request_store_queue.empty();});

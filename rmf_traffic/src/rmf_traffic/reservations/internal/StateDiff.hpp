@@ -24,7 +24,8 @@
 namespace rmf_traffic {
 namespace reservations {
 
-/// Gives the difference between two states. *NOTE*: Assumes that 
+/// Gives the difference between two states. *NOTE*: Assumes that bothe the
+/// states have the same
 class StateDiff
 {
 public:
@@ -44,7 +45,7 @@ public:
     std::optional<Reservation> reservation;
   };
 
-  /// Calaculates the StateDiff required for one to go from State2 to State1.
+  /// Calculates the StateDiff required for one to go from State2 to State1.
   StateDiff(
     State& state1,
     State& state2
@@ -103,6 +104,26 @@ public:
     }
 
     //Check for unassigning
+    for(auto [participant, request]: state1.unassigned())
+    {
+      if(state2._reservation_assignments.count(participant) > 0
+        && state2._reservation_assignments[participant].count(request) > 0)
+      {
+        _differences.push_back(
+          {
+            UNASSIGN_RESERVATION,
+            participant,
+            request,
+            std::nullopt
+          }
+        );
+      }
+    }
+  }
+
+  std::vector<Difference>  differences() const
+  {
+    return _differences;
   }
 private:
   std::vector<Difference>  _differences;
