@@ -30,15 +30,24 @@
 namespace rmf_traffic {
 namespace reservations {
 
+/// \brief The RequestQueue is used to coordinate dispatch to a the
+/// ExecutionEngine.
 class RequestQueue
 {
 public:
   enum ActionType
   {
+    /// \brief Add a request
     ADD,
+    /// \brief Remove a request
     REMOVE,
-    REMOVE_PARTICIPANT
+    /// \brief Remove an entire participant
+    REMOVE_PARTICIPANT,
+    /// \brief Terminates the execution engine. Only the ExecutionEngine class
+    /// should use this.
+    TERMINATE_STREAM
   };
+  /// This represents the action which you wish to execute.
   struct Action
   {
     ActionType type;
@@ -47,7 +56,6 @@ public:
     std::vector<ReservationRequest>& request_options;
     int priority;
   };
-
   struct QueueElement
   {
     Action action;

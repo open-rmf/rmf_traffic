@@ -79,11 +79,6 @@ public:
     //Do nothing
   }
 
-  void update_reservation_store(std::shared_ptr<RequestStore> store)
-  {
-    _queue = store;
-  }
-
   NextStateGenerator begin();
   NextStateGenerator end();
   /// Adds a request to the state
@@ -93,6 +88,18 @@ public:
   {
     State new_state(*this);
     new_state._unassigned.insert({pid, reqid});
+    return new_state;
+  }
+
+  /// Adds a request to the state
+  State add_request(
+    ParticipantId pid,
+    RequestId reqid,
+    std::shared_ptr<RequestStore> store) const
+  {
+    State new_state(*this);
+    new_state._unassigned.insert({pid, reqid});
+    new_state._queue = store;
     return new_state;
   }
 
@@ -122,6 +129,38 @@ public:
     new_state._reservation_resources.erase(reservation_id);
     new_state._reservation_assignments[pid].erase(reqid);
     new_state._reservation_timings.erase(findings);
+    return new_state;
+  }
+
+   State remove_request(
+    ParticipantId pid,
+    RequestId reqid,
+    std::shared_ptr<RequestStore> store) const
+  {
+    State new_state(*this);
+    auto req = new_state._unassigned.find({pid, reqid});
+
+    if(req != new_state._unassigned.end())
+    {
+      new_state._unassigned.erase(req);
+      return new_state;
+    }
+    auto reservation_id = new_state._reservation_assignments[pid][reqid];
+    auto findings = new_state._reservation_timings.find(reservation_id);
+    if(findings == new_state._reservation_timings.end())
+    {
+      // Non existant pid-reqid pair
+      return new_state;
+    }
+    auto time = findings->second;
+    auto resource = new_state._reservation_resources[reservation_id];
+
+    new_state._resource_schedules[resource].erase(time);
+    new_state._reservation_resources.erase(reservation_id);
+    new_state._reservation_assignments[pid].erase(reqid);
+    new_state._reservation_timings.erase(findings);
+    
+    new_state._queue = store;
     return new_state;
   }
 

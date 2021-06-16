@@ -28,15 +28,21 @@ using ParticipantId = uint64_t;
 class Participant
 {
 public:
-  virtual bool request_proposal_received(
+  virtual bool request_proposal(
     RequestId id,
     Reservation& res
   ) = 0;
 
-  virtual bool request_proposal_confirmed(
+  virtual bool request_confirmed(
     RequestId id,
     Reservation& res
   ) = 0;
+
+  virtual bool unassign_request_confirmed(
+    RequestId id
+  ) = 0;
+
+  virtual bool request_failed(RequestId id) = 0;
 };
 
 }
