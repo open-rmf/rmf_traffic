@@ -1,6 +1,6 @@
 ## Changelog for package rmf_traffic
 
-1.3.0 (2021-XX-XX)
+1.3.0 (2021-05-07)
 ------------------
 * Allow a Database to be forked off of a Mirror: [#17](https://github.com/open-rmf/rmf_traffic/pull/17)
 * Separate participant descriptions from schedule patches: [#14](https://github.com/open-rmf/rmf_traffic/pull/14)

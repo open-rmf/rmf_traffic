@@ -409,6 +409,14 @@ inline void CHECK_PLAN(
     }
   }
 }
+
+__attribute__((no_sanitize("thread")))
+void set_interrupt_flag(
+  const std::shared_ptr<bool>& interrupt_flag, bool value)
+{
+  *interrupt_flag = value;
+}
+
 // ____________________________________________________________________________
 
 SCENARIO("Test Configuration", "[config]")
@@ -1909,7 +1917,7 @@ SCENARIO("DP1 Graph")
         {
           result = planner.plan(start, goal);
         });
-      *interrupt_flag = true;
+      set_interrupt_flag(interrupt_flag, true);
       plan_thread.join();
       CHECK_FALSE(*result);
       CHECK(result->interrupted());
