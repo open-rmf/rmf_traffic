@@ -379,7 +379,7 @@ public:
     }
 
     const double rotation_cost = rotation_info.has_value() ?
-          rotation_info->minimum_cost : 0.0;
+      rotation_info->minimum_cost : 0.0;
 
     auto oriented_node =
       std::make_shared<SearchNode>(

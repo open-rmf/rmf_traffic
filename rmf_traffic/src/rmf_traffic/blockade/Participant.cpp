@@ -134,7 +134,7 @@ Participant::Implementation::Implementation(
   const ParticipantId id,
   const double radius,
   std::shared_ptr<Writer> writer)
-  : _shared(std::make_shared<Shared>(id, radius, std::move(writer)))
+: _shared(std::make_shared<Shared>(id, radius, std::move(writer)))
 {
   // Do nothing
 }

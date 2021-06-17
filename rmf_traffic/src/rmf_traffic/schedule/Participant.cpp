@@ -131,7 +131,7 @@ Participant::Implementation::Implementation(
   ParticipantDescription description,
   std::shared_ptr<Writer> writer)
 : _shared(std::make_shared<Shared>(
-    registration, std::move(description), std::move(writer)))
+      registration, std::move(description), std::move(writer)))
 {
   // Do nothing
 }
