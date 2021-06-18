@@ -73,6 +73,7 @@ public:
   using UnassignedSet = std::unordered_set<
     std::pair<ParticipantId, RequestId>, pair_hash>;
 
+  //============================================================================
   State(std::shared_ptr<RequestStore> queue) :
     _queue(queue)
   {
@@ -81,6 +82,8 @@ public:
 
   NextStateGenerator begin();
   NextStateGenerator end();
+  
+  //============================================================================
   /// Adds a request to the state
   State add_request(
     ParticipantId pid,
@@ -91,6 +94,7 @@ public:
     return new_state;
   }
 
+  //============================================================================
   /// Adds a request to the state
   State add_request(
     ParticipantId pid,
@@ -132,7 +136,8 @@ public:
     return new_state;
   }
 
-   State remove_request(
+  //============================================================================
+  State remove_request(
     ParticipantId pid,
     RequestId reqid,
     std::shared_ptr<RequestStore> store) const
@@ -159,11 +164,26 @@ public:
     new_state._reservation_resources.erase(reservation_id);
     new_state._reservation_assignments[pid].erase(reqid);
     new_state._reservation_timings.erase(findings);
-    
+
     new_state._queue = store;
     return new_state;
   }
 
+  //============================================================================
+  State remove_participant(
+    ParticipantId pid,
+    std::shared_ptr<RequestStore> store)
+  {
+    //TODO(arjo): Lots of unessecary copying
+    State new_state(*this);
+    for(auto [request, reservation]: _reservation_assignments[pid])
+    {
+      new_state = new_state.remove_request(pid, request, store);
+    }
+    return new_state;
+  }
+
+  //============================================================================
   void debug_state()
   {
     std::cout << "________________________" <<std::endl;
@@ -195,12 +215,14 @@ public:
     }
   }
 
+  //============================================================================
   bool operator==(const State& other) const
   {
     return _resource_schedules == other._resource_schedules
       && _unassigned == other._unassigned;
   }
 
+  //============================================================================
   std::size_t hash() const
   {
     std::size_t seed = 0x928193843;
@@ -227,94 +249,81 @@ public:
     return seed;
   }
 
+  //============================================================================
   void set_current_time(Time time)
   {
     _current_time = time;
   }
 
+  //============================================================================
   UnassignedSet unassigned() const
   {
     return _unassigned;
   }
 
+  //============================================================================
   ResourceSchedules resource_schedule() const
   {
     return _resource_schedules;
   }
 
+  //============================================================================
   ReservationRequestId request_ids() const
   {
     return _reservation_request_ids;
   }
 
-  State(const State& other) :
-    _resource_schedules(other._resource_schedules),
-    _unassigned(other._unassigned),
-    _reservation_timings(other._reservation_timings),
-    _queue(other._queue),
-    _reservation_resources(other._reservation_resources),
-    _reservation_assignments(other._reservation_assignments),
-    _reservation_request_ids(other._reservation_request_ids),
-    _current_time(other._current_time)
+  //============================================================================
+  bool check_if_conflicts(Reservation res)
   {
-    // Do nothing
-  }
+    auto resource = res.resource_name();
+    auto start_slot =
+      _resource_schedules[resource].upper_bound(res.start_time());
 
-private:
-  bool push_back(
-    std::string resource,
-    ResourceSchedule::const_iterator res_iter,
-    Duration dur
-  )
-  {
-    assert(dur.count() > 0);
-
-    auto prev_iter = res_iter;
-    std::next(res_iter);
-    // TODO: This is extremely inefficient. Do in-place.
-    std::map<Time, ReservationId> new_times;
-    auto gap_left = dur;
-    while(
-      res_iter != _resource_schedules[resource].end()
-      && prev_iter->second.actual_finish_time().has_value()
-      && gap_left.count() > 0)
+    if(res.is_indefinite())
     {
-      auto new_time = res_iter->first + gap_left;
-      auto gap = res_iter->first - prev_iter->second.actual_finish_time().value();
-      if(gap < gap_left)
-        gap_left -= gap;
+      if(_resource_schedules[resource].size() == 0)
+        return start_slot  != _resource_schedules[resource].end();
+      else if(
+        _resource_schedules[resource].rbegin()->second.actual_finish_time().has_value()
+        && _resource_schedules[resource].rbegin()->second.actual_finish_time() < res.start_time())
+        return start_slot  != _resource_schedules[resource].end();
       else
-        gap_left -= gap_left;
-      new_times[new_time] = res_iter->second.reservation_id();
-      prev_iter = res_iter;
-      std::next(res_iter);
+        return true;
     }
 
-    for(auto iter = new_times.rbegin(); iter != new_times.rend(); iter++)
+    auto end_slot =
+      _resource_schedules[resource].upper_bound(
+        res.actual_finish_time().value());
+
+    if(start_slot != _resource_schedules[resource].begin())
     {
-      bool ok  = shift_reservation_start_time(
-        resource,
-        iter->second,
-        iter->first);
-      if(!ok) return false;
+      auto prev_iter = std::prev(start_slot);
+      // Reservation definitely has end time
+      return !(end_slot == start_slot &&
+        start_slot->first >= res.actual_finish_time().value() &&
+        prev_iter->second.actual_finish_time().has_value() &&
+        prev_iter->second.actual_finish_time().value() <= res.start_time());
     }
-
-    return true;
+    else
+    {
+      return !(end_slot == start_slot &&
+        start_slot->first >= res.actual_finish_time().value());
+    }
   }
-  // Returns true if a shift could be successfully applied. Else returns false.
-  void unassign_reservation(ReservationId res_id, std::string resource_name)
+
+
+
+  //============================================================================
+  State unassign_reservation(ParticipantId pid, RequestId reqid)
   {
-    auto time =  _reservation_timings[res_id];
-    _reservation_timings.erase(res_id);
-    _reservation_resources.erase(res_id);
-    auto request = _reservation_request_ids[res_id];
-
-    _unassigned.insert({request.participant , request.reqid});
-    _reservation_assignments[request.participant].erase(request.reqid);
-    _reservation_request_ids.erase(res_id);
-    _resource_schedules[resource_name].erase(time);
+    State new_state(*this);
+    auto res_id = _reservation_assignments[pid][reqid];
+    auto resource = _reservation_resources[res_id];
+    new_state.unassign_reservation(res_id, resource);
   }
 
+  //============================================================================
   bool assign_reservation(
     ParticipantId part_id,
     RequestId req_id,
@@ -377,6 +386,78 @@ private:
     return true;
   }
 
+  //============================================================================
+  State(const State& other) :
+    _resource_schedules(other._resource_schedules),
+    _unassigned(other._unassigned),
+    _reservation_timings(other._reservation_timings),
+    _queue(other._queue),
+    _reservation_resources(other._reservation_resources),
+    _reservation_assignments(other._reservation_assignments),
+    _reservation_request_ids(other._reservation_request_ids),
+    _current_time(other._current_time)
+  {
+    // Do nothing
+  }
+
+private:
+  //============================================================================
+  void unassign_reservation(ReservationId res_id, std::string resource_name)
+  {
+    auto time =  _reservation_timings[res_id];
+    _reservation_timings.erase(res_id);
+    _reservation_resources.erase(res_id);
+    auto request = _reservation_request_ids[res_id];
+
+    _unassigned.insert({request.participant , request.reqid});
+    _reservation_assignments[request.participant].erase(request.reqid);
+    _reservation_request_ids.erase(res_id);
+    _resource_schedules[resource_name].erase(time);
+  }
+
+  //============================================================================
+  bool push_back(
+    std::string resource,
+    ResourceSchedule::const_iterator res_iter,
+    Duration dur
+  )
+  {
+    assert(dur.count() > 0);
+
+    auto prev_iter = res_iter;
+    std::next(res_iter);
+    // TODO: This is extremely inefficient. Do in-place.
+    std::map<Time, ReservationId> new_times;
+    auto gap_left = dur;
+    while(
+      res_iter != _resource_schedules[resource].end()
+      && prev_iter->second.actual_finish_time().has_value()
+      && gap_left.count() > 0)
+    {
+      auto new_time = res_iter->first + gap_left;
+      auto gap = res_iter->first - prev_iter->second.actual_finish_time().value();
+      if(gap < gap_left)
+        gap_left -= gap;
+      else
+        gap_left -= gap_left;
+      new_times[new_time] = res_iter->second.reservation_id();
+      prev_iter = res_iter;
+      std::next(res_iter);
+    }
+
+    for(auto iter = new_times.rbegin(); iter != new_times.rend(); iter++)
+    {
+      bool ok  = shift_reservation_start_time(
+        resource,
+        iter->second,
+        iter->first);
+      if(!ok) return false;
+    }
+
+    return true;
+  }
+
+  //============================================================================
   bool shift_reservation_start_time(
     std::string resource,
     ReservationId res_id,
@@ -415,6 +496,7 @@ private:
   friend NextStateGenerator;
   friend StateDiff;
 };
+//==============================================================================
 struct NextStateGenerator
 {
   //TODO: RAW_POINTER-FOO
@@ -448,10 +530,12 @@ struct NextStateGenerator
   using reference = State;
   using iterator_category= std::input_iterator_tag;
 
+  //============================================================================
   State operator*() const {
     return *visiting_state;
   }
 
+  //============================================================================
   State::ResourceSchedule::const_iterator
     get_search_start(const ReservationRequest& req)
   {
@@ -469,6 +553,7 @@ struct NextStateGenerator
     }
   }
 
+  //============================================================================
   State::ResourceSchedule::const_iterator
     get_search_end(const ReservationRequest& req)
   {
@@ -486,6 +571,7 @@ struct NextStateGenerator
     }
   }
 
+  //============================================================================
   std::optional<State> advance_within_resource()
   {
     if(proceed_next_resource)
@@ -583,6 +669,7 @@ struct NextStateGenerator
     }
   }
 
+  //============================================================================
   std::optional<State> advance_within_query()
   {
     auto state = advance_within_resource();
@@ -616,6 +703,7 @@ struct NextStateGenerator
     return std::nullopt;
   }
 
+  //============================================================================
   std::optional<State> advance_assignments()
   {
     auto state = advance_within_query();
@@ -642,6 +730,7 @@ struct NextStateGenerator
     return std::nullopt;
   }
 
+  //============================================================================
   std::optional<State> advance_removals()
   {
     if(remove_resource_iter == start_state->_resource_schedules.end())
@@ -666,6 +755,7 @@ struct NextStateGenerator
     return new_state;
   }
 
+  //============================================================================
   std::optional<State> next_state() {
     if(mode == PotentialActionMode::ASSIGN_ITEMS)
     {
@@ -687,17 +777,20 @@ struct NextStateGenerator
     return std::nullopt;
   }
 
+  //============================================================================
   NextStateGenerator& operator++() {
     visiting_state = next_state();
     return *this;
   }
 
+  //============================================================================
   NextStateGenerator operator++(int) {
     NextStateGenerator r = *this;
     ++(*this);
     return r;
   }
-
+  
+  //============================================================================
   bool operator==(const NextStateGenerator& other)
   {
     if(mode == PotentialActionMode::END
@@ -708,12 +801,14 @@ struct NextStateGenerator
     return false;
   }
 
+  //============================================================================
   bool operator!=(const NextStateGenerator& other)
   {
     return !(*this == other);
   }
 };
 
+//==============================================================================
 NextStateGenerator State::begin()
 {
   NextStateGenerator gen;
@@ -744,6 +839,7 @@ NextStateGenerator State::begin()
   return gen;
 }
 
+//==============================================================================
 NextStateGenerator State::end()
 {
   NextStateGenerator gen;

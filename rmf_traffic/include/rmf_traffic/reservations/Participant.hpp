@@ -42,7 +42,9 @@ public:
     RequestId id
   ) = 0;
 
-  virtual bool request_failed(RequestId id) = 0;
+  virtual bool unassign_request_proposal(
+    RequestId id
+  ) = 0;
 };
 
 }

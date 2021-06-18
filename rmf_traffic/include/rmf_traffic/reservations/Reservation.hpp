@@ -51,6 +51,8 @@ public:
 
   ReservationId reservation_id() const;
 
+  bool conflicts_with(const Reservation& other) const;
+
   bool operator==(const Reservation& other) const;
 
   bool operator!=(const Reservation& other) const;

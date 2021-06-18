@@ -115,6 +115,25 @@ ReservationId Reservation::reservation_id() const
 }
 
 //=============================================================================
+bool Reservation::conflicts_with(const Reservation& other) const
+{
+  if(other.start_time() < this->start_time())
+  {
+    if(!other.is_indefinite()
+      && other.actual_finish_time() <= this->start_time())
+      return true;
+    else return false;
+  }
+  else
+  {
+    if(!this->is_indefinite()
+      && this->actual_finish_time() <= other.start_time())
+      return true;
+    else return false;
+  }
+}
+
+//=============================================================================
 bool Reservation::operator==(const Reservation& other) const
 {
   // We purposely ignore the reservation id here... Lets see if we regret that

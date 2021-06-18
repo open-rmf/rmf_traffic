@@ -29,12 +29,21 @@
 namespace rmf_traffic {
 namespace reservations {
 
+//==============================================================================
 /// \brief The execution engine class is in charge of handling the requests and
 /// negotiations that occur during the planning and negotiation phase. As such,
 /// it maintains a single thread that handles both planning and negotiations
-/// while enqueueing requests upon a reservation queue.
+/// while enqueueing requests upon a reservation queue. This is where the crux
+/// of the protocol is implemented
 class ExecutionEngine
 {
+  //============================================================================
+  /// \brief Constructor. Starts an execution thread engine which consumes
+  /// commands of the incoming participants.
+  /// \param[in] request_queue - the `RequestQueue` upon which you will send
+  ///   commands.
+  /// \param[in] participant_store - the `ParticipantStore` containing the list
+  ///   of participants.
   ExecutionEngine(
     std::shared_ptr<RequestQueue> request_queue,
     std::shared_ptr<ParticipantStore> pstore):
@@ -46,6 +55,9 @@ class ExecutionEngine
     //Do nothing
   }
 
+  //============================================================================
+  /// \brief Destructor. Terminates the execution engine by sending a
+  /// TERMINATE_STREAM action and waits for the destructor to join.
   ~ExecutionEngine()
   {
     std::vector<ReservationRequest> res;
@@ -64,6 +76,9 @@ class ExecutionEngine
   }
 
 private:
+  //============================================================================
+  /// \brief Main thread: blocks until a request has come in. When a request
+  /// comes in the current_state is read and updated to contain the request.
   void execute()
   {
     while(true)
@@ -89,48 +104,144 @@ private:
           element.request_store
         );
       }
-      // TODO(URGENT): Add participant removal
+      else if(element.action.type == RequestQueue::ActionType::REMOVE_PARTICIPANT)
+      {
+        _curr_state = _curr_state.remove_participant(
+          element.action.participant_id,
+          element.request_store);
+      }
 
-      //TODO: Breakout optimizer
       auto heuristic = std::make_shared<PriorityBasedScorer>(
         element.request_store);
-      GreedyBestFirstSearchOptimizer optimizer(heuristic);
-      auto solutions = optimizer.optimize(_curr_state);
-      while(auto solution = solutions.next_solution())
-      {
-        StateDiff impacted_reservations(solution.value(), _curr_state);
-        auto res = impacted_reservations.differences();
-        for(auto diff: res)
-        {
-          auto impacted_participant = diff.participant_id;
-          auto participant =
-            _participant_store->get_participant(impacted_participant)
-              .value();
 
-          if(diff.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION
-            || diff.diff_type == StateDiff::DifferenceType::SHIFT_RESERVATION)
-          {
-            auto result = participant->request_proposal(
-              diff.request_id,
-              diff.reservation.value()
-            );
-            if(!result)
-              continue;
-          }
-          else
-          {
-            auto result = participant->(
-              diff.request_id,
-              diff.reservation.value()
-            );
-            if(!result)
-              continue;
-          }
-        }
-        break;
+      GreedyBestFirstSearchOptimizer optimizer(heuristic);
+      auto favored_solution = get_favored_solution(optimizer);
+      if(!favored_solution.has_value())
+        continue;
+
+      rollout(favored_solution.value());
+
+    }
+  }
+
+  //============================================================================
+  /// \brief Rolls out the changes. If for whatever reason a rollout should fail
+  /// there is no need to rollback as the StateDiff is returned in a topological
+  /// order. Instead _`curr_state` remains in a partially successful state and
+  /// we will retry optimization upon the arrival of the next request.
+  void rollout(const StateDiff& changes)
+  {
+    for(auto change: changes.differences())
+    {
+      assert(
+        _participant_store->get_participant(change.participant_id).has_value());
+
+      auto participant =
+        _participant_store->get_participant(change.participant_id).value();
+      if(change.diff_type == StateDiff::DifferenceType::SHIFT_RESERVATION)
+      {
+        assert(change.reservation.has_value());
+
+        auto result = participant->request_confirmed(
+          change.request_id,
+          change.reservation.value());
+
+        if(result == false)
+          return;
+
+        _curr_state = _curr_state.unassign_reservation(
+          change.participant_id,
+          change.request_id);
+
+        _curr_state.assign_reservation(
+          change.participant_id,
+          change.request_id,
+          change.reservation.value()
+        );
+      }
+      else if(
+        change.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION)
+      {
+        assert(change.reservation.has_value());
+
+        auto result = participant->request_confirmed(
+          change.request_id,
+          change.reservation.value());
+
+        if(result == false)
+          return;
+
+        _curr_state.assign_reservation(
+          change.participant_id,
+          change.request_id,
+          change.reservation.value()
+        );
+      }
+      else if(
+        change.diff_type == StateDiff::DifferenceType::UNASSIGN_RESERVATION)
+      {
+        assert(!change.reservation.has_value());
+        auto result =
+          participant->unassign_request_confirmed(change.request_id);
+
+        if(result == false)
+          return;
+
+        _curr_state = _curr_state.unassign_reservation(
+          change.participant_id,
+          change.request_id);
       }
     }
   }
+
+  //============================================================================
+  /// \brief Proposes the solution favoured by the optimizer and 
+  std::optional<StateDiff> get_favored_solution(
+    GreedyBestFirstSearchOptimizer& optimizer)
+  {
+    auto solutions = optimizer.optimize(_curr_state);
+    while(auto solution = solutions.next_solution())
+    {
+      StateDiff impacted_reservations(solution.value(), _curr_state);
+      if(verify_proposal(impacted_reservations))
+        return {impacted_reservations};
+    }
+
+    return std::nullopt;
+  }
+
+  bool verify_proposal(const StateDiff& impacted_reservations)
+  {
+    auto res = impacted_reservations.differences();
+    for(auto diff: res)
+    {
+      auto impacted_participant = diff.participant_id;
+      auto participant =
+        _participant_store->get_participant(impacted_participant)
+          .value();
+
+      if(diff.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION
+        || diff.diff_type == StateDiff::DifferenceType::SHIFT_RESERVATION)
+      {
+        auto result = participant->request_proposal(
+          diff.request_id,
+          diff.reservation.value()
+        );
+        if(!result)
+          return false;
+      }
+      else
+      {
+        auto result = participant->unassign_request_proposal(
+          diff.request_id
+        );
+        if(!result)
+          return false;
+      }
+    }
+    return true;
+  }
+
   std::thread _execution_thread;
   std::shared_ptr<RequestQueue> _request_queue;
   std::shared_ptr<ParticipantStore> _participant_store;

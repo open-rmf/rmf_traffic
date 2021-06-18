@@ -19,12 +19,15 @@
 #define RMF_TRAFFIC__RESERVATIONS__INTERNAL_STATEDIFF_HPP
 
 #include <unordered_map>
+#include <unordered_set>
+#include <queue>
 #include "State.hpp"
 
 namespace rmf_traffic {
 namespace reservations {
 
-/// Gives the difference between two states. *NOTE*: Assumes that bothe the
+//==============================================================================
+/// Gives the difference between two states. *NOTE*: Assumes that both the
 /// states have the same
 class StateDiff
 {
@@ -44,7 +47,8 @@ public:
     RequestId request_id;
     std::optional<Reservation> reservation;
   };
-
+  
+  //============================================================================
   /// Calculates the StateDiff required for one to go from State2 to State1.
   StateDiff(
     State& state1,
@@ -89,7 +93,7 @@ public:
         {
           // Request was not there in state2 therefore we assign it.
           auto time1 = state1._reservation_timings[reservation_id1];
-          auto res1 = state1._resource_schedules[resource].find(time1).second;
+          auto res1 = state1._resource_schedules[resource].find(time1)->second;
           Difference diff
           {
             DifferenceType::ASSIGN_RESERVATION,
@@ -119,13 +123,72 @@ public:
         );
       }
     }
+
+    _differences = toposort(state2);
   }
 
+  //============================================================================
+  /// Return the differences.
   std::vector<Difference>  differences() const
   {
     return _differences;
   }
 private:
+  //============================================================================
+  /// Use something akin to Kahn's algorithm to perform a topological sort of
+  /// the shifts. This ensures that during the rollout phase, if there is a
+  /// communications failure the system will remain in a usable state.
+  std::vector<Difference> toposort(State& state)
+  {
+    std::vector<Difference> result;
+    std::queue<std::size_t> unvisited;
+    State curr_state(state);
+    //Unassignments can go first, since they will never create a conflict.
+    for(std::size_t i = 0; i <_differences.size(); i++)
+    {
+      if(_differences[i].diff_type == DifferenceType::UNASSIGN_RESERVATION)
+      {
+        result.push_back(_differences[i]);
+        curr_state = curr_state.unassign_reservation(
+          _differences[i].participant_id,
+          _differences[i].request_id);
+      }
+      else
+      {
+        unvisited.push(i);
+      }
+    }
+
+    while(!unvisited.empty())
+    {
+      auto index = unvisited.front();
+      unvisited.pop();
+      auto diff = _differences[index];
+      auto reservation = diff.reservation;
+
+      if(!curr_state.check_if_conflicts(reservation.value()))
+      {
+        if(diff.diff_type == DifferenceType::SHIFT_RESERVATION)
+          curr_state = curr_state.unassign_reservation(
+            diff.participant_id,
+            diff.request_id
+          );
+
+        curr_state.assign_reservation(
+          diff.participant_id,
+          diff.request_id,
+          reservation.value()
+        );
+      }
+      else
+      {
+        unvisited.push(index);
+      }
+    }
+
+    return result;
+  }
+
   std::vector<Difference>  _differences;
 };
 
