@@ -82,7 +82,7 @@ public:
 
   NextStateGenerator begin();
   NextStateGenerator end();
-  
+
   //============================================================================
   /// Adds a request to the state
   State add_request(
@@ -318,11 +318,12 @@ public:
 
 
   //============================================================================
-  State unassign_reservation(ParticipantId pid, RequestId reqid)
+  State unassign_reservation(ParticipantId pid, RequestId reqid) const
   {
     State new_state(*this);
-    auto res_id = _reservation_assignments[pid][reqid];
-    auto resource = _reservation_resources[res_id];
+    auto res_id =
+      _reservation_assignments.find(pid)->second.find(reqid)->second;
+    auto resource = _reservation_resources.find(res_id)->second;
     new_state.unassign_reservation(res_id, resource);
   }
 

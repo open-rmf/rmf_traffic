@@ -124,7 +124,7 @@ public:
       }
     }
 
-    _differences = toposort(state2);
+    //_differences = toposort(state2);
   }
 
   //============================================================================
