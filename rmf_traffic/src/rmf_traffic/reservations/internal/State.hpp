@@ -274,29 +274,32 @@ public:
   }
 
   //============================================================================
-  bool check_if_conflicts(Reservation res)
+  bool check_if_conflicts(Reservation res) const
   {
     auto resource = res.resource_name();
-    auto start_slot =
-      _resource_schedules[resource].upper_bound(res.start_time());
+    auto sched = _resource_schedules.find(resource);
+    if(sched == _resource_schedules.end())
+      return false;
+
+    auto start_slot = sched->second.upper_bound(res.start_time());
 
     if(res.is_indefinite())
     {
-      if(_resource_schedules[resource].size() == 0)
-        return start_slot  != _resource_schedules[resource].end();
+      if(sched->second.size() == 0)
+        return start_slot  != sched->second.end();
       else if(
-        _resource_schedules[resource].rbegin()->second.actual_finish_time().has_value()
-        && _resource_schedules[resource].rbegin()->second.actual_finish_time() < res.start_time())
-        return start_slot  != _resource_schedules[resource].end();
+        sched->second.rbegin()->second.actual_finish_time().has_value()
+        && sched->second.rbegin()->second.actual_finish_time() < res.start_time())
+        return start_slot  != sched->second.end();
       else
         return true;
     }
 
     auto end_slot =
-      _resource_schedules[resource].upper_bound(
+      sched->second.upper_bound(
         res.actual_finish_time().value());
 
-    if(start_slot != _resource_schedules[resource].begin())
+    if(start_slot != sched->second.begin())
     {
       auto prev_iter = std::prev(start_slot);
       // Reservation definitely has end time

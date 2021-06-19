@@ -195,7 +195,10 @@ private:
   }
 
   //============================================================================
-  /// \brief Proposes the solution favoured by the optimizer and 
+  /// \brief Proposes the solution favoured by the optimizer and ratified
+  /// by all participants.
+  /// \param[in] optimizer - Instance of the optimizer.
+  /// \returns the StateDiff or a `std::nullopt` if no Solution is agreeable
   std::optional<StateDiff> get_favored_solution(
     GreedyBestFirstSearchOptimizer& optimizer)
   {
@@ -210,6 +213,10 @@ private:
     return std::nullopt;
   }
 
+  //============================================================================
+  /// \brief Verifies individual proposals.
+  /// \param[in] impacted_reservations -  The proposed changes
+  /// \return true if all impacted participants agree otherwise return false
   bool verify_proposal(const StateDiff& impacted_reservations)
   {
     auto res = impacted_reservations.differences();

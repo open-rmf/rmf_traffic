@@ -16,6 +16,7 @@
 */
 
 #include "../../../../src/rmf_traffic/reservations/internal/State.hpp"
+#include "../../../../src/rmf_traffic/reservations/internal/StateDiff.hpp"
 #include "../../../../src/rmf_traffic/reservations/internal/Heuristic.hpp"
 #include "../../../../src/rmf_traffic/reservations/internal/Optimizer.hpp"
 
@@ -27,12 +28,12 @@ using namespace std::chrono_literals;
 
 SCENARIO("A few reservations in a state")
 {
+  GIVEN("An empty state with two requests pending")
+  {
     auto queue = std::make_shared<RequestStore>();
     State start_state(queue);
-
     auto now = std::chrono::steady_clock::now();
     now -= now.time_since_epoch();
-
     auto request1_alt1 = ReservationRequest::make_request(
         "table_at_timbre",
         ReservationRequest::TimeRange::make_time_range(
@@ -41,15 +42,14 @@ SCENARIO("A few reservations in a state")
         ),
         {10s}
     );
-
     auto request1_alt2 = ReservationRequest::make_request(
         "table_at_koufu",
         ReservationRequest::TimeRange::make_time_range(
             now,
             now+10s
         ),
-        {10s}
-    );
+          {10s}
+      );
 
     auto request1 = std::vector{request1_alt1, request1_alt2};
     queue->enqueue_reservation(0, 0, 1, request1);
@@ -67,31 +67,96 @@ SCENARIO("A few reservations in a state")
     queue->enqueue_reservation(1, 0, 1, request2);
     start_state = start_state.add_request(1, 0);
 
-    std::vector<State> child_states;
-
-    for(auto next_state: start_state)
+    WHEN("We request the next possible states")
     {
-        //std::cout << "Next State:" <<std::endl;
-        //next_state.debug_state();
+      std::vector<State> child_states;
+
+      for(auto next_state: start_state)
+      {
         child_states.push_back(next_state);
+      }
+      THEN("There are three possible allocations")
+      {
+        REQUIRE(child_states.size() == 3);
+      }
+      THEN("The state difference between all child states is 1 add element")
+      {
+        for(auto child_state: child_states)
+        {
+          StateDiff diff(child_state, start_state);
+          auto steps = diff.differences();
+          REQUIRE(steps.size() == 1);
+          REQUIRE(steps[0].diff_type
+            == StateDiff::DifferenceType::ASSIGN_RESERVATION);
+        }
+      }
     }
 
-    REQUIRE(child_states.size() == 3);
-
-    std::cout << "Start State:" <<std::endl;
-    child_states[0].debug_state();
-
-    std::cout << "Child states: " <<std::endl;
-    for(auto next_state: child_states[0])
+    WHEN("We attempt to solve")
     {
-        next_state.debug_state();
-    }
-
-    auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
-    GreedyBestFirstSearchOptimizer opt(heuristic);
-    auto solutions = opt.optimize(start_state);
-    while(auto solution = solutions.next_solution())
-    {
+      auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
+      GreedyBestFirstSearchOptimizer opt(heuristic);
+      auto solutions = opt.optimize(start_state);
+      while(auto solution = solutions.next_solution())
+      {
         solution->debug_state();
+      }
     }
+
+    WHEN("Checking for conflict against another reservation")
+    {
+      Reservation res = Reservation::make_reservation(
+        now,
+        "Hawaii",
+        {},
+        {}
+      );
+
+      THEN("There should be no conflict")
+      {
+        REQUIRE(start_state.check_if_conflicts(res) == false);
+      }
+    }
+  }
+}
+
+SCENARIO("Given a single item allocated in a state")
+{
+  auto queue = std::make_shared<RequestStore>();
+  State start_state(queue);
+  auto now = std::chrono::steady_clock::now();
+  now -= now.time_since_epoch();
+  auto request1_alt1 = ReservationRequest::make_request(
+    "table_at_timbre",
+    ReservationRequest::TimeRange::make_time_range(
+        now,
+        now+10s
+    ),
+    {10s}
+  );
+
+  auto request1 = std::vector{request1_alt1};
+  queue->enqueue_reservation(0, 0, 1, request1);
+  start_state = start_state.add_request(0, 0);
+
+  std::vector<State> next_state;
+  for(auto state: start_state)
+  {
+    next_state.push_back(state);
+  }
+
+  WHEN("Checking for overlapping indefinite reservation")
+  {
+    Reservation res = Reservation::make_reservation(
+      now,
+      "table_at_timbre",
+      {},
+      {}
+    );
+
+    THEN("check_if_conflicts")
+    {
+      REQUIRE(next_state[0].check_if_conflicts(res));
+    }
+  }
 }
