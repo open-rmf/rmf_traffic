@@ -793,7 +793,7 @@ struct NextStateGenerator
     ++(*this);
     return r;
   }
-  
+
   //============================================================================
   bool operator==(const NextStateGenerator& other)
   {

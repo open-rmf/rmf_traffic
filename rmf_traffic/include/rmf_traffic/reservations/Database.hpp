@@ -26,14 +26,20 @@ namespace reservations {
 class Database: public Writer
 {
 public:
+  ///===========================================================================
+  /// Documentation inherited from Writer
   void register_participant(
     ParticipantId id,
     std::shared_ptr<Participant> participant) override;
 
+  ///===========================================================================
+  /// Documentation inherited from Writer
   void unregister_participant(
     ParticipantId id
   ) override;
 
+  ///===========================================================================
+  /// Documentation inherited from Writer
   void request_reservation(
     ParticipantId id,
     RequestId req,
@@ -41,6 +47,8 @@ public:
     int priority = 0
   ) override;
 
+  ///===========================================================================
+  /// Documentation inherited from Writer
   void cancel_request(ParticipantId id, RequestId req) override;
 
   Database();

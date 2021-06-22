@@ -37,6 +37,7 @@ namespace reservations {
 /// of the protocol is implemented
 class ExecutionEngine
 {
+public:
   //============================================================================
   /// \brief Constructor. Starts an execution thread engine which consumes
   /// commands of the incoming participants.
@@ -49,10 +50,10 @@ class ExecutionEngine
     std::shared_ptr<ParticipantStore> pstore):
       _request_queue(request_queue),
       _participant_store(pstore),
-      _execution_thread(&ExecutionEngine::execute, this),
       _curr_state(std::make_shared<RequestStore>())
   {
-    //Do nothing
+    _execution_thread =
+      std::make_shared<std::thread>(&ExecutionEngine::execute, this);
   }
 
   //============================================================================
@@ -71,8 +72,8 @@ class ExecutionEngine
     };
     _request_queue->add_action(terminate_req);
 
-    if(_execution_thread.joinable())
-      _execution_thread.join();
+    if(_execution_thread->joinable())
+      _execution_thread->join();
   }
 
 private:
@@ -109,6 +110,7 @@ private:
         _curr_state = _curr_state.remove_participant(
           element.action.participant_id,
           element.request_store);
+        _participant_store->remove_participant(element.action.participant_id);
       }
 
       auto heuristic = std::make_shared<PriorityBasedScorer>(
@@ -249,7 +251,7 @@ private:
     return true;
   }
 
-  std::thread _execution_thread;
+  std::shared_ptr<std::thread> _execution_thread;
   std::shared_ptr<RequestQueue> _request_queue;
   std::shared_ptr<ParticipantStore> _participant_store;
   State _curr_state;

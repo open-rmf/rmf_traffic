@@ -25,17 +25,47 @@
 namespace rmf_traffic {
 namespace reservations {
 
+///=============================================================================
+// Writer class 
 class Writer
 {
 public:
+
+  ///===========================================================================
+  /// Registers a participant
+  /// \param[in] id the Participant's ID. If a participant registers with an
+  /// already pre-existing id then the id should get overwritten.
+  /// (Warning: currently overwrites are not threadsafe and should be avoided.
+  /// This needs to be fixed before merging)
+  /// \param[in] participant a shared pointer pointing to the participant
+  /// handler
   virtual void register_participant(
     ParticipantId id,
     std::shared_ptr<Participant> participant) = 0;
 
+  ///===========================================================================
+  /// Removes a participant.
+  /// \param[in] id the participant's id
   virtual void unregister_participant(
     ParticipantId id
   ) = 0;
 
+  ///===========================================================================
+  /// Request a reservation.
+  /// \param[in] id the participant requesting the reservation
+  /// \param[in] req the request id. This should be unique for each request and
+  /// needs to be tracked by the client. (Warning to be fixed before merge:
+  /// If a request is duplicated there is undefined behaviour. This needs to
+  /// change to log an error or throw an exception...)
+  /// \param[in] request_options alternatives which can service this request. 
+  /// For instance, if we would like to reserve a charger we can send in a 
+  /// ReservationRequest for all the chargers. Suppose Charger1 is nearest and
+  /// Charger4 is farthest and we prefer near chargers then we would send in a
+  /// list of requests like so {Charger1, Charger2, Charger3, Charger4}. The
+  /// system should assign Charger1 lowest cost.
+  /// \param[in] priority The priority to give this reservation. Higher priority
+  /// requests will be given preference when solving/optimizing for the best
+  /// solution.
   virtual void request_reservation(
     ParticipantId id,
     RequestId req,
@@ -43,6 +73,9 @@ public:
     int priority = 0
   ) = 0;
 
+  /// Cancels a request.
+  /// \param[in] id - the participant cancelling the request
+  /// \param[req] req -the request id
   virtual void cancel_request(ParticipantId id, RequestId req) = 0;
 };
 }

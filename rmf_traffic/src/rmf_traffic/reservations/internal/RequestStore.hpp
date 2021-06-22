@@ -41,6 +41,17 @@ public:
     return _reservation_info[pid][req];
   }
 
+  RequestStore()
+  {
+    //Do nothing
+  }
+
+  RequestStore(const rmf_traffic::reservations::RequestStore& other):
+    _reservation_info(other._reservation_info)
+  {
+    //Do nothing
+  }
+
   void enqueue_reservation(
     ParticipantId pid,
     RequestId req,

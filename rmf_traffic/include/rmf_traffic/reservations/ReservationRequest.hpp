@@ -28,6 +28,8 @@ namespace reservations {
 
 using RequestId = uint64_t;
 
+///=============================================================================
+/// \brief This class 
 class ReservationRequest
 {
 

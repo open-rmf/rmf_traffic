@@ -53,7 +53,7 @@ public:
     ActionType type;
     ParticipantId participant_id;
     RequestId request_id;
-    std::vector<ReservationRequest>& request_options;
+    std::vector<ReservationRequest> request_options;
     int priority;
   };
   struct QueueElement
@@ -74,7 +74,7 @@ public:
             return std::make_shared<RequestStore>();
           else
             return std::make_shared<RequestStore>(
-              _request_store_queue.back().request_store.get()
+              *_request_store_queue.back().request_store.get()
             );
         }();
 
