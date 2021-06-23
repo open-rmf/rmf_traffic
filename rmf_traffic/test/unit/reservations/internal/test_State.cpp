@@ -35,33 +35,33 @@ SCENARIO("A few reservations in a state")
     auto now = std::chrono::steady_clock::now();
     now -= now.time_since_epoch();
     auto request1_alt1 = ReservationRequest::make_request(
-        "table_at_timbre",
-        ReservationRequest::TimeRange::make_time_range(
-            now,
-            now+10s
-        ),
-        {10s}
+      "table_at_timbre",
+      ReservationRequest::TimeRange::make_time_range(
+        now,
+        now+10s
+      ),
+      {10s}
     );
     auto request1_alt2 = ReservationRequest::make_request(
-        "table_at_koufu",
-        ReservationRequest::TimeRange::make_time_range(
-            now,
-            now+10s
-        ),
-          {10s}
-      );
+      "table_at_koufu",
+      ReservationRequest::TimeRange::make_time_range(
+        now,
+        now+10s
+      ),
+      {10s}
+    );
 
     auto request1 = std::vector{request1_alt1, request1_alt2};
     queue->enqueue_reservation(0, 0, 1, request1);
     start_state = start_state.add_request(0, 0);
 
     auto request2_alt1 = ReservationRequest::make_request(
-        "table_at_timbre",
-        ReservationRequest::TimeRange::make_time_range(
-            now,
-            now+10s
-        ),
-        {10s}
+      "table_at_timbre",
+      ReservationRequest::TimeRange::make_time_range(
+        now,
+        now+10s
+      ),
+      {10s}
     );
     auto request2 = std::vector{request2_alt1};
     queue->enqueue_reservation(1, 0, 1, request2);
@@ -71,7 +71,7 @@ SCENARIO("A few reservations in a state")
     {
       std::vector<State> child_states;
 
-      for(auto next_state: start_state)
+      for (auto next_state: start_state)
       {
         child_states.push_back(next_state);
       }
@@ -81,7 +81,7 @@ SCENARIO("A few reservations in a state")
       }
       THEN("The state difference between all child states is 1 add element")
       {
-        for(auto child_state: child_states)
+        for (auto child_state: child_states)
         {
           StateDiff diff(child_state, start_state);
           auto steps = diff.differences();
@@ -97,7 +97,7 @@ SCENARIO("A few reservations in a state")
       auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
       GreedyBestFirstSearchOptimizer opt(heuristic);
       auto solutions = opt.optimize(start_state);
-      while(auto solution = solutions.next_solution())
+      while (auto solution = solutions.next_solution())
       {
         solution->debug_state();
       }
@@ -130,8 +130,8 @@ SCENARIO("Given a single item allocated in a state")
   auto request1_alt1 = ReservationRequest::make_request(
     "table_at_timbre",
     ReservationRequest::TimeRange::make_time_range(
-        now,
-        now+10s
+      now,
+      now+10s
     ),
     {10s}
   );
@@ -141,7 +141,7 @@ SCENARIO("Given a single item allocated in a state")
   start_state = start_state.add_request(0, 0);
 
   std::vector<State> next_state;
-  for(auto state: start_state)
+  for (auto state: start_state)
   {
     next_state.push_back(state);
   }

@@ -27,14 +27,14 @@ using namespace std::chrono_literals;
 
 ///=============================================================================
 /// Emulates a dumb participant
-class SimpleParticipant: public Participant
+class SimpleParticipant : public Participant
 {
 public:
   SimpleParticipant(
     ParticipantId pid,
     std::shared_ptr<Database> db,
-    int priority = 1):
-    _pid(pid),
+    int priority = 1)
+  : _pid(pid),
     _db(db),
     _reqid(0),
     _priority(priority)
@@ -88,9 +88,9 @@ public:
     );
 
     // Busy wait... Bad but oh well...this is a unit test
-    while(
-      !_received_confirmation[_reqid] && 
-      !_received_cancellation[_reqid] ){}
+    while (
+      !_received_confirmation[_reqid] &&
+      !_received_cancellation[_reqid]) {}
 
     return _reqid++;
   }
@@ -126,8 +126,8 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       auto request1_alt1 = ReservationRequest::make_request(
         "table_at_timbre",
         ReservationRequest::TimeRange::make_time_range(
-            now,
-            now+10s
+          now,
+          now+10s
         ),
         {10s}
       );
