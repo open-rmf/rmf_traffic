@@ -47,7 +47,7 @@ public:
     RequestId request_id;
     std::optional<Reservation> reservation;
   };
-  
+
   //============================================================================
   /// Calculates the StateDiff required for one to go from State2 to State1.
   StateDiff(
@@ -56,16 +56,16 @@ public:
   )
   {
     // TODO(arjo): currently method is O(nlogn). It is possible to implement
-    // in O(n) using a two pointer method, just trickier. Ideally we should 
+    // in O(n) using a two pointer method, just trickier. Ideally we should
     // do this.
 
     // Check for reservation shuffling/shifting and assignment
-    for(auto [participant, requests]: state1._reservation_assignments)
+    for (auto [participant, requests]: state1._reservation_assignments)
     {
-      for(auto [request, reservation_id1]: requests)
+      for (auto [request, reservation_id1]: requests)
       {
         auto resource = state1._reservation_resources[reservation_id1];
-        if(
+        if (
           state2._reservation_assignments.count(participant) != 0
           && state2._reservation_assignments[participant].count(request) != 0)
         {
@@ -76,7 +76,7 @@ public:
           auto res1 = state1._resource_schedules[resource].find(time1)->second;
           auto res2 = state2._resource_schedules[resource].find(time2)->second;
 
-          if(res1 != res2)
+          if (res1 != res2)
           {
             // Request was shifted from state 2
             Difference diff
@@ -108,9 +108,9 @@ public:
     }
 
     //Check for unassigning
-    for(auto [participant, request]: state1.unassigned())
+    for (auto [participant, request]: state1.unassigned())
     {
-      if(state2._reservation_assignments.count(participant) > 0
+      if (state2._reservation_assignments.count(participant) > 0
         && state2._reservation_assignments[participant].count(request) > 0)
       {
         _differences.push_back(
@@ -129,7 +129,7 @@ public:
 
   //============================================================================
   /// Return the differences.
-  std::vector<Difference>  differences() const
+  std::vector<Difference> differences() const
   {
     return _differences;
   }
@@ -144,9 +144,9 @@ private:
     std::queue<std::size_t> unvisited;
     State curr_state(state);
     //Unassignments can go first, since they will never create a conflict.
-    for(std::size_t i = 0; i <_differences.size(); i++)
+    for (std::size_t i = 0; i < _differences.size(); i++)
     {
-      if(_differences[i].diff_type == DifferenceType::UNASSIGN_RESERVATION)
+      if (_differences[i].diff_type == DifferenceType::UNASSIGN_RESERVATION)
       {
         result.push_back(_differences[i]);
         curr_state = curr_state.unassign_reservation(
@@ -159,16 +159,16 @@ private:
       }
     }
 
-    while(!unvisited.empty())
+    while (!unvisited.empty())
     {
       auto index = unvisited.front();
       unvisited.pop();
       auto diff = _differences[index];
       auto reservation = diff.reservation;
 
-      if(!curr_state.check_if_conflicts(reservation.value()))
+      if (!curr_state.check_if_conflicts(reservation.value()))
       {
-        if(diff.diff_type == DifferenceType::SHIFT_RESERVATION)
+        if (diff.diff_type == DifferenceType::SHIFT_RESERVATION)
           curr_state = curr_state.unassign_reservation(
             diff.participant_id,
             diff.request_id
@@ -189,7 +189,7 @@ private:
     return result;
   }
 
-  std::vector<Difference>  _differences;
+  std::vector<Difference> _differences;
 };
 
 }

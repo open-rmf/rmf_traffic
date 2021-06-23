@@ -29,18 +29,18 @@ public:
   virtual float score(const State& state) = 0;
 };
 
-class PriorityBasedScorer: public Heuristic
+class PriorityBasedScorer : public Heuristic
 {
 public:
-  PriorityBasedScorer(std::shared_ptr<RequestStore> queue) :
-    _queue(queue)
+  PriorityBasedScorer(std::shared_ptr<RequestStore> queue)
+  : _queue(queue)
   {
 
   }
   float score(const State& state) override
   {
     auto score = 0;
-    for(auto [part_id, req_id]: state.unassigned())
+    for (auto [part_id, req_id]: state.unassigned())
     {
       // TODO: Incorporate
       score += _queue->get_request_info(part_id, req_id).priority;

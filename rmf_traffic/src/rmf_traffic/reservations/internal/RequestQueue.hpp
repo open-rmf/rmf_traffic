@@ -68,17 +68,17 @@ public:
       std::lock_guard lock(_mutex);
 
       std::shared_ptr<RequestStore>
-        req_store = [=]() -> std::shared_ptr<RequestStore>
+      req_store = [=]() -> std::shared_ptr<RequestStore>
         {
-          if(_request_store_queue.empty())
+          if (_request_store_queue.empty())
             return std::make_shared<RequestStore>();
           else
             return std::make_shared<RequestStore>(
               *_request_store_queue.back().request_store.get()
             );
-        }();
+        } ();
 
-      if(action.type == ActionType::ADD)
+      if (action.type == ActionType::ADD)
       {
         req_store->enqueue_reservation(
           action.participant_id,
@@ -86,7 +86,7 @@ public:
           action.priority,
           action.request_options);
       }
-      else if(action.type == ActionType::REMOVE)
+      else if (action.type == ActionType::REMOVE)
       {
         req_store->cancel(action.participant_id, action.request_id);
       }
@@ -102,7 +102,7 @@ public:
   QueueElement deque()
   {
     std::unique_lock loc(_mutex);
-    _cond.wait(loc, [=](){return !_request_store_queue.empty();});
+    _cond.wait(loc, [=]() {return !_request_store_queue.empty();});
     auto front = _request_store_queue.front();
     _request_store_queue.pop_front();
     loc.unlock();

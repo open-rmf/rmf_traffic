@@ -28,7 +28,8 @@ namespace reservations {
 class RequestStore
 {
 public:
-  struct RequestInfo {
+  struct RequestInfo
+  {
     int priority;
     std::vector<ReservationRequest> request_options;
   };
@@ -46,8 +47,8 @@ public:
     //Do nothing
   }
 
-  RequestStore(const rmf_traffic::reservations::RequestStore& other):
-    _reservation_info(other._reservation_info)
+  RequestStore(const rmf_traffic::reservations::RequestStore& other)
+  : _reservation_info(other._reservation_info)
   {
     //Do nothing
   }
@@ -60,19 +61,20 @@ public:
   )
   {
     _reservation_info[pid].insert({
-      req,
-      {
-        priority,
-        std::move(reservation)
-      }
-    });
+        req,
+        {
+          priority,
+          std::move(reservation)
+        }
+      });
   }
 
   void erase_participant_requests(
     ParticipantId pid
-  ){
+  )
+  {
     auto entry = _reservation_info.find(pid);
-    if(entry == _reservation_info.end())
+    if (entry == _reservation_info.end())
       return;
     _reservation_info.erase(entry);
   }
@@ -85,55 +87,55 @@ public:
   bool satisfies(ReservationRequest& req, Reservation reservation)
   {
     //Check upper bound
-    if(req.start_time()->lower_bound().has_value())
+    if (req.start_time()->lower_bound().has_value())
     {
-      if(reservation.start_time() < req.start_time()->lower_bound().value())
+      if (reservation.start_time() < req.start_time()->lower_bound().value())
       {
         return false;
       }
     }
 
     //Check upper bound
-    if(req.start_time()->upper_bound().has_value())
+    if (req.start_time()->upper_bound().has_value())
     {
-      if(reservation.start_time() > req.start_time()->upper_bound().value())
+      if (reservation.start_time() > req.start_time()->upper_bound().value())
       {
         return false;
       }
     }
 
-    if(req.duration().has_value())
+    if (req.duration().has_value())
     {
-      if(reservation.is_indefinite())
+      if (reservation.is_indefinite())
       {
         return false;
       }
-      if(req.duration().value()
+      if (req.duration().value()
         > *reservation.actual_finish_time() - reservation.start_time())
       {
         return false;
       }
     }
 
-    if(req.finish_time().has_value())
+    if (req.finish_time().has_value())
     {
-      if(reservation.is_indefinite())
+      if (reservation.is_indefinite())
       {
         return false;
       }
-      if(req.finish_time().value() > *reservation.actual_finish_time())
+      if (req.finish_time().value() > *reservation.actual_finish_time())
       {
         return false;
       }
     }
 
-    if((req.is_indefinite() && !reservation.is_indefinite())
+    if ((req.is_indefinite() && !reservation.is_indefinite())
       || (!req.is_indefinite() && reservation.is_indefinite()))
     {
       return false;
     }
 
-    if(req.resource_name() != reservation.resource_name())
+    if (req.resource_name() != reservation.resource_name())
     {
       return false;
     }
@@ -146,11 +148,11 @@ public:
     RequestId reqid,
     Reservation& res)
   {
-    for(std::size_t i = 0;
+    for (std::size_t i = 0;
       i < _reservation_info[pid][reqid].request_options.size();
       i++)
     {
-      if(satisfies(_reservation_info[pid][reqid].request_options[i], res))
+      if (satisfies(_reservation_info[pid][reqid].request_options[i], res))
         return i;
     }
     return std::nullopt;
@@ -158,7 +160,7 @@ public:
 private:
   std::unordered_map<ParticipantId,
     std::unordered_map<RequestId, RequestInfo>
-    >  _reservation_info;
+  > _reservation_info;
 };
 
 }

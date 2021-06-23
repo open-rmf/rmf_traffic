@@ -41,22 +41,22 @@ public:
   void remove_participant(ParticipantId id)
   {
     auto participant = _participants.find(id);
-    if(participant == _participants.end())
+    if (participant == _participants.end())
       return;
     _participants.erase(participant);
   }
 
   std::optional<std::shared_ptr<Participant>>
-    get_participant(ParticipantId id)
+  get_participant(ParticipantId id)
   {
     auto participant = _participants.find(id);
-    if(participant == _participants.end())
+    if (participant == _participants.end())
       return std::nullopt;
     return {participant->second};
   }
 private:
   std::unordered_map<ParticipantId, std::shared_ptr<Participant>>
-    _participants;
+  _participants;
 };
 
 }

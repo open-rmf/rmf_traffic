@@ -29,12 +29,12 @@ public:
 
 
 const std::optional<Time>
-  ReservationRequest::TimeRange::lower_bound() const
+ReservationRequest::TimeRange::lower_bound() const
 {
   return _pimpl->_lower_bound;
 }
 const std::optional<Time>
-  ReservationRequest::TimeRange::upper_bound() const
+ReservationRequest::TimeRange::upper_bound() const
 {
   return _pimpl->_upper_bound;
 }
@@ -50,8 +50,8 @@ ReservationRequest::TimeRange::make_time_range(
   return tr;
 }
 
-ReservationRequest::TimeRange::TimeRange():
-  _pimpl(rmf_utils::make_impl<Implementation>())
+ReservationRequest::TimeRange::TimeRange()
+: _pimpl(rmf_utils::make_impl<Implementation>())
 {
 
 }
@@ -67,7 +67,7 @@ public:
 
 //=============================================================================
 const std::optional<ReservationRequest::TimeRange>
-    ReservationRequest::start_time() const
+ReservationRequest::start_time() const
 {
   return _pimpl->_start;
 }
@@ -113,8 +113,8 @@ ReservationRequest ReservationRequest::make_request(
 }
 
 //=============================================================================
-ReservationRequest::ReservationRequest():
-  _pimpl(rmf_utils::make_impl<Implementation>())
+ReservationRequest::ReservationRequest()
+: _pimpl(rmf_utils::make_impl<Implementation>())
 {
 }
 

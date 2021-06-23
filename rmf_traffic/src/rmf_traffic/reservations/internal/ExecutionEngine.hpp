@@ -47,10 +47,10 @@ public:
   ///   of participants.
   ExecutionEngine(
     std::shared_ptr<RequestQueue> request_queue,
-    std::shared_ptr<ParticipantStore> pstore):
-      _request_queue(request_queue),
-      _participant_store(pstore),
-      _curr_state(std::make_shared<RequestStore>())
+    std::shared_ptr<ParticipantStore> pstore)
+  : _request_queue(request_queue),
+    _participant_store(pstore),
+    _curr_state(std::make_shared<RequestStore>())
   {
     _execution_thread =
       std::make_shared<std::thread>(&ExecutionEngine::execute, this);
@@ -72,7 +72,7 @@ public:
     };
     _request_queue->add_action(terminate_req);
 
-    if(_execution_thread->joinable())
+    if (_execution_thread->joinable())
       _execution_thread->join();
   }
 
@@ -82,14 +82,14 @@ private:
   /// comes in the current_state is read and updated to contain the request.
   void execute()
   {
-    while(true)
+    while (true)
     {
       auto element = _request_queue->deque();
 
-      if(element.action.type == RequestQueue::ActionType::TERMINATE_STREAM)
+      if (element.action.type == RequestQueue::ActionType::TERMINATE_STREAM)
         return;
 
-      if(element.action.type == RequestQueue::ActionType::ADD)
+      if (element.action.type == RequestQueue::ActionType::ADD)
       {
         _curr_state = _curr_state.add_request(
           element.action.participant_id,
@@ -97,7 +97,7 @@ private:
           element.request_store
         );
       }
-      else if(element.action.type == RequestQueue::ActionType::REMOVE)
+      else if (element.action.type == RequestQueue::ActionType::REMOVE)
       {
         _curr_state = _curr_state.remove_request(
           element.action.participant_id,
@@ -105,7 +105,8 @@ private:
           element.request_store
         );
       }
-      else if(element.action.type == RequestQueue::ActionType::REMOVE_PARTICIPANT)
+      else if (element.action.type ==
+        RequestQueue::ActionType::REMOVE_PARTICIPANT)
       {
         _curr_state = _curr_state.remove_participant(
           element.action.participant_id,
@@ -118,7 +119,7 @@ private:
 
       GreedyBestFirstSearchOptimizer optimizer(heuristic);
       auto favored_solution = get_favored_solution(optimizer);
-      if(!favored_solution.has_value())
+      if (!favored_solution.has_value())
         continue;
 
       rollout(favored_solution.value());
@@ -133,14 +134,14 @@ private:
   /// we will retry optimization upon the arrival of the next request.
   void rollout(const StateDiff& changes)
   {
-    for(auto change: changes.differences())
+    for (auto change: changes.differences())
     {
       assert(
         _participant_store->get_participant(change.participant_id).has_value());
 
       auto participant =
         _participant_store->get_participant(change.participant_id).value();
-      if(change.diff_type == StateDiff::DifferenceType::SHIFT_RESERVATION)
+      if (change.diff_type == StateDiff::DifferenceType::SHIFT_RESERVATION)
       {
         assert(change.reservation.has_value());
 
@@ -148,7 +149,7 @@ private:
           change.request_id,
           change.reservation.value());
 
-        if(result == false)
+        if (result == false)
           return;
 
         _curr_state = _curr_state.unassign_reservation(
@@ -161,7 +162,7 @@ private:
           change.reservation.value()
         );
       }
-      else if(
+      else if (
         change.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION)
       {
         assert(change.reservation.has_value());
@@ -170,7 +171,7 @@ private:
           change.request_id,
           change.reservation.value());
 
-        if(result == false)
+        if (result == false)
           return;
 
         _curr_state.assign_reservation(
@@ -179,14 +180,14 @@ private:
           change.reservation.value()
         );
       }
-      else if(
+      else if (
         change.diff_type == StateDiff::DifferenceType::UNASSIGN_RESERVATION)
       {
         assert(!change.reservation.has_value());
         auto result =
           participant->unassign_request_confirmed(change.request_id);
 
-        if(result == false)
+        if (result == false)
           return;
 
         _curr_state = _curr_state.unassign_reservation(
@@ -205,10 +206,10 @@ private:
     GreedyBestFirstSearchOptimizer& optimizer)
   {
     auto solutions = optimizer.optimize(_curr_state);
-    while(auto solution = solutions.next_solution())
+    while (auto solution = solutions.next_solution())
     {
       StateDiff impacted_reservations(solution.value(), _curr_state);
-      if(verify_proposal(impacted_reservations))
+      if (verify_proposal(impacted_reservations))
         return {impacted_reservations};
     }
 
@@ -222,25 +223,25 @@ private:
   bool verify_proposal(const StateDiff& impacted_reservations)
   {
     auto res = impacted_reservations.differences();
-    for(auto diff: res)
+    for (auto diff: res)
     {
       auto impacted_participant = diff.participant_id;
 
-      assert (
+      assert(
         _participant_store->get_participant(impacted_participant).has_value());
 
       auto participant =
         _participant_store->get_participant(impacted_participant)
-          .value();
+        .value();
 
-      if(diff.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION
+      if (diff.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION
         || diff.diff_type == StateDiff::DifferenceType::SHIFT_RESERVATION)
       {
         auto result = participant->request_proposal(
           diff.request_id,
           diff.reservation.value()
         );
-        if(!result)
+        if (!result)
           return false;
       }
       else
@@ -248,7 +249,7 @@ private:
         auto result = participant->unassign_request_proposal(
           diff.request_id
         );
-        if(!result)
+        if (!result)
           return false;
       }
     }

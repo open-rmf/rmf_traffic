@@ -26,8 +26,8 @@ namespace reservations {
 class Database::Implementation
 {
 public:
-  Implementation():
-    _request_queue(std::make_shared<RequestQueue>()),
+  Implementation()
+  : _request_queue(std::make_shared<RequestQueue>()),
     _participant_store(std::make_shared<ParticipantStore>()),
     _execution_engine(_request_queue, _participant_store)
   {
@@ -120,8 +120,8 @@ void Database::cancel_request(ParticipantId id, RequestId req)
 {
   _pimpl->cancel_request(id, req);
 }
-Database::Database():
-  _pimpl(rmf_utils::make_impl<Implementation>())
+Database::Database()
+: _pimpl(rmf_utils::make_impl<Implementation>())
 {
 }
 

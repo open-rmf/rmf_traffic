@@ -28,8 +28,8 @@ public:
   ReservationId _res_id;
   std::string _resource_name;
   rmf_traffic::Time _start_time;
-  std::optional<rmf_traffic::Duration>  _duration;
-  std::optional<rmf_traffic::Time>  _finish_time;
+  std::optional<rmf_traffic::Duration> _duration;
+  std::optional<rmf_traffic::Time> _finish_time;
 };
 
 //=============================================================================
@@ -53,7 +53,7 @@ const std::optional<rmf_traffic::Time> Reservation::finish_time() const
 //=============================================================================
 void Reservation::set_actual_finish_time(rmf_traffic::Time dur)
 {
-  if(dur < _pimpl->_start_time)
+  if (dur < _pimpl->_start_time)
     _pimpl->_start_time = dur;
 
   _pimpl->_finish_time = dur;
@@ -79,14 +79,15 @@ Reservation Reservation::propose_new_start_time(rmf_traffic::Time start_time)
 //=============================================================================
 const std::optional<rmf_traffic::Time> Reservation::actual_finish_time() const
 {
-  if(is_indefinite()) return std::nullopt;
+  if (is_indefinite())
+    return std::nullopt;
 
-  if(_pimpl->_finish_time.has_value() && _pimpl->_duration.has_value())
+  if (_pimpl->_finish_time.has_value() && _pimpl->_duration.has_value())
   {
-    return {std::max(_pimpl->_start_time + *_pimpl->_duration, 
-      *_pimpl->_finish_time)};
+    return {std::max(_pimpl->_start_time + *_pimpl->_duration,
+        *_pimpl->_finish_time)};
   }
-  else if(_pimpl->_finish_time.has_value())
+  else if (_pimpl->_finish_time.has_value())
   {
     return {std::max(_pimpl->_start_time, *_pimpl->_finish_time)};
   }
@@ -117,19 +118,21 @@ ReservationId Reservation::reservation_id() const
 //=============================================================================
 bool Reservation::conflicts_with(const Reservation& other) const
 {
-  if(other.start_time() < this->start_time())
+  if (other.start_time() < this->start_time())
   {
-    if(!other.is_indefinite()
+    if (!other.is_indefinite()
       && other.actual_finish_time() <= this->start_time())
       return true;
-    else return false;
+    else
+      return false;
   }
   else
   {
-    if(!this->is_indefinite()
+    if (!this->is_indefinite()
       && this->actual_finish_time() <= other.start_time())
       return true;
-    else return false;
+    else
+      return false;
   }
 }
 
@@ -171,8 +174,8 @@ Reservation Reservation::make_reservation(
 }
 
 //=============================================================================
-Reservation::Reservation():
-  _pimpl(rmf_utils::make_impl<Implementation>())
+Reservation::Reservation()
+: _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // do nothing
 }
