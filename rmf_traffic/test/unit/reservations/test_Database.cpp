@@ -19,8 +19,7 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include <rmf_traffic/reservations/Reservation.hpp>
 
-#include <mutex>
-#include <thread>
+#include <iostream>
 
 using namespace rmf_traffic;
 using namespace rmf_traffic::reservations;
@@ -120,7 +119,7 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
     std::shared_ptr<Database> database = std::make_shared<Database>();
     std::shared_ptr<SimpleParticipant> participant1 =
       std::make_shared<SimpleParticipant>(0, database);
-    database->register_participant(1, participant1);
+    database->register_participant(0, participant1);
 
     WHEN("the participant makes a request")
     {
@@ -132,9 +131,10 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
         ),
         {10s}
       );
-      
+
       auto request1 = std::vector{request1_alt1};
       auto req_id = participant1->make_request_blocking(request1);
+      std::cout << "Got reqid" << req_id<< std::endl;
       auto prop = participant1->get_proposal(req_id);
 
       THEN("There should be a successful proposal")

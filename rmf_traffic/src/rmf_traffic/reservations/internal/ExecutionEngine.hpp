@@ -225,6 +225,10 @@ private:
     for(auto diff: res)
     {
       auto impacted_participant = diff.participant_id;
+
+      assert (
+        _participant_store->get_participant(impacted_participant).has_value());
+
       auto participant =
         _participant_store->get_participant(impacted_participant)
           .value();

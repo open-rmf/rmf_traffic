@@ -120,6 +120,7 @@ SCENARIO("A few reservations in a state")
   }
 }
 
+// TODO: Increase test cases here to cover all edge cases
 SCENARIO("Given a single item allocated in a state")
 {
   auto queue = std::make_shared<RequestStore>();
@@ -154,9 +155,24 @@ SCENARIO("Given a single item allocated in a state")
       {}
     );
 
-    THEN("check_if_conflicts")
+    THEN("check_if_conflicts returns true")
     {
       REQUIRE(next_state[0].check_if_conflicts(res));
+    }
+  }
+
+  WHEN("Checking for overlapping indefinite reservation")
+  {
+    Reservation res = Reservation::make_reservation(
+      now,
+      "table_at_koufu",
+      {},
+      {}
+    );
+
+    THEN("check_if_conflicts returns false")
+    {
+      REQUIRE(!next_state[0].check_if_conflicts(res));
     }
   }
 }
