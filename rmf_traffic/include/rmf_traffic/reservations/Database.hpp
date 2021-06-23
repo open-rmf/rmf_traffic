@@ -23,7 +23,7 @@
 namespace rmf_traffic {
 namespace reservations {
 
-class Database: public Writer
+class Database : public Writer
 {
 public:
   ///===========================================================================
@@ -55,7 +55,7 @@ public:
 
   class Implementation;
 private:
-  rmf_utils::impl_ptr<Implementation>  _pimpl;
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 }

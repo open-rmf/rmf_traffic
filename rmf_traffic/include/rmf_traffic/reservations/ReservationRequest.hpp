@@ -29,7 +29,7 @@ namespace reservations {
 using RequestId = uint64_t;
 
 ///=============================================================================
-/// \brief This class 
+/// \brief This class
 class ReservationRequest
 {
 
@@ -73,7 +73,7 @@ public:
 
 private:
   ReservationRequest();
-  rmf_utils::impl_ptr<Implementation>  _pimpl;
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 }
 }

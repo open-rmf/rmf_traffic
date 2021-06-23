@@ -26,7 +26,7 @@ namespace rmf_traffic {
 namespace reservations {
 
 ///=============================================================================
-// Writer class 
+// Writer class
 class Writer
 {
 public:
@@ -57,8 +57,8 @@ public:
   /// needs to be tracked by the client. (Warning to be fixed before merge:
   /// If a request is duplicated there is undefined behaviour. This needs to
   /// change to log an error or throw an exception...)
-  /// \param[in] request_options alternatives which can service this request. 
-  /// For instance, if we would like to reserve a charger we can send in a 
+  /// \param[in] request_options alternatives which can service this request.
+  /// For instance, if we would like to reserve a charger we can send in a
   /// ReservationRequest for all the chargers. Suppose Charger1 is nearest and
   /// Charger4 is farthest and we prefer near chargers then we would send in a
   /// list of requests like so {Charger1, Charger2, Charger3, Charger4}. The
