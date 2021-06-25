@@ -17,7 +17,7 @@
 
 #include "internal_Participant.hpp"
 #include "debug_Participant.hpp"
-#include "RectifierInternal.hpp"
+#include "internal_Rectifier.hpp"
 
 #include <sstream>
 

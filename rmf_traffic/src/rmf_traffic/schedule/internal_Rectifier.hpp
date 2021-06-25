@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_RECTIFIER_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_RECTIFIER_HPP
 
 #include <rmf_traffic/schedule/Rectifier.hpp>
 #include "internal_Participant.hpp"
@@ -39,4 +39,4 @@ public:
 } // namespace schedule
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_RECTIFIER_HPP

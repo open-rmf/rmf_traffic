@@ -15,7 +15,7 @@
  *
 */
 
-#include "RectifierInternal.hpp"
+#include "internal_Rectifier.hpp"
 
 #include <rmf_traffic/schedule/Database.hpp>
 
