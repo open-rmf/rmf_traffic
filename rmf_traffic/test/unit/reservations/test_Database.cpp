@@ -43,7 +43,8 @@ public:
 
   bool request_proposal(
     RequestId id,
-    Reservation& res
+    Reservation& res,
+    uint64_t proposal_version
   ) override
   {
     _received_confirmation[id] = true;
@@ -53,21 +54,24 @@ public:
 
   bool request_confirmed(
     RequestId id,
-    Reservation& res
+    Reservation& res,
+    uint64_t proposal_version
   ) override
   {
     return true;
   }
 
   bool unassign_request_confirmed(
-    RequestId id
+    RequestId id,
+    uint64_t proposal_version
   ) override
   {
     return true;
   }
 
   bool unassign_request_proposal(
-    RequestId id
+    RequestId id,
+    uint64_t proposal_version
   ) override
   {
     _received_cancellation[id] = true;

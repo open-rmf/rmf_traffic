@@ -38,10 +38,12 @@ public:
   /// \param[in] id is the RequestId of the request that will be impacted.
   /// \param[in] res is the Reservation that is being proposed by the
   /// reservation system.
+  /// \param[in] proposal_version is used to track the proposal's id
   /// \return true if the request is acceptable, false otherwise.
   virtual bool request_proposal(
     RequestId id,
-    Reservation& res
+    Reservation& res,
+    uint64_t proposal_version
   ) = 0;
 
   ///===========================================================================
@@ -51,11 +53,13 @@ public:
   /// expected that the participant will comply.
   /// \param[in] id the request id.
   /// \param[in] res the response.
+  /// \param[in] proposal_version is used to track the proposal's id
   /// \return true if the request has been successfully confirmed, false
   /// otherwise
   virtual bool request_confirmed(
     RequestId id,
-    Reservation& res
+    Reservation& res,
+    uint64_t proposal_version
   ) = 0;
 
   ///===========================================================================
@@ -64,18 +68,22 @@ public:
   /// The request will still remain in the database, just that it will be
   /// serviced at some point later if possible.
   /// \param[in] id is the RequestId of the request that will be impacted.
+  /// \param[in] proposal_version is used to track the proposal's id
   /// \return true if the you agree to allow your request to be cancelled, false
   /// otherwise.
   virtual bool unassign_request_confirmed(
-    RequestId id
+    RequestId id,
+    uint64_t proposal_version
   ) = 0;
 
   ///===========================================================================
   /// \brief This method is called whenever a cancellation has been allowed.
   /// \param[in] id is the RequestId of the request that will be impacted.
+  /// \param[in] proposal_version is used to track the proposal's id
   /// \return true if the request is acceptable, false otherwise.
   virtual bool unassign_request_proposal(
-    RequestId id
+    RequestId id,
+    uint64_t proposal_version
   ) = 0;
 };
 

@@ -50,7 +50,8 @@ public:
     std::shared_ptr<ParticipantStore> pstore)
   : _request_queue(request_queue),
     _participant_store(pstore),
-    _curr_state(std::make_shared<RequestStore>())
+    _curr_state(std::make_shared<RequestStore>()),
+    _proposal_version(0)
   {
     _execution_thread =
       std::make_shared<std::thread>(&ExecutionEngine::execute, this);
@@ -128,10 +129,8 @@ private:
   }
 
   //============================================================================
-  /// \brief Rolls out the changes. If for whatever reason a rollout should fail
-  /// there is no need to rollback as the StateDiff is returned in a topological
-  /// order. Instead _`curr_state` remains in a partially successful state and
-  /// we will retry optimization upon the arrival of the next request.
+  /// \brief Rolls out the proposed changes.
+  /// TODO: Consider making asynchronous
   void rollout(const StateDiff& changes)
   {
     for (auto change: changes.differences())
@@ -147,7 +146,8 @@ private:
 
         auto result = participant->request_confirmed(
           change.request_id,
-          change.reservation.value());
+          change.reservation.value(),
+          _proposal_version);
 
         if (result == false)
           return;
@@ -169,7 +169,8 @@ private:
 
         auto result = participant->request_confirmed(
           change.request_id,
-          change.reservation.value());
+          change.reservation.value(),
+          _proposal_version);
 
         if (result == false)
           return;
@@ -185,11 +186,12 @@ private:
       {
         assert(!change.reservation.has_value());
         auto result =
-          participant->unassign_request_confirmed(change.request_id);
+          participant->unassign_request_confirmed(
+            change.request_id,
+            _proposal_version);
 
         if (result == false)
           return;
-
         _curr_state = _curr_state.unassign_reservation(
           change.participant_id,
           change.request_id);
@@ -200,6 +202,7 @@ private:
   //============================================================================
   /// \brief Proposes the solution favoured by the optimizer and ratified
   /// by all participants.
+  /// TODO(arjo): async-ify
   /// \param[in] optimizer - Instance of the optimizer.
   /// \returns the StateDiff or a `std::nullopt` if no Solution is agreeable
   std::optional<StateDiff> get_favored_solution(
@@ -211,6 +214,7 @@ private:
       StateDiff impacted_reservations(solution.value(), _curr_state);
       if (verify_proposal(impacted_reservations))
         return {impacted_reservations};
+      _proposal_version++;
     }
 
     return std::nullopt;
@@ -239,7 +243,8 @@ private:
       {
         auto result = participant->request_proposal(
           diff.request_id,
-          diff.reservation.value()
+          diff.reservation.value(),
+          _proposal_version
         );
         if (!result)
           return false;
@@ -247,7 +252,8 @@ private:
       else
       {
         auto result = participant->unassign_request_proposal(
-          diff.request_id
+          diff.request_id,
+          _proposal_version
         );
         if (!result)
           return false;
@@ -259,6 +265,7 @@ private:
   std::shared_ptr<std::thread> _execution_thread;
   std::shared_ptr<RequestQueue> _request_queue;
   std::shared_ptr<ParticipantStore> _participant_store;
+  uint64_t _proposal_version;
   State _curr_state;
 };
 }
