@@ -22,6 +22,8 @@
 #include <rmf_traffic/geometry/Shape.hpp>
 
 #include <memory>
+#include <vector>
+#include <Eigen/Dense>
 
 namespace rmf_traffic {
 namespace geometry {
@@ -41,6 +43,7 @@ public:
   /// Finalize the shape more specifically as a ConvexShape
   virtual FinalConvexShape finalize_convex() const = 0;
 
+  virtual FinalConvexShape finalize_convex_with_offset(Eigen::Vector2d offset) const = 0;
 protected:
 
   ConvexShape(std::unique_ptr<Shape::Internal> internal);
@@ -74,11 +77,34 @@ FinalConvexShapePtr make_final_convex(Args&& ... args)
     T(std::forward<Args>(args)...).finalize_convex());
 }
 
+
+//==============================================================================
+template<typename T, typename... Args>
+FinalConvexShapePtr make_final_convex_with_offset(Eigen::Vector2d offset, Args&& ... args)
+{
+  return std::make_shared<FinalConvexShape>(
+    T(std::forward<Args>(args)...).finalize_convex_with_offset(offset));
+}
+
 //==============================================================================
 template<typename T>
 FinalConvexShapePtr make_final_convex(const T& convex)
 {
   return std::make_shared<FinalConvexShape>(convex.finalize_convex());
+}
+
+using FinalConvexShapeGroup = std::vector<FinalConvexShapePtr>;
+using ConstFinalConvexShapeGroup = std::vector<ConstFinalConvexShapePtr>;
+
+inline geometry::ConstShapeGroup to_final_shape_group(const geometry::ConstFinalConvexShapeGroup& input)
+{
+  geometry::ConstShapeGroup group;
+  for (auto shape : input)
+  {
+    auto ptr = std::dynamic_pointer_cast<const geometry::FinalShape>(shape);
+    group.push_back(ptr);
+  }
+  return group;
 }
 
 } // namespace geometry

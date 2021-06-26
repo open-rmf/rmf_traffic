@@ -445,7 +445,6 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
     CHECK(output_iterators.size()==1);
     }*/
 
-#ifdef RMF_TRAFFIC__USING_FCL_0_6
     WHEN("Trajectory profile is 1x1, space is 10x2, space box rotated by 74deg")
     {
       // Creating trajectory
@@ -511,7 +510,6 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
           double_box, t1, region, &conflicts));
       CHECK(conflicts.size() == 1);
     }
-#endif // RMF_TRAFFIC__USING_FCL_0_6
 
 //    WHEN("Trajectory profile is 2x2, space is 10x2, space box rotated by 90deg ") //this fails
 //    {
@@ -795,7 +793,6 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
       CHECK(conflicts.size() == 1);
     }
 
-#ifdef RMF_TRAFFIC__USING_FCL_0_6
     WHEN("Trajectory profile is 1x1, space is 1x1, space box rotated by 90")
     {
       // Creating trajectory
@@ -829,7 +826,6 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
           unit_box, t1, region, &conflicts));
       CHECK(conflicts.size() == 1);
     }
-#endif // RMF_TRAFFIC__USING_FCL_0_6
 
     WHEN("Trajectory profile is 1x1, space is 2x1, space box not rotated")
     {
@@ -1515,5 +1511,65 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
 
     rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
     // Eigen::Isometry2d tf= Eigen::Isometry2d::Identity();
+  }
+}
+
+
+SCENARIO("Testing offset shapes with various spacetimes")
+{
+  using namespace std::chrono_literals;
+
+  const auto circle_shape = rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Circle>(0.5);
+  const auto circle_shape_offset = rmf_traffic::geometry::make_final_convex_with_offset<
+    rmf_traffic::geometry::Circle>(Eigen::Vector2d(0, -1), 0.5);
+  rmf_traffic::Profile robot_profile(circle_shape, circle_shape_offset);
+
+  auto time = std::chrono::steady_clock::now();
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+
+  // creating space to create spacetime
+  const auto region_box_shape = rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Box>(10.0, 2.0);
+
+  std::chrono::_V2::steady_clock::time_point lower_time_bound = time;
+  std::chrono::_V2::steady_clock::time_point upper_time_bound = time+10s;
+
+  rmf_traffic::internal::Spacetime region = {
+    &lower_time_bound,
+    &upper_time_bound,
+    tf,
+    region_box_shape
+  };
+
+  GIVEN("A straight line trajectory whose offset vicinity intersects with the spacetime region")
+  {
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, {-15, 2.5, 0}, {0, 0, 0});
+    t1.insert(time+10s, {15, 2.5, 0}, {0, 0, 0});
+    REQUIRE(t1.size() == 2);
+
+    CHECK(rmf_traffic::internal::detect_conflicts(robot_profile, t1, region));
+  }
+
+  GIVEN("A straight line trajectory whose offset vicinity does not intersect with the spacetime region")
+  {
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, {-15, 3.5, 0}, {0, 0, 0});
+    t1.insert(time+10s, {15, 3.5, 0}, {0, 0, 0});
+    REQUIRE(t1.size() == 2);
+
+    CHECK_FALSE(rmf_traffic::internal::detect_conflicts(robot_profile, t1, region));
+  }
+
+  GIVEN("A rotation on the spot trajectory whose offset vicinity intersects with the spacetime region")
+  {
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, {-6, 2, 0}, {0, 0, 0});
+    t1.insert(time+10s, {-6, 2, EIGEN_PI / 2.0}, {0, 0, 0});
+    REQUIRE(t1.size() == 2);
+
+    rmf_traffic::DetectConflict::Implementation::Conflicts c;
+    CHECK(rmf_traffic::internal::detect_conflicts(robot_profile, t1, region, &c));
   }
 }

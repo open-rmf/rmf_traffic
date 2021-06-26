@@ -19,11 +19,7 @@
 
 #include <rmf_traffic/geometry/Circle.hpp>
 
-#ifdef RMF_TRAFFIC__USING_FCL_0_6
 #include <fcl/geometry/shape/sphere.h>
-#else
-#include <fcl/shape/geometric_shapes.h>
-#endif
 
 namespace rmf_traffic {
 namespace geometry {
@@ -41,11 +37,7 @@ public:
 
   CollisionGeometries make_fcl() const final
   {
-    #ifdef RMF_TRAFFIC__USING_FCL_0_6
     return {std::make_shared<fcl::Sphered>(_radius)};
-    #else
-    return {std::make_shared<fcl::Sphere>(_radius)};
-    #endif
   }
 
   double _radius;
@@ -115,6 +107,15 @@ bool operator==(const Circle& lhs, const Circle& rhs)
 bool operator!=(const Circle& lhs, const Circle& rhs)
 {
   return !(lhs == rhs);
+}
+
+//==============================================================================
+FinalConvexShape Circle::finalize_convex_with_offset(Eigen::Vector2d offset) const
+{
+  return FinalConvexShape::Implementation::make_final_shape_with_offset(
+    rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+    _get_internal()->make_fcl(), this->get_radius(), offset,
+    make_equality_comparator(*this));
 }
 
 } // namespace geometry

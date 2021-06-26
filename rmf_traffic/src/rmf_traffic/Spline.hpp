@@ -21,22 +21,11 @@
 #include "TrajectoryInternal.hpp"
 
 #include <rmf_traffic/Trajectory.hpp>
-
-#ifdef RMF_TRAFFIC__USING_FCL_0_6
 #include <fcl/math/motion/spline_motion.h>
-#else
-#include <fcl/ccd/motion.h>
-#endif
 
 #include <array>
 
 namespace rmf_traffic {
-
-#ifdef RMF_TRAFFIC__USING_FCL_0_6
-using FclSplineMotion = fcl::SplineMotion<double>;
-#else
-using FclSplineMotion = fcl::SplineMotion;
-#endif
 
 //==============================================================================
 /// A utility class to convert Trajectories into piecewise-splines.
@@ -60,7 +49,11 @@ public:
   std::array<Eigen::Vector3d, 4> compute_knots(
     const Time start_time, const Time finish_time) const;
 
-  FclSplineMotion to_fcl(const Time start_time, const Time finish_time) const;
+  fcl::SplineMotion<double> to_fcl(
+    const Time start_time, const Time finish_time) const;
+
+  fcl::SplineMotion<double> to_fcl(
+    const std::array<Eigen::Vector3d, 4>& knots) const;
 
   Time start_time() const;
   Time finish_time() const;
@@ -89,6 +82,12 @@ private:
   Parameters params;
 
 };
+
+fcl::SplineMotion<double> to_fcl(
+    const Eigen::Vector3d& x0,
+    const Eigen::Vector3d& x1,
+    const Eigen::Vector3d& v0,
+    const Eigen::Vector3d& v1);
 
 //==============================================================================
 /// This class helps compute the differentials of the distance between two

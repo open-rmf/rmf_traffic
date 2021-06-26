@@ -39,8 +39,8 @@ SCENARIO("Testing Construction")
 
     auto profile = Profile{circle_1};
 
-    auto& footprint = profile.footprint();
-    auto& vicinity = profile.vicinity();
+    auto& footprint = profile.footprint()[0];
+    auto& vicinity = profile.vicinity()[0];
 
     CHECK(footprint == circle_1);
     CHECK(vicinity == circle_1);
@@ -51,20 +51,20 @@ SCENARIO("Testing Construction")
     {
       profile.footprint(circle_2);
       CHECK(footprint == circle_2);
-      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_footprint_characteristic_length() == Approx(2.0));
       // profile.vicinity() should return footprint
       CHECK(profile.vicinity() == profile.footprint());
-      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_vicinity_characteristic_length()  == Approx(2.0));
     }
 
     WHEN("Only vicinity is updated")
     {
       profile.vicinity(circle_2);
-      CHECK(vicinity != profile.vicinity());
-      CHECK(profile.vicinity() == circle_2);
+      CHECK(vicinity != profile.vicinity()[0]);
+      CHECK(profile.vicinity()[0] == circle_2);
       CHECK(footprint == circle_1);
-      CHECK(profile.footprint()->get_characteristic_length() == Approx(1.0));
-      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_footprint_characteristic_length() == Approx(1.0));
+      CHECK(profile.get_vicinity_characteristic_length() == Approx(2.0));
     }
 
     WHEN("Both footprint and vicinity are updated")
@@ -73,8 +73,8 @@ SCENARIO("Testing Construction")
       profile.vicinity(circle_2);
       CHECK(footprint == circle_2);
       CHECK(vicinity == circle_2);
-      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
-      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_footprint_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_vicinity_characteristic_length() == Approx(2.0));
     }
   }
 
@@ -87,8 +87,8 @@ SCENARIO("Testing Construction")
 
     auto profile = Profile{circle_1, circle_2};
 
-    auto& footprint = profile.footprint();
-    auto& vicinity = profile.vicinity();
+    auto& footprint = profile.footprint()[0];
+    auto& vicinity = profile.vicinity()[0];
 
     CHECK(footprint == circle_1);
     CHECK(vicinity == circle_2);
@@ -100,8 +100,8 @@ SCENARIO("Testing Construction")
       profile.footprint(circle_2);
       CHECK(footprint == circle_2);
       CHECK(vicinity == circle_2);
-      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
-      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_footprint_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_vicinity_characteristic_length() == Approx(2.0));
     }
 
     WHEN("Only vicinity is updated")
@@ -109,8 +109,8 @@ SCENARIO("Testing Construction")
       profile.vicinity(circle_1);
       CHECK(vicinity == circle_1);
       CHECK(footprint == circle_1);
-      CHECK(profile.footprint()->get_characteristic_length() == Approx(1.0));
-      CHECK(profile.vicinity()->get_characteristic_length() == Approx(1.0));
+      CHECK(profile.get_footprint_characteristic_length() == Approx(1.0));
+      CHECK(profile.get_vicinity_characteristic_length() == Approx(1.0));
     }
 
     WHEN("Both footprint and vicinity are updated")
@@ -119,9 +119,25 @@ SCENARIO("Testing Construction")
       profile.vicinity(circle_1);
       CHECK(footprint == circle_2);
       CHECK(vicinity == circle_1);
-      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
-      CHECK(profile.vicinity()->get_characteristic_length() == Approx(1.0));
+      CHECK(profile.get_footprint_characteristic_length() == Approx(2.0));
+      CHECK(profile.get_vicinity_characteristic_length() == Approx(1.0));
     }
+  }
+
+  WHEN("Additional footprint shapes are added")
+  {
+    const auto circle_1 = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.0);
+    const auto circle_2 = rmf_traffic::geometry::make_final_convex_with_offset<
+      rmf_traffic::geometry::Circle>(Eigen::Vector2d(0, 2), 2.0);
+
+    rmf_traffic::geometry::ConstFinalConvexShapeGroup grp;
+    grp.emplace_back(circle_1);
+    grp.emplace_back(circle_2);
+
+    auto profile = Profile{ grp };
+    CHECK(profile.footprint().size() == 2);
+    CHECK(profile.vicinity().size() == 2);
   }
 }
 

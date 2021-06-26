@@ -23,42 +23,95 @@ namespace rmf_traffic {
 Profile::Profile(
   geometry::ConstFinalConvexShapePtr footprint,
   geometry::ConstFinalConvexShapePtr vicinity)
+{
+  geometry::ConstFinalConvexShapeGroup footprint_grp;
+  footprint_grp.emplace_back(footprint);
+  geometry::ConstFinalConvexShapeGroup vicinity_grp;
+
+  if (vicinity)
+    vicinity_grp.emplace_back(vicinity);
+  *this = Profile(footprint_grp, vicinity_grp);
+}
+
+Profile::Profile(
+    geometry::ConstFinalConvexShapeGroup footprint,
+    geometry::ConstFinalConvexShapeGroup vicinity)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(footprint),
         std::move(vicinity)
       }))
 {
-  // Do nothing
+  _pimpl->footprint_characteristic_length = _pimpl->compute_shapegroup_characteristic_length(_pimpl->footprint);
+  if (_pimpl->vicinity.size())
+    _pimpl->vicinity_characteristic_length = _pimpl->compute_shapegroup_characteristic_length(_pimpl->vicinity);
+  else
+    _pimpl->vicinity_characteristic_length = _pimpl->footprint_characteristic_length;
 }
 
 //==============================================================================
 Profile& Profile::footprint(geometry::ConstFinalConvexShapePtr shape)
 {
-  _pimpl->footprint = std::move(shape);
+  _pimpl->footprint.clear();
+  _pimpl->footprint.emplace_back(std::move(shape));
+  _pimpl->footprint_characteristic_length = _pimpl->compute_shapegroup_characteristic_length(_pimpl->footprint);
+  if (_pimpl->vicinity.empty())
+    _pimpl->vicinity_characteristic_length = _pimpl->footprint_characteristic_length;
   return *this;
 }
 
 //==============================================================================
-const geometry::ConstFinalConvexShapePtr& Profile::footprint() const
+Profile& Profile::footprint(geometry::ConstFinalConvexShapeGroup shape)
+{
+  _pimpl->footprint = std::move(shape);
+  _pimpl->footprint_characteristic_length = _pimpl->compute_shapegroup_characteristic_length(_pimpl->footprint);
+  if (_pimpl->vicinity.empty())
+    _pimpl->vicinity_characteristic_length = _pimpl->footprint_characteristic_length;
+  return *this;
+}
+
+//==============================================================================
+const geometry::ConstFinalConvexShapeGroup& Profile::footprint() const
 {
   return _pimpl->footprint;
+}
+
+//==============================================================================
+double Profile::get_footprint_characteristic_length() const
+{
+  return _pimpl->footprint_characteristic_length;
 }
 
 //==============================================================================
 Profile& Profile::vicinity(geometry::ConstFinalConvexShapePtr shape)
 {
-  _pimpl->vicinity = std::move(shape);
+  _pimpl->vicinity.clear();
+  _pimpl->vicinity.emplace_back(std::move(shape));
+  _pimpl->vicinity_characteristic_length = _pimpl->compute_shapegroup_characteristic_length(_pimpl->vicinity);
   return *this;
 }
 
 //==============================================================================
-const geometry::ConstFinalConvexShapePtr& Profile::vicinity() const
+Profile& Profile::vicinity(geometry::ConstFinalConvexShapeGroup shape)
 {
-  if (_pimpl->vicinity)
+  _pimpl->vicinity = std::move(shape);
+  _pimpl->vicinity_characteristic_length = _pimpl->compute_shapegroup_characteristic_length(_pimpl->vicinity);
+  return *this;
+}
+
+//==============================================================================
+const geometry::ConstFinalConvexShapeGroup& Profile::vicinity() const
+{
+  if (_pimpl->vicinity.size())
     return _pimpl->vicinity;
 
   return _pimpl->footprint;
+}
+
+//==============================================================================
+double Profile::get_vicinity_characteristic_length() const
+{
+  return _pimpl->vicinity_characteristic_length;
 }
 
 } // namespace rmf_traffic

@@ -60,6 +60,35 @@ double FinalShape::get_characteristic_length() const
 }
 
 //==============================================================================
+Eigen::Vector2d FinalShape::get_offset() const
+{
+  if (_pimpl->_offset.has_value())
+    return *_pimpl->_offset;
+  return Eigen::Vector2d { 0, 0 };
+}
+
+//==============================================================================
+fcl::Transform3d FinalShape::get_offset_transform() const
+{
+  fcl::Transform3d tx;
+  tx.setIdentity();
+  if (_pimpl->_offset.has_value())
+  {
+    tx.pretranslate(Eigen::Vector3d(_pimpl->_offset->x(), _pimpl->_offset->y(), 0.0));
+    return tx;
+  }
+  return tx;
+}
+
+//==============================================================================
+bool FinalShape::has_offset() const
+{
+  if (_pimpl->_offset)
+    return true;
+  return false;
+}
+
+//==============================================================================
 FinalShape::FinalShape()
 {
   // Do nothing. The _pimpl will be constructed by
