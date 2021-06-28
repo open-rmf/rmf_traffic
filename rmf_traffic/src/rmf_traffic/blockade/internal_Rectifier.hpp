@@ -30,9 +30,10 @@ class Rectifier::Implementation
 {
 public:
 
-  Participant::Implementation& participant;
+  std::weak_ptr<Participant::Implementation::Shared> participant;
 
-  static Rectifier make(Participant::Implementation& participant);
+  static Rectifier make(
+    const std::shared_ptr<Participant::Implementation::Shared>& participant);
 
 };
 

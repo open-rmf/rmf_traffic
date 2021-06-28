@@ -43,4 +43,11 @@ private:
   std::shared_ptr<::rmf_traffic::debug::Plumber> _plumber = \
     std::make_shared<::rmf_traffic::debug::Plumber>(X)
 
+#define CAPTURE_LEAK(X) \
+  _plumber = std::make_shared<::rmf_traffic::debug::Plumber>(X)
+
+#define CAPTURE_LEAK_HERE \
+  _plumber = std::make_shared<::rmf_traffic::debug::Plumber>( \
+    __FILE__ ":" + std::to_string(__LINE__))
+
 #endif // PLUMBER_HPP

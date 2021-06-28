@@ -456,6 +456,7 @@ public:
 
     for (const auto& other_entry : other)
     {
+      assert(other_entry);
       if (check_relevant)
       {
         if (!check_relevant(*other_entry))
@@ -504,17 +505,28 @@ public:
   std::shared_ptr<Handle> insert(
     const std::shared_ptr<Entry>& entry)
   {
+    if (!entry)
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[rmf_traffic::schedule::Timeline::insert] INTERNAL ERROR: "
+        "nullptr value for entry being inserted. Please report this bug to the "
+        "maintainers!");
+      // *INDENT-ON*
+    }
+
     std::vector<std::weak_ptr<Bucket>> buckets;
     this->_all_bucket->push_back(entry);
     buckets.emplace_back(this->_all_bucket);
 
     if (entry->route && entry->route->trajectory().size() < 2)
     {
+      // *INDENT-OFF*
       throw std::runtime_error(
-              "[rmf_traffic::schedule::Timeline] Trying to insert a trajectory with "
-              "less than 2 waypoints ["
-              + std::to_string(
-                entry->route->trajectory().size()) + "] is illegal!");
+        "[rmf_traffic::schedule::Timeline] Trying to insert a trajectory with "
+        "less than 2 waypoints ["
+        + std::to_string(entry->route->trajectory().size()) + "] is illegal!");
+      // *INDENT-ON*
     }
 
     if (entry->route && entry->route->trajectory().start_time())

@@ -15,11 +15,11 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_RECTIFIER_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_RECTIFIER_HPP
 
 #include <rmf_traffic/schedule/Rectifier.hpp>
-#include "ParticipantInternal.hpp"
+#include "internal_Participant.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -29,13 +29,14 @@ class Rectifier::Implementation
 {
 public:
 
-  Participant::Implementation& participant;
+  std::weak_ptr<Participant::Implementation::Shared> participant;
 
-  static Rectifier make(Participant::Implementation& participant);
+  static Rectifier make(
+    const std::shared_ptr<Participant::Implementation::Shared>& participant);
 
 };
 
 } // namespace schedule
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__SCHEDULE__RECTIFIERINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__INTERNAL_RECTIFIER_HPP
