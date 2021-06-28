@@ -39,19 +39,42 @@ Participant Participant::Implementation::make(
 
   if (rectifier_factory)
   {
-    participant._pimpl->_rectification =
+    participant._pimpl->_shared->_rectification =
       rectifier_factory->make(
-      Rectifier::Implementation::make(*participant._pimpl), participant_id);
+      Rectifier::Implementation::make(
+        participant._pimpl->_shared), participant_id);
   }
 
   return participant;
 }
 
 //==============================================================================
-void Participant::Implementation::check(const Status& status)
+Participant::Implementation::Shared::Shared(
+  const ParticipantId id,
+  const double radius,
+  std::shared_ptr<Writer> writer)
+: _id(id),
+  _writer(std::move(writer)),
+  _reservation_id(std::nullopt),
+  _last_reached(0)
+{
+  _current_reservation.radius = radius;
+}
+
+//==============================================================================
+void Participant::Implementation::Shared::check(const Status& status)
 {
   if (status.reservation != _reservation_id)
   {
+    if (!_reservation_id.has_value())
+    {
+      // If _reservation_id is a nullopt, but the blockade moderator believes we
+      // have a reservation, then we should remind the blockade moderator that
+      // we have canceled that reservation.
+      _writer->cancel(_id, status.reservation);
+      return;
+    }
+
     _send_reservation();
 
     if (_last_ready)
@@ -98,7 +121,7 @@ void Participant::Implementation::check(const Status& status)
 }
 
 //==============================================================================
-void Participant::Implementation::check()
+void Participant::Implementation::Shared::check()
 {
   if (!_reservation_id)
     return;
@@ -111,41 +134,39 @@ Participant::Implementation::Implementation(
   const ParticipantId id,
   const double radius,
   std::shared_ptr<Writer> writer)
-: _id(id),
-  _writer(std::move(writer)),
-  _reservation_id(std::nullopt)
+: _shared(std::make_shared<Shared>(id, radius, std::move(writer)))
 {
-  _current_reservation.radius = radius;
+  // Do nothing
 }
 
 //==============================================================================
-Participant::Implementation::~Implementation()
+Participant::Implementation::Shared::~Shared()
 {
   if (_reservation_id)
     _writer->cancel(_id);
 }
 
 //==============================================================================
-void Participant::Implementation::_send_reservation()
+void Participant::Implementation::Shared::_send_reservation()
 {
   assert(_current_reservation.path.size() > 1);
   _writer->set(_id, _reservation_id.value(), _current_reservation);
 }
 
 //==============================================================================
-void Participant::Implementation::_send_ready()
+void Participant::Implementation::Shared::_send_ready()
 {
   _writer->ready(_id, _reservation_id.value(), _last_ready.value());
 }
 
 //==============================================================================
-void Participant::Implementation::_send_release(CheckpointId checkpoint)
+void Participant::Implementation::Shared::_send_release(CheckpointId checkpoint)
 {
   _writer->release(_id, _reservation_id.value(), checkpoint);
 }
 
 //==============================================================================
-void Participant::Implementation::_send_reached()
+void Participant::Implementation::Shared::_send_reached()
 {
   _writer->reached(_id, _reservation_id.value(), _last_reached);
 }
@@ -153,112 +174,117 @@ void Participant::Implementation::_send_reached()
 //==============================================================================
 void Participant::radius(const double new_radius)
 {
-  _pimpl->_current_reservation.radius = new_radius;
+  _pimpl->_shared->_current_reservation.radius = new_radius;
 }
 
 //==============================================================================
 double Participant::radius() const
 {
-  return _pimpl->_current_reservation.radius;
+  return _pimpl->_shared->_current_reservation.radius;
 }
 
 //==============================================================================
 void Participant::set(std::vector<Writer::Checkpoint> path)
 {
-  _pimpl->_current_reservation.path = std::move(path);
+  const auto& p = _pimpl->_shared;
+  p->_current_reservation.path = std::move(path);
 
-  if (_pimpl->_reservation_id)
-    ++*_pimpl->_reservation_id;
+  if (p->_reservation_id)
+    ++*p->_reservation_id;
   else
-    _pimpl->_reservation_id = 1;
+    p->_reservation_id = 1;
 
-  _pimpl->_last_ready = std::nullopt;
-  _pimpl->_last_reached = 0;
+  p->_last_ready = std::nullopt;
+  p->_last_reached = 0;
 
-  _pimpl->_send_reservation();
+  p->_send_reservation();
 }
 
 //==============================================================================
 const std::vector<Writer::Checkpoint>& Participant::path() const
 {
-  return _pimpl->_current_reservation.path;
+  return _pimpl->_shared->_current_reservation.path;
 }
 
 //==============================================================================
 void Participant::ready(CheckpointId checkpoint)
 {
-  if (_pimpl->_current_reservation.path.size()-1 <= checkpoint)
+  const auto& p = _pimpl->_shared;
+  if (p->_current_reservation.path.size()-1 <= checkpoint)
   {
     // TODO(MXG): Should we consider throwing an exception here?
-    checkpoint = _pimpl->_current_reservation.path.size() - 2;
+    checkpoint = p->_current_reservation.path.size() - 2;
   }
 
-  if (_pimpl->_last_ready.has_value() && checkpoint <= *_pimpl->_last_ready)
+  if (p->_last_ready.has_value() && checkpoint <= *p->_last_ready)
     return;
 
-  _pimpl->_last_ready = checkpoint;
-  _pimpl->_send_ready();
+  p->_last_ready = checkpoint;
+  p->_send_ready();
 }
 
 //==============================================================================
 void Participant::release(CheckpointId checkpoint)
 {
-  if (!_pimpl->_last_ready.has_value())
+  const auto& p = _pimpl->_shared;
+  if (!p->_last_ready.has_value())
     return;
 
-  if (_pimpl->_last_ready.value() < checkpoint)
+  if (p->_last_ready.value() < checkpoint)
     return;
 
   if (checkpoint > 0)
-    _pimpl->_last_ready = checkpoint - 1;
+    p->_last_ready = checkpoint - 1;
   else
-    _pimpl->_last_ready.reset();
+    p->_last_ready.reset();
 
-  _pimpl->_send_release(checkpoint);
+  p->_send_release(checkpoint);
 }
 
 //==============================================================================
 std::optional<CheckpointId> Participant::last_ready() const
 {
-  return _pimpl->_last_ready;
+  return _pimpl->_shared->_last_ready;
 }
 
 //==============================================================================
 void Participant::reached(CheckpointId checkpoint)
 {
-  if (checkpoint <= _pimpl->_last_reached)
+  const auto& p = _pimpl->_shared;
+  if (checkpoint <= p->_last_reached)
     return;
 
-  _pimpl->_last_reached = checkpoint;
-  _pimpl->_send_reached();
+  p->_last_reached = checkpoint;
+  p->_send_reached();
 }
 
 //==============================================================================
 void Participant::cancel()
 {
-  if (_pimpl->_reservation_id)
+  const auto& p = _pimpl->_shared;
+  if (p->_reservation_id)
   {
-    _pimpl->_writer->cancel(_pimpl->_id, *_pimpl->_reservation_id);
-    _pimpl->_reservation_id = std::nullopt;
+    p->_writer->cancel(p->_id, *p->_reservation_id);
+    p->_reservation_id = std::nullopt;
   }
 }
 
 //==============================================================================
 CheckpointId Participant::last_reached() const
 {
-  return _pimpl->_last_reached;
+  return _pimpl->_shared->_last_reached;
 }
 
 //==============================================================================
 ParticipantId Participant::id() const
 {
-  return _pimpl->_id;
+  return _pimpl->_shared->_id;
 }
 
 //==============================================================================
 std::optional<ReservationId> Participant::reservation_id() const
 {
-  return _pimpl->_reservation_id;
+  return _pimpl->_shared->_reservation_id;
 }
 
 //==============================================================================
