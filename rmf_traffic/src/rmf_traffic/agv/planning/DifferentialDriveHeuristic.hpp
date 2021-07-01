@@ -94,6 +94,12 @@ private:
 template<typename NodePtrT>
 struct DifferentialDriveCompare
 {
+  DifferentialDriveCompare(double threshold = 1e-3)
+  : _threshold(threshold)
+  {
+    // Do nothing
+  }
+
   // Returning False implies that a is preferable to b
   // Returning True implies that b is preferable to a
   bool operator()(const NodePtrT& a, const NodePtrT& b)

@@ -52,7 +52,7 @@ struct State
 {
   Conditions conditions;
   Issues issues;
-  std::optional<double> ideal_cost;
+  std::optional<double> ideal_cost = std::nullopt;
 
   class Internal
   {

@@ -26,7 +26,7 @@ namespace planning {
 //==============================================================================
 InterfacePtr make_planner_interface(Planner::Configuration config)
 {
-  if (const auto* differential = config.vehicle_traits().get_differential())
+  if (config.vehicle_traits().get_differential())
     return std::make_shared<DifferentialDrivePlanner>(std::move(config));
 
   throw std::runtime_error(

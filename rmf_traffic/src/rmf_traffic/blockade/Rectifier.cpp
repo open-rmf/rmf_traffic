@@ -26,7 +26,7 @@ namespace blockade {
 
 //==============================================================================
 Rectifier Rectifier::Implementation::make(
-  Participant::Implementation& participant)
+  const std::shared_ptr<Participant::Implementation::Shared>& participant)
 {
   Rectifier output;
   output._pimpl = rmf_utils::make_unique_impl<Implementation>(
@@ -38,13 +38,15 @@ Rectifier Rectifier::Implementation::make(
 //==============================================================================
 void Rectifier::check(const Status& status)
 {
-  _pimpl->participant.check(status);
+  if (const auto shared = _pimpl->participant.lock())
+    shared->check(status);
 }
 
 //==============================================================================
 void Rectifier::check()
 {
-  _pimpl->participant.check();
+  if (const auto shared = _pimpl->participant.lock())
+    shared->check();
 }
 
 //==============================================================================
