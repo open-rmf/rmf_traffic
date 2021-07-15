@@ -17,6 +17,7 @@
 
 #include <rmf_traffic/reservations/Reservation.hpp>
 #include <atomic>
+#include <string>
 
 namespace rmf_traffic {
 namespace reservations {
@@ -156,7 +157,7 @@ bool Reservation::operator!=(const Reservation& other) const
 //=============================================================================
 Reservation Reservation::make_reservation(
   rmf_traffic::Time start_time,
-  std::string resource_name,
+  std::string _resource_name,
   std::optional<rmf_traffic::Duration> duration,
   std::optional<rmf_traffic::Time> finish_time)
 {
@@ -165,7 +166,7 @@ Reservation Reservation::make_reservation(
 
   res._pimpl->_res_id = counter;
   res._pimpl->_start_time = start_time;
-  res._pimpl->_resource_name = resource_name;
+  res._pimpl->_resource_name = _resource_name;
   res._pimpl->_duration = duration;
   res._pimpl->_finish_time = finish_time;
   counter++;
