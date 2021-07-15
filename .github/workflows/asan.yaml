@@ -16,8 +16,8 @@ jobs:
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@v0.2
         env:
-          CC: clang-8
-          CXX: clang++-8
+          CC: clang -fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt
+          CXX: clang++ -fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
@@ -29,10 +29,8 @@ jobs:
             {
               "build": {
                 "mixin": ["asan-gcc"],
-                "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt -DCMAKE_C_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt"]
-              },
-              "test": {
-                "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt -DCMAKE_C_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt"]
+                "cmake-args": [
+                   "-DCMAKE_BUILD_TYPE=Debug"]
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
