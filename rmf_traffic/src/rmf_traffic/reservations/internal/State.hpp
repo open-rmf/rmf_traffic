@@ -396,7 +396,7 @@ public:
   }
 
   //============================================================================
-  State(const State& other)
+  /*State(const State& other)
   : _resource_schedules(other._resource_schedules),
     _unassigned(other._unassigned),
     _reservation_timings(other._reservation_timings),
@@ -407,7 +407,7 @@ public:
     _current_time(other._current_time)
   {
     // Do nothing
-  }
+  }*/
 
 private:
   //============================================================================

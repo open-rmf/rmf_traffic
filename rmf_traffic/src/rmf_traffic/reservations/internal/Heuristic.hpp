@@ -27,6 +27,8 @@ class Heuristic
 {
 public:
   virtual float score(const State& state) = 0;
+
+  virtual ~Heuristic() = default;
 };
 
 class PriorityBasedScorer : public Heuristic
@@ -35,8 +37,14 @@ public:
   PriorityBasedScorer(std::shared_ptr<RequestStore> queue)
   : _queue(queue)
   {
-
+    // Do nothing
   }
+
+  ~PriorityBasedScorer()
+  {
+    // Do nothing
+  }
+
   float score(const State& state) override
   {
     auto score = 0;

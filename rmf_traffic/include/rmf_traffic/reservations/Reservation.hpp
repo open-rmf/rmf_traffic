@@ -20,6 +20,7 @@
 
 #include <optional>
 #include <vector>
+#include <string>
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
