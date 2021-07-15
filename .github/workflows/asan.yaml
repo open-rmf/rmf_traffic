@@ -16,8 +16,8 @@ jobs:
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@v0.2
         env:
-          CC: clang -fsanitize-blacklist=/home/runner/work/rmf_traffic/rmf_traffic/ros_ws/src/rmf_traffic/.github/config/asan_blacklist.txt
-          CXX: clang++ -fsanitize-blacklist=/home/runner/work/rmf_traffic/rmf_traffic/ros_ws/src/rmf_traffic/.github/config/asan_blacklist.txt
+          CC: clang -fsanitize-blacklist=/home/runner/work/rmf_traffic/rmf_traffic/.github/config/asan_blacklist.txt
+          CXX: clang++ -fsanitize-blacklist=/home/runner/work/rmf_traffic/rmf_traffic/.github/config/asan_blacklist.txt
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
@@ -25,14 +25,14 @@ jobs:
             rmf_traffic
           vcs-repo-file-url: |
             https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
-          colcon-defaults: |
-            {
-              "build": {
-                "mixin": ["asan-gcc"],
-                "cmake-args": [
-                   "-DCMAKE_BUILD_TYPE=Debug"]
-              }
-            }
+          #colcon-defaults: |
+          #  {
+          #    "build": {
+          #      "mixin": ["asan-gcc"],
+          #      "cmake-args": [
+          #         "-DCMAKE_BUILD_TYPE=Debug"]
+          #    }
+          #  }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
       - name: upload_test_stream
         uses: actions/upload-artifact@v2
