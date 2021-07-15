@@ -187,8 +187,8 @@ private:
         assert(!change.reservation.has_value());
         auto result =
           participant->unassign_request_confirmed(
-            change.request_id,
-            _proposal_version);
+          change.request_id,
+          _proposal_version);
 
         if (result == false)
           return;
