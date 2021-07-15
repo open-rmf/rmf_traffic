@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: create_blacklist
-        run: cat "fun:*Eigen*" > /home/runner/work/blacklist.txt
+        run: echo "fun:*Eigen*" > /home/runner/work/blacklist.txt
       - name: deps
         uses: ros-tooling/setup-ros@v0.2
         with:
