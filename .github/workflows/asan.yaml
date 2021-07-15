@@ -16,8 +16,8 @@ jobs:
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@v0.2
         env:
-          CC: clang
-          CXX: clang++
+          CC: clang-8
+          CXX: clang++-8
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
