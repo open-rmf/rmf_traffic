@@ -29,7 +29,11 @@ jobs:
             {
               "build": {
                 "mixin": ["asan-gcc"],
-                "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug", "-DCMAKE_CXX_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt", "-DCMAKE_C_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt"]
+                "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt -DCMAKE_C_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt"]
+              },
+              "test": {
+                "mixin": ["asan-gcc"],
+                "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt -DCMAKE_C_FLAGS=-fsanitize-blacklist=rmf_traffic/.github/config/asan_blacklist.txt"]
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
