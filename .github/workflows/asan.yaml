@@ -36,9 +36,6 @@ jobs:
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-      - name: debug_ws
-        run: |
-          find / | grep asan_blacklist.txt
       - name: upload_test_stream
         uses: actions/upload-artifact@v2
         with:
