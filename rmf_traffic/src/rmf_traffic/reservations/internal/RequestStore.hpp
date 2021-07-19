@@ -38,7 +38,6 @@ public:
     ParticipantId pid,
     RequestId req)
   {
-    //TODO: Sanitize
     return _reservation_info[pid][req];
   }
 
@@ -64,7 +63,7 @@ public:
         req,
         {
           priority,
-          std::move(reservation)
+          reservation
         }
       });
   }

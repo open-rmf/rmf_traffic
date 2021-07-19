@@ -28,6 +28,53 @@ using namespace std::chrono_literals;
 
 SCENARIO("A few reservations in a state")
 {
+  GIVEN("A state with one reservation")
+  {
+    auto queue = std::make_shared<RequestStore>();
+    State start_state(queue);
+    auto now = std::chrono::steady_clock::now();
+    now -= now.time_since_epoch();
+    auto request1_alt1 = ReservationRequest::make_request(
+      "table_at_timbre",
+      ReservationRequest::TimeRange::make_time_range(
+        now,
+        now+5s
+      ),
+      {10s}
+    );
+
+    auto request1 = std::vector{request1_alt1};
+    queue->enqueue_reservation(0, 0, 1, request1);
+    start_state = start_state.add_request(0, 0);
+
+    std::vector<State> child_states;
+    for (auto child_state: start_state)
+    {
+      child_states.push_back(child_state);
+    }
+
+    REQUIRE(child_states.size() == 1);
+
+    queue->enqueue_reservation(1,0,20,request1);
+    auto allocated_state = child_states[0].add_request(1, 0);
+
+    WHEN("We have a conflicting request with higher priority")
+    {
+      auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
+      GreedyBestFirstSearchOptimizer opt(heuristic);
+      auto solutions = opt.optimize(allocated_state);
+      std::vector<State> result;
+      std::cout << "[Current test]=============" <<std::endl;
+      while (auto solution = solutions.next_solution())
+      {
+        std::cout << "New Solution Found" << std::endl;
+        //result.push_back(solution.value());
+        solution->debug_state();
+      }
+      std::cout << "[end]=============" <<std::endl;
+    }
+  }
+
   GIVEN("An empty state with two requests pending")
   {
     auto queue = std::make_shared<RequestStore>();

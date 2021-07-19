@@ -396,21 +396,22 @@ public:
   }
 
   //============================================================================
-  State(const State& other)
-  : _resource_schedules(other._resource_schedules),
-    _unassigned(other._unassigned),
-    _reservation_timings(other._reservation_timings),
-    _queue(other._queue),
-    _reservation_resources(other._reservation_resources),
-    _reservation_assignments(other._reservation_assignments),
-    _reservation_request_ids(other._reservation_request_ids),
-    _current_time(other._current_time)
-  {
-    // Do nothing
-  }
+  //State(const State& other)
+  //: _resource_schedules(other._resource_schedules),
+  //  _unassigned(other._unassigned),
+  //  _reservation_timings(other._reservation_timings),
+  //  _queue(other._queue),
+  //  _reservation_resources(other._reservation_resources),
+  //  _reservation_assignments(other._reservation_assignments),
+  //  _reservation_request_ids(other._reservation_request_ids),
+  //  _current_time(other._current_time)
+  //{
+  //  // Do nothing
+  //}
 
 private:
   //============================================================================
+  /// \brief Unassign a reservation from the current state. Mutates the state.
   void unassign_reservation(ReservationId res_id, std::string resource_name)
   {
     auto time = _reservation_timings[res_id];
@@ -425,13 +426,21 @@ private:
   }
 
   //============================================================================
+  /// \brief Performs a pushback operation on the current schedule. This is used
+  /// to make space for new reservations.
+  /// \param resource - the resource for which we are trying to make more space
+  /// \param res_iter = the point at which to perform the pushback
+  /// \param dur - the duration of the pushback
+  /// \returns true if the pushback is possible, false otherwise. Reasons for
+  /// returning false include the fact that some constraints are not satisfied,
+  /// or the duration is negative.
   bool push_back(
     std::string resource,
     ResourceSchedule::const_iterator res_iter,
     Duration dur
   )
   {
-    assert(dur.count() > 0);
+    if(dur.count() < 0) return false;
 
     auto prev_iter = res_iter;
     std::next(res_iter);
@@ -468,6 +477,7 @@ private:
   }
 
   //============================================================================
+  /// \brief Move the start time of a reservation.
   bool shift_reservation_start_time(
     std::string resource,
     ReservationId res_id,
@@ -507,6 +517,10 @@ private:
   friend StateDiff;
 };
 //==============================================================================
+/// \brief This iterator is used to iterate over the next possible states of the
+/// schedule. It does this by first attempting to assign one item from the
+/// unassigned list. After that it gives states by individually removing items
+/// from the schedule. This is used by the planner to get the next state.
 struct NextStateGenerator
 {
   //TODO: RAW_POINTER-FOO
@@ -783,6 +797,7 @@ struct NextStateGenerator
 
     if (removals.has_value())
     {
+      visiting_state = removals;
       return removals;
     }
     mode = PotentialActionMode::END;
