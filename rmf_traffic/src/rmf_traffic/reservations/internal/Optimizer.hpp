@@ -45,7 +45,7 @@ public:
     }
     bool operator()(const State& e1, const State& e2) const
     {
-      return _heuristic->score(e1) < _heuristic->score(e2);
+      return _heuristic->score(e1) >= _heuristic->score(e2);
     }
   };
   class Solution
@@ -58,13 +58,11 @@ public:
       _all_solutions(heuristic),
       _heuristic(heuristic)
     {
-      _blacklist.insert(state);
       _visited.insert(state);
       _pq.push(state);
     }
     std::optional<State> next_solution()
     {
-      _blacklist.insert(_last_solution);
       while (!_pq.empty())
       {
         auto state = _pq.top();
@@ -75,8 +73,7 @@ public:
           if (_visited.count(next_state) != 0)
             continue;
 
-          if (_heuristic->score(next_state) == 0 &&
-            _blacklist.count(next_state) == 0)
+          if (_heuristic->score(next_state) == 0)
           {
             _last_solution = next_state;
             return next_state;
@@ -86,19 +83,18 @@ public:
           _all_solutions.push(next_state);
         }
       }
+
       while (!_all_solutions.empty())
       {
         auto res = _all_solutions.top();
         _last_solution = res;
         _all_solutions.pop();
-        if (_blacklist.count(res) != 0)
-          return res;
+        return res;
       }
       return std::nullopt;
     }
   private:
     std::unordered_set<State, StateHash> _visited;
-    std::unordered_set<State, StateHash> _blacklist;
     std::priority_queue<State, std::vector<State>, CustomComparator> _pq;
     std::priority_queue<State, std::vector<State>, CustomComparator>
     _all_solutions;

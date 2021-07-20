@@ -64,14 +64,30 @@ SCENARIO("A few reservations in a state")
       GreedyBestFirstSearchOptimizer opt(heuristic);
       auto solutions = opt.optimize(allocated_state);
       std::vector<State> result;
-      std::cout << "[Current test]=============" <<std::endl;
       while (auto solution = solutions.next_solution())
       {
-        std::cout << "New Solution Found" << std::endl;
-        //result.push_back(solution.value());
-        solution->debug_state();
+        result.push_back(solution.value());
       }
-      std::cout << "[end]=============" <<std::endl;
+
+      REQUIRE(result.size() == 2);
+
+      THEN("The request with a higher priority will be serviced first")
+      {
+        StateDiff diff(result[0], allocated_state);
+        auto steps = diff.differences();
+        for(auto step: steps)
+        {
+          if(step.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION)
+          {
+            REQUIRE(step.participant_id == 1);
+          }
+          else if(step.diff_type == StateDiff::DifferenceType::UNASSIGN_RESERVATION)
+          {
+            REQUIRE(step.participant_id == 0);
+          }
+        }
+        REQUIRE(steps.size() == 2);
+      }
     }
   }
 
@@ -146,7 +162,7 @@ SCENARIO("A few reservations in a state")
       auto solutions = opt.optimize(start_state);
       while (auto solution = solutions.next_solution())
       {
-        solution->debug_state();
+        //solution->debug_state();
       }
     }
 
