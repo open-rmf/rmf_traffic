@@ -55,7 +55,7 @@ SCENARIO("A few reservations in a state")
 
     REQUIRE(child_states.size() == 1);
 
-    queue->enqueue_reservation(1,0,20,request1);
+    queue->enqueue_reservation(1, 0, 20, request1);
     auto allocated_state = child_states[0].add_request(1, 0);
 
     WHEN("We have a conflicting request with higher priority")
