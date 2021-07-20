@@ -75,13 +75,14 @@ SCENARIO("A few reservations in a state")
       {
         StateDiff diff(result[0], allocated_state);
         auto steps = diff.differences();
-        for(auto step: steps)
+        for (auto step: steps)
         {
-          if(step.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION)
+          if (step.diff_type == StateDiff::DifferenceType::ASSIGN_RESERVATION)
           {
             REQUIRE(step.participant_id == 1);
           }
-          else if(step.diff_type == StateDiff::DifferenceType::UNASSIGN_RESERVATION)
+          else if (step.diff_type ==
+            StateDiff::DifferenceType::UNASSIGN_RESERVATION)
           {
             REQUIRE(step.participant_id == 0);
           }

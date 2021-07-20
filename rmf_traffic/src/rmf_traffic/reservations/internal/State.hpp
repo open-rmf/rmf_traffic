@@ -440,7 +440,7 @@ private:
     Duration dur
   )
   {
-    if(dur.count() < 0) return false;
+    if (dur.count() < 0) return false;
 
     auto prev_iter = res_iter;
     std::next(res_iter);
