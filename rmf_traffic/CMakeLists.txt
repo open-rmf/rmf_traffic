@@ -46,6 +46,7 @@ add_library(rmf_traffic SHARED
 
 find_package(ament_cmake_catch2 QUIET)
 find_package(rmf_cmake_uncrustify QUIET)
+find_package (Threads)
 if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
@@ -87,6 +88,7 @@ target_link_libraries(rmf_traffic
     rmf_utils::rmf_utils
   PRIVATE
     ${FCL_LIBRARIES}
+    Threads::Threads
 )
 
 target_include_directories(rmf_traffic
