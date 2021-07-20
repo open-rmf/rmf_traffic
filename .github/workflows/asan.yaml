@@ -9,12 +9,17 @@ jobs:
     name: asan
     runs-on: ubuntu-20.04
     steps:
+      - name: create_blacklist
+        run: echo "fun:*Eigen*" > /home/runner/work/blacklist.txt
       - name: deps
         uses: ros-tooling/setup-ros@v0.2
         with:
           required-ros-distributions: foxy
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@v0.2
+        env:
+          CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
+          CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
@@ -26,7 +31,8 @@ jobs:
             {
               "build": {
                 "mixin": ["asan-gcc"],
-                "cmake-args": ["-DCMAKE_BUILD_TYPE=Debug"]
+                "cmake-args": [
+                   "-DCMAKE_BUILD_TYPE=Debug"]
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
