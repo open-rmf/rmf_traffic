@@ -59,42 +59,14 @@ public:
   struct QueueElement
   {
     Action action;
-    std::shared_ptr<RequestStore> request_store;
+
   };
 
   void add_action(Action action)
   {
     {
       std::lock_guard lock(_mutex);
-
-      std::shared_ptr<RequestStore>
-      req_store = [=]() -> std::shared_ptr<RequestStore>
-        {
-          if (_request_store_queue.empty())
-            return std::make_shared<RequestStore>();
-          else
-            return std::make_shared<RequestStore>(
-              *_request_store_queue.back().request_store.get()
-            );
-        } ();
-
-      if (action.type == ActionType::ADD)
-      {
-        req_store->enqueue_reservation(
-          action.participant_id,
-          action.request_id,
-          action.priority,
-          action.request_options);
-      }
-      else if (action.type == ActionType::REMOVE)
-      {
-        req_store->cancel(action.participant_id, action.request_id);
-      }
-      else
-      {
-        req_store->erase_participant_requests(action.participant_id);
-      }
-      _request_store_queue.push_back({action, req_store});
+      _request_store_queue.push_back({action});
     }
     _cond.notify_one();
   }

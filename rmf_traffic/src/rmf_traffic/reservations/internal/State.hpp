@@ -41,8 +41,11 @@ inline void hash_combine(std::size_t& seed, const T& v)
   std::hash<T> hasher;
   seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
-//TODO: Currrently uses a lot of copying. In future we should use a parent based
-//hierarchy
+///=============================================================================
+/// \brief This class represents the current schedule. It is used by the planner
+/// to explore the space of possible schedules. Iterating over the State allows
+/// one to find out the next possible schedule based on the current schedule
+/// stored in the state.
 class State
 {
   struct pair_hash
@@ -82,33 +85,30 @@ public:
     //Do nothing
   }
 
+  //============================================================================
   NextStateGenerator begin();
+
+  //============================================================================
   NextStateGenerator end();
 
   //============================================================================
   /// Adds a request to the state
+  /// Note: This modifies the ReservationStore.
   State add_request(
     ParticipantId pid,
-    RequestId reqid) const
+    RequestId reqid,
+    int priority,
+    std::vector<ReservationRequest>& reservation) const
   {
     State new_state(*this);
     new_state._unassigned.insert({pid, reqid});
+    new_state._queue->enqueue_reservation(pid, reqid, priority, reservation);
     return new_state;
   }
 
   //============================================================================
-  /// Adds a request to the state
-  State add_request(
-    ParticipantId pid,
-    RequestId reqid,
-    std::shared_ptr<RequestStore> store) const
-  {
-    State new_state(*this);
-    new_state._unassigned.insert({pid, reqid});
-    new_state._queue = store;
-    return new_state;
-  }
-
+  /// Removes a request from the current state and returns the new state.
+  /// Note: This modifies the ReservationStore.
   State remove_request(
     ParticipantId pid,
     RequestId reqid) const
@@ -135,52 +135,19 @@ public:
     new_state._reservation_resources.erase(reservation_id);
     new_state._reservation_assignments[pid].erase(reqid);
     new_state._reservation_timings.erase(findings);
-    return new_state;
-  }
-
-  //============================================================================
-  State remove_request(
-    ParticipantId pid,
-    RequestId reqid,
-    std::shared_ptr<RequestStore> store) const
-  {
-    State new_state(*this);
-    auto req = new_state._unassigned.find({pid, reqid});
-
-    if (req != new_state._unassigned.end())
-    {
-      new_state._unassigned.erase(req);
-      return new_state;
-    }
-    auto reservation_id = new_state._reservation_assignments[pid][reqid];
-    auto findings = new_state._reservation_timings.find(reservation_id);
-    if (findings == new_state._reservation_timings.end())
-    {
-      // Non existant pid-reqid pair
-      return new_state;
-    }
-    auto time = findings->second;
-    auto resource = new_state._reservation_resources[reservation_id];
-
-    new_state._resource_schedules[resource].erase(time);
-    new_state._reservation_resources.erase(reservation_id);
-    new_state._reservation_assignments[pid].erase(reqid);
-    new_state._reservation_timings.erase(findings);
-
-    new_state._queue = store;
+    new_state._queue->cancel(pid, reqid);
     return new_state;
   }
 
   //============================================================================
   State remove_participant(
-    ParticipantId pid,
-    std::shared_ptr<RequestStore> store)
+    ParticipantId pid)
   {
     //TODO(arjo): Lots of unessecary copying
     State new_state(*this);
     for (auto [request, reservation]: _reservation_assignments[pid])
     {
-      new_state = new_state.remove_request(pid, request, store);
+      new_state = new_state.remove_request(pid, request);
     }
     return new_state;
   }
@@ -395,20 +362,10 @@ public:
     return true;
   }
 
-  //============================================================================
-  //State(const State& other)
-  //: _resource_schedules(other._resource_schedules),
-  //  _unassigned(other._unassigned),
-  //  _reservation_timings(other._reservation_timings),
-  //  _queue(other._queue),
-  //  _reservation_resources(other._reservation_resources),
-  //  _reservation_assignments(other._reservation_assignments),
-  //  _reservation_request_ids(other._reservation_request_ids),
-  //  _current_time(other._current_time)
-  //{
-  //  // Do nothing
-  //}
-
+  std::shared_ptr<RequestStore> requests() const
+  {
+    return _queue;
+  }
 private:
   //============================================================================
   /// \brief Unassign a reservation from the current state. Mutates the state.
@@ -608,7 +565,7 @@ struct NextStateGenerator
 
     auto current_request = start_state->_queue->get_request_info(
       part_id,
-      req_id).request_options[request_index_iter];
+      req_id)->request_options[request_index_iter];
 
     bool found_slot = false;
 
@@ -707,13 +664,13 @@ struct NextStateGenerator
     auto [part_id, req_id] = *unassigned_iter;
     auto num_alternative = start_state->_queue->get_request_info(
       part_id,
-      req_id).request_options.size();
+      req_id)->request_options.size();
 
     while (request_index_iter < num_alternative)
     {
       // Reset resource iterators
       auto curr_request = start_state->_queue->get_request_info(part_id, req_id)
-        .request_options[request_index_iter];
+        ->request_options[request_index_iter];
       insertion_point_iter = get_search_start(curr_request);
       insertion_point_end = get_search_end(curr_request);
       proceed_next_resource = false;
@@ -742,7 +699,7 @@ struct NextStateGenerator
       auto [part_id, req_id] = *unassigned_iter;
       request_index_iter = 0;
       auto curr_request = start_state->_queue->get_request_info(part_id, req_id)
-        .request_options[request_index_iter];
+        ->request_options[request_index_iter];
       insertion_point_iter = get_search_start(curr_request);
       insertion_point_end = get_search_end(curr_request);
       proceed_next_resource = false;
@@ -846,9 +803,19 @@ NextStateGenerator State::begin()
 
   if (_unassigned.size() > 0)
   {
-    auto current_request = _queue->get_request_info(
+    auto request = _queue->get_request_info(
       _unassigned.begin()->first,
-      _unassigned.begin()->second).request_options[0];
+      _unassigned.begin()->second);
+
+    if(!request.has_value())
+    {
+      throw std::runtime_error(std::string("Got nullopt for participant ") +
+        std::to_string(_unassigned.begin()->first) +
+        std::string(" request id #")+ 
+        std::to_string(_unassigned.begin()->second));
+    }
+
+    auto current_request = request->request_options[0];
 
     gen.unassigned_iter = _unassigned.begin();
     gen.insertion_point_iter = gen.get_search_start(current_request);

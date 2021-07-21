@@ -22,6 +22,8 @@
 #include <rmf_traffic/reservations/Reservation.hpp>
 #include <unordered_map>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace reservations {
 
@@ -34,11 +36,14 @@ public:
     std::vector<ReservationRequest> request_options;
   };
 
-  RequestInfo get_request_info(
+  std::optional<RequestInfo> get_request_info(
     ParticipantId pid,
     RequestId req)
   {
-    return _reservation_info[pid][req];
+    if(_reservation_info.count(pid) != 0
+      && _reservation_info.at(pid).count(req) != 0)
+      return _reservation_info[pid][req];
+    return std::nullopt;
   }
 
   RequestStore()

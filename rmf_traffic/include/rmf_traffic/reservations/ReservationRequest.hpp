@@ -30,11 +30,15 @@ namespace reservations {
 using RequestId = uint64_t;
 
 ///=============================================================================
-/// \brief This class
+/// \brief This class represents a reservation request.
 class ReservationRequest
 {
 
 public:
+  ///===========================================================================
+  /// \brief Time range for describing the starting time. The starting time may
+  /// either have a lower bound, upper bound, both or none. This constraints the
+  /// possible starting times for a given reservation.
   class TimeRange
   {
   public:
@@ -53,16 +57,38 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  ///===========================================================================
+  /// \brief Time range for describing the starting time.
   const std::optional<TimeRange> start_time() const;
 
+  ///===========================================================================
+  /// \brief Minimum duration for which the reservation must be held.
   const std::optional<Duration> duration() const;
 
+  ///===========================================================================
+  /// \brief The finish time for the reservation. If the finish time is not set.
   const std::optional<Time> finish_time() const;
 
+  ///===========================================================================
+  /// \brief Thre resource name
   const std::string resource_name() const;
 
+  ///===========================================================================
+  /// \brief \returns true if this is an indefinite reservation. An indefinite
+  /// reservation is a reservation that does not have a finish time or a
+  /// duration.
   bool is_indefinite() const;
 
+  ///===========================================================================
+  /// \brief Create a reservation request.
+  /// \param[in] resource_name The name of the resource to reserve.
+  /// \param[in] start The time range constraints for the start time of the
+  ///   reservation.
+  /// \param[in] duration The duration of the reservation.
+  /// \param[in] finish The finish time for the reservation.
+  /// If both duration and finish are `std::nullopt` then the reservation is
+  /// indefinite. If both duration and finish are not `std::nullopt` then the
+  /// max(start_time + duration, finish_time) is used as the actual finish time.
   static ReservationRequest make_request(
     std::string resource_name,
     std::optional<TimeRange> start = std::nullopt,

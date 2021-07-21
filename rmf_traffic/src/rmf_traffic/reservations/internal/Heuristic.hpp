@@ -34,8 +34,7 @@ public:
 class PriorityBasedScorer : public Heuristic
 {
 public:
-  PriorityBasedScorer(std::shared_ptr<RequestStore> queue)
-  : _queue(queue)
+  PriorityBasedScorer()
   {
     // Do nothing
   }
@@ -50,13 +49,11 @@ public:
     auto score = 0;
     for (auto [part_id, req_id]: state.unassigned())
     {
-      // TODO: Incorporate
-      score += _queue->get_request_info(part_id, req_id).priority;
+      // TODO: Incorporate the order into the heuristic
+      score += state.requests()->get_request_info(part_id, req_id)->priority;
     }
     return score;
   }
-private:
-  std::shared_ptr<RequestStore> _queue;
 };
 
 }

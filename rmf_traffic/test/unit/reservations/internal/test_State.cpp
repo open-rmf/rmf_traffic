@@ -44,8 +44,7 @@ SCENARIO("A few reservations in a state")
     );
 
     auto request1 = std::vector{request1_alt1};
-    queue->enqueue_reservation(0, 0, 1, request1);
-    start_state = start_state.add_request(0, 0);
+    start_state = start_state.add_request(0, 0, 1, request1);
 
     std::vector<State> child_states;
     for (auto child_state: start_state)
@@ -54,13 +53,11 @@ SCENARIO("A few reservations in a state")
     }
 
     REQUIRE(child_states.size() == 1);
-
-    queue->enqueue_reservation(1, 0, 20, request1);
-    auto allocated_state = child_states[0].add_request(1, 0);
+    auto allocated_state = child_states[0].add_request(1, 0, 20, request1);
 
     WHEN("We have a conflicting request with higher priority")
     {
-      auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
+      auto heuristic = std::make_shared<PriorityBasedScorer>();
       GreedyBestFirstSearchOptimizer opt(heuristic);
       auto solutions = opt.optimize(allocated_state);
       std::vector<State> result;
@@ -116,8 +113,7 @@ SCENARIO("A few reservations in a state")
     );
 
     auto request1 = std::vector{request1_alt1, request1_alt2};
-    queue->enqueue_reservation(0, 0, 1, request1);
-    start_state = start_state.add_request(0, 0);
+    start_state = start_state.add_request(0, 0, 1, request1);
 
     auto request2_alt1 = ReservationRequest::make_request(
       "table_at_timbre",
@@ -128,8 +124,7 @@ SCENARIO("A few reservations in a state")
       {10s}
     );
     auto request2 = std::vector{request2_alt1};
-    queue->enqueue_reservation(1, 0, 1, request2);
-    start_state = start_state.add_request(1, 0);
+    start_state = start_state.add_request(1, 0, 1, request2);
 
     WHEN("We request the next possible states")
     {
@@ -158,16 +153,25 @@ SCENARIO("A few reservations in a state")
 
     WHEN("We attempt to solve")
     {
-      auto heuristic = std::make_shared<PriorityBasedScorer>(queue);
+      auto heuristic = std::make_shared<PriorityBasedScorer>();
       GreedyBestFirstSearchOptimizer opt(heuristic);
       auto solutions = opt.optimize(start_state);
+      std::vector<float> scores;
       while (auto solution = solutions.next_solution())
       {
-        //solution->debug_state();
+        scores.push_back(heuristic->score(solution.value()));
+      }
+
+      THEN("The scores come back in ascending order")
+      {
+        for(std::size_t i = 1; i < scores.size(); ++i)
+        {
+          REQUIRE(scores[i-1] <= scores[i]);
+        }
       }
     }
 
-    WHEN("Checking for conflict against another reservation")
+    WHEN("Checking for conflict against another non-conflicting reservation")
     {
       Reservation res = Reservation::make_reservation(
         now,
@@ -201,8 +205,7 @@ SCENARIO("Given a single item allocated in a state")
   );
 
   auto request1 = std::vector{request1_alt1};
-  queue->enqueue_reservation(0, 0, 1, request1);
-  start_state = start_state.add_request(0, 0);
+  start_state = start_state.add_request(0, 0, 1, request1);
 
   std::vector<State> next_state;
   for (auto state: start_state)

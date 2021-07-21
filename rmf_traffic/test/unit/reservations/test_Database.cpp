@@ -47,6 +47,7 @@ public:
     uint64_t proposal_version
   ) override
   {
+    std::cout << "Participant " << _pid << " Recieved proposal for " << id <<std::endl;
     _received_confirmation[id] = true;
     _proposed[id] = res;
     return true;
@@ -74,6 +75,9 @@ public:
     uint64_t proposal_version
   ) override
   {
+    std::cout << "Recieved unassign proposal " <<std::endl;
+
+    _proposed[id] = std::nullopt;
     _received_cancellation[id] = true;
     return true;
   }
@@ -131,20 +135,47 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
         "table_at_timbre",
         ReservationRequest::TimeRange::make_time_range(
           now,
-          now+10s
+          now+5s
         ),
         {10s}
       );
 
       auto request1 = std::vector{request1_alt1};
       auto req_id = participant1->make_request_blocking(request1);
-      std::cout << "Got reqid" << req_id<< std::endl;
+      std::cout << "Request: " << req_id << std::endl;
       auto prop = participant1->get_proposal(req_id);
 
       THEN("There should be a successful proposal")
       {
         REQUIRE(prop.has_value());
         REQUIRE(prop.value().resource_name() == "table_at_timbre");
+      }
+    }
+
+    WHEN("A second participant makes a request with a higher priority")
+    {
+      auto request1_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+          now,
+          now+5s
+        ),
+        {10s}
+      );
+
+      auto request1 = std::vector{request1_alt1};
+      auto req_id = participant1->make_request_blocking(request1);
+      auto prop = participant1->get_proposal(req_id);
+
+      std::shared_ptr<SimpleParticipant> participant2 =
+        std::make_shared<SimpleParticipant>(1, database, 20);
+      database->register_participant(1, participant2);
+      auto req_id2 = participant2->make_request_blocking(request1);
+      auto prop2 = participant2->get_proposal(req_id2);
+      THEN("The participant with a higher priority should be serviced")
+      {
+        REQUIRE(prop2.has_value());
+        REQUIRE(!participant1->get_proposal(req_id).has_value());
       }
     }
   }

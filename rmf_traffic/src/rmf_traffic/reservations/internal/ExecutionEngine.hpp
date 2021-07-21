@@ -95,28 +95,25 @@ private:
         _curr_state = _curr_state.add_request(
           element.action.participant_id,
           element.action.request_id,
-          element.request_store
+          element.action.priority,
+          element.action.request_options
         );
       }
       else if (element.action.type == RequestQueue::ActionType::REMOVE)
       {
         _curr_state = _curr_state.remove_request(
           element.action.participant_id,
-          element.action.request_id,
-          element.request_store
-        );
+          element.action.request_id);
       }
       else if (element.action.type ==
         RequestQueue::ActionType::REMOVE_PARTICIPANT)
       {
         _curr_state = _curr_state.remove_participant(
-          element.action.participant_id,
-          element.request_store);
+          element.action.participant_id);
         _participant_store->remove_participant(element.action.participant_id);
       }
 
-      auto heuristic = std::make_shared<PriorityBasedScorer>(
-        element.request_store);
+      auto heuristic = std::make_shared<PriorityBasedScorer>();
 
       GreedyBestFirstSearchOptimizer optimizer(heuristic);
       auto favored_solution = get_favored_solution(optimizer);
