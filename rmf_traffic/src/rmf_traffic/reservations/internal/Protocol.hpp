@@ -223,7 +223,7 @@ private:
     {
       auto impacted_participant = diff.participant_id;
 
-      if(!_participant_store->get_participant(impacted_participant).has_value())
+      if (!_participant_store->get_participant(impacted_participant).has_value())
         continue;
 
       auto participant =
