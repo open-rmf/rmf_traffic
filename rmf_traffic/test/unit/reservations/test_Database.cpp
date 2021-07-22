@@ -201,7 +201,7 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       database->unregister_participant(participant2->get_id());
       THEN("Participant 1 will regain its reservation")
       {
-        //REQUIRE(participant1->get_proposal(req_id).has_value());
+        REQUIRE(participant1->get_proposal(req_id).has_value());
       }
     }
 

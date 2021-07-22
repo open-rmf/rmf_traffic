@@ -150,6 +150,12 @@ public:
     {
       new_state = new_state.remove_request(pid, request);
     }
+
+    for (auto [participant_id, reqid] : _unassigned)
+    {
+      if(participant_id == pid)
+        new_state = new_state.remove_request(participant_id, reqid);
+    }
     return new_state;
   }
 
