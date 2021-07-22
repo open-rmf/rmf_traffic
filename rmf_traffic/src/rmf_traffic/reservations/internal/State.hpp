@@ -814,7 +814,7 @@ NextStateGenerator State::begin()
               std::to_string(_unassigned.begin()->first) +
               std::string(" request id #") +
               std::to_string(_unassigned.begin()->second));
-      }
+    }
 
     auto current_request = request->request_options[0];
 
