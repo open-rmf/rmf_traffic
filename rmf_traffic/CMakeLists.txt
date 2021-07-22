@@ -36,7 +36,6 @@ endif()
 
 find_package(rmf_utils REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Threads)
 
 # ===== Traffic control library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_traffic/*.cpp")
@@ -88,7 +87,6 @@ target_link_libraries(rmf_traffic
     rmf_utils::rmf_utils
   PRIVATE
     ${FCL_LIBRARIES}
-    Threads::Threads
 )
 
 target_include_directories(rmf_traffic

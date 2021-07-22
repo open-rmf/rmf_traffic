@@ -18,22 +18,25 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include "internal/ExecutionEngine.hpp"
 #include "internal/ParticipantStore.hpp"
-#include "internal/RequestQueue.hpp"
 #include "internal/State.hpp"
 namespace rmf_traffic {
 namespace reservations {
 
+//==============================================================================
 class Database::Implementation
 {
 public:
+  //============================================================================
+  // \Constructor
   Implementation()
-  : _request_queue(std::make_shared<RequestQueue>()),
-    _participant_store(std::make_shared<ParticipantStore>()),
-    _execution_engine(_request_queue, _participant_store)
+  : _participant_store(std::make_shared<ParticipantStore>()),
+    _protocol( _participant_store)
   {
 
   }
 
+  //============================================================================]
+  // 
   void register_participant(
     ParticipantId id,
     std::shared_ptr<Participant> participant)
@@ -44,18 +47,9 @@ public:
   }
 
   void unregister_participant(
-    ParticipantId id
-  )
+    ParticipantId id)
   {
-    RequestQueue::Action action
-    {
-      RequestQueue::ActionType::REMOVE_PARTICIPANT,
-      id,
-      0,
-      {},
-      0
-    };
-    _request_queue->add_action(action);
+    _protocol.remove_participant(id);
   }
 
   void request_reservation(
@@ -64,32 +58,16 @@ public:
     std::vector<ReservationRequest>& request_options,
     int priority)
   {
-    RequestQueue::Action add_action{
-      RequestQueue::ActionType::ADD,
-      id,
-      req,
-      request_options,
-      priority
-    };
-    _request_queue->add_action(add_action);
+    _protocol.add_request(id, req, request_options, priority);
   }
 
   void cancel_request(ParticipantId id, RequestId req)
   {
-    RequestQueue::Action action
-    {
-      RequestQueue::ActionType::REMOVE,
-      id,
-      req,
-      {},
-      0
-    };
-    _request_queue->add_action(action);
+    _protocol.remove_request(id, req);
   }
 private:
   std::shared_ptr<ParticipantStore> _participant_store;
-  std::shared_ptr<RequestQueue> _request_queue;
-  ExecutionEngine _execution_engine;
+  Protocol _protocol;
 };
 
 void Database::register_participant(

@@ -95,11 +95,6 @@ public:
       _priority
     );
 
-    // Busy wait... Bad but oh well...this is a unit test
-    while (
-      !_received_confirmation[_reqid] &&
-      !_received_cancellation[_reqid]) {}
-
     return _reqid++;
   }
 

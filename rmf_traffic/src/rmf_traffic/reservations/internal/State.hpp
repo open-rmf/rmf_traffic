@@ -140,6 +140,7 @@ public:
   }
 
   //============================================================================
+  /// Remove a participant
   State remove_participant(
     ParticipantId pid)
   {
@@ -294,6 +295,7 @@ public:
       _reservation_assignments.find(pid)->second.find(reqid)->second;
     auto resource = _reservation_resources.find(res_id)->second;
     new_state.unassign_reservation(res_id, resource);
+    return new_state;
   }
 
   //============================================================================
@@ -566,8 +568,6 @@ struct NextStateGenerator
     auto current_request = start_state->_queue->get_request_info(
       part_id,
       req_id)->request_options[request_index_iter];
-
-    bool found_slot = false;
 
     proceed_next_resource = false;
 

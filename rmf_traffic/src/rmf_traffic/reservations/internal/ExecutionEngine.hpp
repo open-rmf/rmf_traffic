@@ -18,9 +18,6 @@
 #ifndef RMF_TRAFFIC__RESERVATIONS__INTERNAL_EXECUTIONENGINE_HPP
 #define RMF_TRAFFIC__RESERVATIONS__INTERNAL_EXECUTIONENGINE_HPP
 
-#include <thread>
-
-#include "RequestQueue.hpp"
 #include "ParticipantStore.hpp"
 #include "Optimizer.hpp"
 #include "State.hpp"
@@ -30,12 +27,9 @@ namespace rmf_traffic {
 namespace reservations {
 
 //==============================================================================
-/// \brief The execution engine class is in charge of handling the requests and
-/// negotiations that occur during the planning and negotiation phase. As such,
-/// it maintains a single thread that handles both planning and negotiations
-/// while enqueueing requests upon a reservation queue. This is where the crux
-/// of the protocol is implemented
-class ExecutionEngine
+/// \brief The Protocol class is in charge of handling the requests and
+/// negotiations that occur during the planning and negotiation phase.
+class Protocol
 {
 public:
   //============================================================================
@@ -45,86 +39,85 @@ public:
   ///   commands.
   /// \param[in] participant_store - the `ParticipantStore` containing the list
   ///   of participants.
-  ExecutionEngine(
-    std::shared_ptr<RequestQueue> request_queue,
+  Protocol(
     std::shared_ptr<ParticipantStore> pstore)
-  : _request_queue(request_queue),
-    _participant_store(pstore),
+  : _participant_store(pstore),
     _curr_state(std::make_shared<RequestStore>()),
     _proposal_version(0)
   {
-    _execution_thread =
-      std::make_shared<std::thread>(&ExecutionEngine::execute, this);
+
   }
 
   //============================================================================
   /// \brief Destructor. Terminates the execution engine by sending a
   /// TERMINATE_STREAM action and waits for the destructor to join.
-  ~ExecutionEngine()
+  ~Protocol()
   {
-    std::vector<ReservationRequest> res;
-    // Terminate the execution thread
-    RequestQueue::Action terminate_req {
-      RequestQueue::ActionType::TERMINATE_STREAM,
-      0,
-      0,
-      res,
-      0
-    };
-    _request_queue->add_action(terminate_req);
 
-    if (_execution_thread->joinable())
-      _execution_thread->join();
+  }
+
+  //============================================================================
+  /// \brief Add a request to the queue.
+  void add_request(
+    ParticipantId participant_id,
+    RequestId request_id,
+    std::vector<ReservationRequest>& reservation,
+    int priority)
+  {
+    _curr_state = _curr_state.add_request(
+        participant_id,
+        request_id,
+        priority,
+        reservation
+      );
+
+    auto heuristic = std::make_shared<PriorityBasedScorer>();
+
+    GreedyBestFirstSearchOptimizer optimizer(heuristic);
+    auto favored_solution = get_favored_solution(optimizer);
+    if (!favored_solution.has_value())
+      return;
+
+    rollout(favored_solution.value());
+  }
+
+  //============================================================================
+  /// \brief Remove a request
+  void remove_request(
+    ParticipantId participant_id,
+    RequestId request_id)
+  {
+    _curr_state = _curr_state.remove_request(
+      participant_id, request_id);
+
+    auto heuristic = std::make_shared<PriorityBasedScorer>();
+
+    GreedyBestFirstSearchOptimizer optimizer(heuristic);
+    auto favored_solution = get_favored_solution(optimizer);
+    if (!favored_solution.has_value())
+      return;
+
+    rollout(favored_solution.value());
+  }
+
+  //============================================================================
+  /// \brief Remove a participant
+  void remove_participant(ParticipantId participant_id)
+  {
+    _curr_state = _curr_state.remove_participant(participant_id);
+    _participant_store->remove_participant(participant_id);
+
+    auto heuristic = std::make_shared<PriorityBasedScorer>();
+
+    GreedyBestFirstSearchOptimizer optimizer(heuristic);
+    auto favored_solution = get_favored_solution(optimizer);
+    if (!favored_solution.has_value())
+      return;
+
+    rollout(favored_solution.value());
   }
 
 private:
-  //============================================================================
-  /// \brief Main thread: blocks until a request has come in. When a request
-  /// comes in the current_state is read and updated to contain the request.
-  void execute()
-  {
-    while (true)
-    {
-      auto element = _request_queue->deque();
-
-      if (element.action.type == RequestQueue::ActionType::TERMINATE_STREAM)
-        return;
-
-      if (element.action.type == RequestQueue::ActionType::ADD)
-      {
-        _curr_state = _curr_state.add_request(
-          element.action.participant_id,
-          element.action.request_id,
-          element.action.priority,
-          element.action.request_options
-        );
-      }
-      else if (element.action.type == RequestQueue::ActionType::REMOVE)
-      {
-        _curr_state = _curr_state.remove_request(
-          element.action.participant_id,
-          element.action.request_id);
-      }
-      else if (element.action.type ==
-        RequestQueue::ActionType::REMOVE_PARTICIPANT)
-      {
-        _curr_state = _curr_state.remove_participant(
-          element.action.participant_id);
-        _participant_store->remove_participant(element.action.participant_id);
-      }
-
-      auto heuristic = std::make_shared<PriorityBasedScorer>();
-
-      GreedyBestFirstSearchOptimizer optimizer(heuristic);
-      auto favored_solution = get_favored_solution(optimizer);
-      if (!favored_solution.has_value())
-        continue;
-
-      rollout(favored_solution.value());
-
-    }
-  }
-
   //============================================================================
   /// \brief Rolls out the proposed changes.
   /// TODO: Consider making asynchronous
@@ -259,8 +252,6 @@ private:
     return true;
   }
 
-  std::shared_ptr<std::thread> _execution_thread;
-  std::shared_ptr<RequestQueue> _request_queue;
   std::shared_ptr<ParticipantStore> _participant_store;
   uint64_t _proposal_version;
   State _curr_state;
