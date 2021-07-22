@@ -125,7 +125,7 @@ private:
   {
     for (auto change: changes.differences())
     {
-      if(!_participant_store->get_participant(change.participant_id).has_value())
+      if (!_participant_store->get_participant(change.participant_id).has_value())
       {
         continue;
       }
