@@ -40,7 +40,7 @@ public:
     ParticipantId pid,
     RequestId req)
   {
-    if(_reservation_info.count(pid) != 0
+    if (_reservation_info.count(pid) != 0
       && _reservation_info.at(pid).count(req) != 0)
       return _reservation_info[pid][req];
     return std::nullopt;

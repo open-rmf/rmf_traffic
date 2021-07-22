@@ -164,7 +164,7 @@ SCENARIO("A few reservations in a state")
 
       THEN("The scores come back in ascending order")
       {
-        for(std::size_t i = 1; i < scores.size(); ++i)
+        for (std::size_t i = 1; i < scores.size(); ++i)
         {
           REQUIRE(scores[i-1] <= scores[i]);
         }

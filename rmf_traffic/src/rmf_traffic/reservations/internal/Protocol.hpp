@@ -65,11 +65,11 @@ public:
     int priority)
   {
     _curr_state = _curr_state.add_request(
-        participant_id,
-        request_id,
-        priority,
-        reservation
-      );
+      participant_id,
+      request_id,
+      priority,
+      reservation
+    );
 
     auto heuristic = std::make_shared<PriorityBasedScorer>();
 

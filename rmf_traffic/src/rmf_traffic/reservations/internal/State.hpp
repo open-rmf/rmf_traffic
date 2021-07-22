@@ -807,11 +807,12 @@ NextStateGenerator State::begin()
       _unassigned.begin()->first,
       _unassigned.begin()->second);
 
-    if(!request.has_value())
+    if (!request.has_value())
     {
+      // This should *never* happen
       throw std::runtime_error(std::string("Got nullopt for participant ") +
         std::to_string(_unassigned.begin()->first) +
-        std::string(" request id #")+ 
+        std::string(" request id #") +
         std::to_string(_unassigned.begin()->second));
     }
 

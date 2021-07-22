@@ -27,25 +27,23 @@ class Database::Implementation
 {
 public:
   //============================================================================
-  // \Constructor
+  /// \constructor
   Implementation()
   : _participant_store(std::make_shared<ParticipantStore>()),
-    _protocol( _participant_store)
+    _protocol(_participant_store)
   {
-
+    // Do nothing
   }
 
   //============================================================================]
-  // Register a participant
+  /// \brief Register a participant
   void register_participant(
     ParticipantId id,
     std::shared_ptr<Participant> participant)
   {
-    /// TODO(arjo): add some type of locking mechanism that will prevent
-    /// overwrites or otherwise use the queue.
     _participant_store->add_participant(id, participant);
   }
-  
+
   void unregister_participant(
     ParticipantId id)
   {

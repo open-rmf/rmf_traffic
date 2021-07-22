@@ -47,7 +47,6 @@ public:
     uint64_t proposal_version
   ) override
   {
-    std::cout << "Participant " << _pid << " Recieved proposal for " << id <<std::endl;
     _received_confirmation[id] = true;
     _proposed[id] = res;
     return true;
@@ -75,8 +74,6 @@ public:
     uint64_t proposal_version
   ) override
   {
-    std::cout << "Recieved unassign proposal " <<std::endl;
-
     _proposed[id] = std::nullopt;
     _received_cancellation[id] = true;
     return true;
@@ -137,7 +134,6 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
 
       auto request1 = std::vector{request1_alt1};
       auto req_id = participant1->make_request_blocking(request1);
-      std::cout << "Request: " << req_id << std::endl;
       auto prop = participant1->get_proposal(req_id);
 
       THEN("There should be a successful proposal")
