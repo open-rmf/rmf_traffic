@@ -18,8 +18,8 @@ jobs:
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@v0.2
         env:
-          CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
-          CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt
+          CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt -g3
+          CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt -g3
         with:
           target-ros2-distro: foxy
           # build all packages listed in the meta package
