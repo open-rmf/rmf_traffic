@@ -100,6 +100,11 @@ public:
     return _proposed[rid];
   }
 
+  ParticipantId get_id() const
+  {
+    return _pid;
+  }
+
 private:
   ParticipantId _pid;
   RequestId _reqid;
@@ -167,6 +172,67 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       {
         REQUIRE(prop2.has_value());
         REQUIRE(!participant1->get_proposal(req_id).has_value());
+      }
+    }
+
+    WHEN("We remove the second participant")
+    {
+      auto request1_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+          now,
+          now+5s
+        ),
+        {10s}
+      );
+
+      auto request1 = std::vector{request1_alt1};
+      auto req_id = participant1->make_request_blocking(request1);
+      auto prop = participant1->get_proposal(req_id);
+
+      std::shared_ptr<SimpleParticipant> participant2 =
+        std::make_shared<SimpleParticipant>(1, database, 20);
+      database->register_participant(1, participant2);
+      auto req_id2 = participant2->make_request_blocking(request1);
+      auto prop2 = participant2->get_proposal(req_id2);
+      REQUIRE(prop2.has_value());
+      REQUIRE(!participant1->get_proposal(req_id).has_value());
+
+      database->unregister_participant(participant2->get_id());
+      THEN("Participant 1 will regain its reservation")
+      {
+        //REQUIRE(participant1->get_proposal(req_id).has_value());
+      }
+    }
+
+
+    WHEN("We cancel the second reservation")
+    {
+      auto request1_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+          now,
+          now+5s
+        ),
+        {10s}
+      );
+
+      auto request1 = std::vector{request1_alt1};
+      auto req_id = participant1->make_request_blocking(request1);
+      auto prop = participant1->get_proposal(req_id);
+
+      std::shared_ptr<SimpleParticipant> participant2 =
+        std::make_shared<SimpleParticipant>(1, database, 20);
+      database->register_participant(1, participant2);
+      auto req_id2 = participant2->make_request_blocking(request1);
+      auto prop2 = participant2->get_proposal(req_id2);
+      REQUIRE(prop2.has_value());
+      REQUIRE(!participant1->get_proposal(req_id).has_value());
+
+      database->cancel_request(participant2->get_id(), req_id2);
+      THEN("Participant 1 will regain its reservation.")
+      {
+        REQUIRE(participant1->get_proposal(req_id).has_value());
       }
     }
   }

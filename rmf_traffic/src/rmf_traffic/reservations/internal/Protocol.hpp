@@ -125,8 +125,10 @@ private:
   {
     for (auto change: changes.differences())
     {
-      assert(
-        _participant_store->get_participant(change.participant_id).has_value());
+      if(!_participant_store->get_participant(change.participant_id).has_value())
+      {
+        continue;
+      }
 
       auto participant =
         _participant_store->get_participant(change.participant_id).value();
@@ -221,8 +223,8 @@ private:
     {
       auto impacted_participant = diff.participant_id;
 
-      assert(
-        _participant_store->get_participant(impacted_participant).has_value());
+      if(!_participant_store->get_participant(impacted_participant).has_value())
+        continue;
 
       auto participant =
         _participant_store->get_participant(impacted_participant)
