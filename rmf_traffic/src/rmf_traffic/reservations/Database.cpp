@@ -16,7 +16,7 @@
 */
 
 #include <rmf_traffic/reservations/Database.hpp>
-#include "internal/ExecutionEngine.hpp"
+#include "internal/Protocol.hpp"
 #include "internal/ParticipantStore.hpp"
 #include "internal/State.hpp"
 namespace rmf_traffic {
