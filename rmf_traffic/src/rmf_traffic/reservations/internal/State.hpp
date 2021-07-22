@@ -811,10 +811,10 @@ NextStateGenerator State::begin()
     {
       // This should *never* happen
       throw std::runtime_error(std::string("Got nullopt for participant ") +
-        std::to_string(_unassigned.begin()->first) +
-        std::string(" request id #") +
-        std::to_string(_unassigned.begin()->second));
-    }
+              std::to_string(_unassigned.begin()->first) +
+              std::string(" request id #") +
+              std::to_string(_unassigned.begin()->second));
+      }
 
     auto current_request = request->request_options[0];
 
