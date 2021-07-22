@@ -35,7 +35,7 @@ public:
     // Do nothing
   }
 
-  //============================================================================]
+  //============================================================================
   /// \brief Register a participant
   void register_participant(
     ParticipantId id,
@@ -44,12 +44,14 @@ public:
     _participant_store->add_participant(id, participant);
   }
 
+  //============================================================================
   void unregister_participant(
     ParticipantId id)
   {
     _protocol.remove_participant(id);
   }
 
+  //============================================================================
   void request_reservation(
     ParticipantId id,
     RequestId req,
@@ -59,6 +61,7 @@ public:
     _protocol.add_request(id, req, request_options, priority);
   }
 
+  //============================================================================
   void cancel_request(ParticipantId id, RequestId req)
   {
     _protocol.remove_request(id, req);
@@ -68,6 +71,7 @@ private:
   Protocol _protocol;
 };
 
+//==============================================================================
 void Database::register_participant(
   ParticipantId id,
   std::shared_ptr<Participant> participant)
@@ -78,11 +82,13 @@ void Database::register_participant(
   );
 }
 
+//==============================================================================
 void Database::unregister_participant(ParticipantId id)
 {
   _pimpl->unregister_participant(id);
 }
 
+//==============================================================================
 void Database::request_reservation(
   ParticipantId id,
   RequestId req,
@@ -92,10 +98,13 @@ void Database::request_reservation(
   _pimpl->request_reservation(id, req, request_options, priority);
 }
 
+//==============================================================================
 void Database::cancel_request(ParticipantId id, RequestId req)
 {
   _pimpl->cancel_request(id, req);
 }
+
+//==============================================================================
 Database::Database()
 : _pimpl(rmf_utils::make_impl<Implementation>())
 {
