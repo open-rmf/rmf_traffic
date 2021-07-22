@@ -36,7 +36,7 @@ public:
   }
 
   //============================================================================]
-  // 
+  // Register a participant
   void register_participant(
     ParticipantId id,
     std::shared_ptr<Participant> participant)
@@ -45,7 +45,7 @@ public:
     /// overwrites or otherwise use the queue.
     _participant_store->add_participant(id, participant);
   }
-
+  
   void unregister_participant(
     ParticipantId id)
   {
