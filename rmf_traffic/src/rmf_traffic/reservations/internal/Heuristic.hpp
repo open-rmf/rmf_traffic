@@ -59,11 +59,11 @@ public:
 
     auto num_alternatives = state.requests()->num_alternatives();
     // Enforces ordering
-    for(auto &[resource, schedule] : state.resource_schedule())
+    for (auto &[resource, schedule] : state.resource_schedule())
     {
-      for(auto &[time, reservation]: schedule)
+      for (auto &[time, reservation]: schedule)
       {
-        double index = state.request_ids()[reservation.reservation_id()].index; 
+        double index = state.request_ids()[reservation.reservation_id()].index;
         score += index / (double)num_alternatives;
       }
     }
