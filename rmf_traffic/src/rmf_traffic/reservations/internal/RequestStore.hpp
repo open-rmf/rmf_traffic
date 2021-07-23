@@ -161,6 +161,19 @@ public:
     }
     return std::nullopt;
   }
+
+  std::size_t num_alternatives() const
+  {
+    std::size_t alternatives = 0;
+    for(auto &[participant, requests] : _reservation_info)
+    {
+      for(auto &[request, request_info] : requests)
+      {
+        alternatives += request_info.request_options.size();
+      }
+    }
+    return alternatives;
+  }
 private:
   std::unordered_map<ParticipantId,
     std::unordered_map<RequestId, RequestInfo>

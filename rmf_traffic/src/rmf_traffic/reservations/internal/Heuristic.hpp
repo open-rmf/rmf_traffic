@@ -46,11 +46,26 @@ public:
 
   float score(const State& state) override
   {
+    // TODO: This is not really priority based planning.
+    // Currently we first minimize unassigned priorities, then we
+    // minimize the cost...
+    // Cost itself is determined by the order of the alternatives presented.
     auto score = 0;
     for (auto [part_id, req_id]: state.unassigned())
     {
-      // TODO: Incorporate the order into the heuristic
+      // Incorporate priority
       score += state.requests()->get_request_info(part_id, req_id)->priority;
+    }
+
+    auto num_alternatives = state.requests()->num_alternatives();
+    // Enforces ordering
+    for(auto &[resource, schedule] : state.resource_schedule())
+    {
+      for(auto &[time, reservation]: schedule)
+      {
+        double index = state.request_ids()[reservation.reservation_id()].index; 
+        score += index / (double)num_alternatives;
+      }
     }
     return score;
   }
