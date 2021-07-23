@@ -36,6 +36,7 @@ public:
     std::vector<ReservationRequest> request_options;
   };
 
+  //============================================================================
   std::optional<RequestInfo> get_request_info(
     ParticipantId pid,
     RequestId req)
@@ -46,17 +47,20 @@ public:
     return std::nullopt;
   }
 
+  //============================================================================
   RequestStore()
   {
     //Do nothing
   }
 
+  //============================================================================
   RequestStore(const rmf_traffic::reservations::RequestStore& other)
   : _reservation_info(other._reservation_info)
   {
     //Do nothing
   }
 
+  //============================================================================
   void enqueue_reservation(
     ParticipantId pid,
     RequestId req,
@@ -73,6 +77,7 @@ public:
       });
   }
 
+  //============================================================================
   void erase_participant_requests(
     ParticipantId pid
   )
@@ -83,11 +88,13 @@ public:
     _reservation_info.erase(entry);
   }
 
+  //============================================================================
   void cancel(ParticipantId pid, RequestId req)
   {
     _reservation_info[pid].erase(req);
   }
 
+  //============================================================================
   bool satisfies(ReservationRequest& req, Reservation reservation)
   {
     //Check upper bound
@@ -147,6 +154,7 @@ public:
     return true;
   }
 
+  //============================================================================
   std::optional<std::size_t> satisfies(
     ParticipantId pid,
     RequestId reqid,
@@ -162,6 +170,7 @@ public:
     return std::nullopt;
   }
 
+  //============================================================================
   std::size_t num_alternatives() const
   {
     std::size_t alternatives = 0;
