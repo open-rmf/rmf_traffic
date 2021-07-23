@@ -32,10 +32,8 @@ class SimpleParticipant : public Participant
 public:
   SimpleParticipant(
     ParticipantId pid,
-    std::shared_ptr<Database> db,
     int priority = 1)
   : _pid(pid),
-    _db(db),
     _reqid(0),
     _priority(priority)
   {
@@ -47,7 +45,6 @@ public:
     uint64_t proposal_version
   ) override
   {
-    _received_confirmation[id] = true;
     _proposed[id] = res;
     return true;
   }
@@ -75,16 +72,14 @@ public:
   ) override
   {
     _proposed[id] = std::nullopt;
-    _received_cancellation[id] = true;
     return true;
   }
 
   RequestId make_request_blocking(
+    std::shared_ptr<Database>& _db,
     std::vector<ReservationRequest>& request_options
   )
   {
-    _received_confirmation[_reqid] = false;
-    _received_cancellation[_reqid] = false;
     _db->request_reservation(
       _pid,
       _reqid,
@@ -108,9 +103,7 @@ public:
 private:
   ParticipantId _pid;
   RequestId _reqid;
-  std::shared_ptr<Database> _db;
-  std::unordered_map<RequestId, bool> _received_confirmation;
-  std::unordered_map<RequestId, bool> _received_cancellation;
+
   std::unordered_map<RequestId, std::optional<Reservation>> _proposed;
   int _priority;
 };
@@ -123,7 +116,7 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
   {
     std::shared_ptr<Database> database = std::make_shared<Database>();
     std::shared_ptr<SimpleParticipant> participant1 =
-      std::make_shared<SimpleParticipant>(0, database);
+      std::make_shared<SimpleParticipant>(0);
     database->register_participant(0, participant1);
 
     WHEN("the participant makes a request")
@@ -138,7 +131,7 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       );
 
       auto request1 = std::vector{request1_alt1};
-      auto req_id = participant1->make_request_blocking(request1);
+      auto req_id = participant1->make_request_blocking(database, request1);
       auto prop = participant1->get_proposal(req_id);
 
       THEN("There should be a successful proposal")
@@ -160,13 +153,13 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       );
 
       auto request1 = std::vector{request1_alt1};
-      auto req_id = participant1->make_request_blocking(request1);
+      auto req_id = participant1->make_request_blocking(database, request1);
       auto prop = participant1->get_proposal(req_id);
 
       std::shared_ptr<SimpleParticipant> participant2 =
-        std::make_shared<SimpleParticipant>(1, database, 20);
+        std::make_shared<SimpleParticipant>(1, 20);
       database->register_participant(1, participant2);
-      auto req_id2 = participant2->make_request_blocking(request1);
+      auto req_id2 = participant2->make_request_blocking(database, request1);
       auto prop2 = participant2->get_proposal(req_id2);
       THEN("The participant with a higher priority should be serviced")
       {
@@ -187,13 +180,13 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       );
 
       auto request1 = std::vector{request1_alt1};
-      auto req_id = participant1->make_request_blocking(request1);
+      auto req_id = participant1->make_request_blocking(database, request1);
       auto prop = participant1->get_proposal(req_id);
 
       std::shared_ptr<SimpleParticipant> participant2 =
-        std::make_shared<SimpleParticipant>(1, database, 20);
+        std::make_shared<SimpleParticipant>(1, 20);
       database->register_participant(1, participant2);
-      auto req_id2 = participant2->make_request_blocking(request1);
+      auto req_id2 = participant2->make_request_blocking(database, request1);
       auto prop2 = participant2->get_proposal(req_id2);
       REQUIRE(prop2.has_value());
       REQUIRE(!participant1->get_proposal(req_id).has_value());
@@ -218,13 +211,13 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       );
 
       auto request1 = std::vector{request1_alt1};
-      auto req_id = participant1->make_request_blocking(request1);
+      auto req_id = participant1->make_request_blocking(database, request1);
       auto prop = participant1->get_proposal(req_id);
 
       std::shared_ptr<SimpleParticipant> participant2 =
-        std::make_shared<SimpleParticipant>(1, database, 20);
+        std::make_shared<SimpleParticipant>(1, 20);
       database->register_participant(1, participant2);
-      auto req_id2 = participant2->make_request_blocking(request1);
+      auto req_id2 = participant2->make_request_blocking(database, request1);
       auto prop2 = participant2->get_proposal(req_id2);
       REQUIRE(prop2.has_value());
       REQUIRE(!participant1->get_proposal(req_id).has_value());
