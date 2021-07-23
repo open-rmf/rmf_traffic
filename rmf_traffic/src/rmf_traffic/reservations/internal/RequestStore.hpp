@@ -174,9 +174,9 @@ public:
   std::size_t num_alternatives() const
   {
     std::size_t alternatives = 0;
-    for(auto &[participant, requests] : _reservation_info)
+    for(auto&[participant, requests] : _reservation_info)
     {
-      for(auto &[request, request_info] : requests)
+      for(auto&[request, request_info] : requests)
       {
         alternatives += request_info.request_options.size();
       }
