@@ -119,21 +119,30 @@ ReservationId Reservation::reservation_id() const
 //=============================================================================
 bool Reservation::conflicts_with(const Reservation& other) const
 {
+  if (other.resource_name() != this->resource_name())
+    return false;
+
   if (other.start_time() < this->start_time())
   {
+    // other starts before this
     if (!other.is_indefinite()
       && other.actual_finish_time() <= this->start_time())
-      return true;
-    else
+      //other is not indefinite and start time of other is after this one's
+      //finish time
       return false;
+    else
+      //Either other is indefinite in which case it will conflict with this
+      //or the actual start time of this is before other finishes.
+      return true;
   }
   else
   {
+    // this starts before other
     if (!this->is_indefinite()
       && this->actual_finish_time() <= other.start_time())
-      return true;
-    else
       return false;
+    else
+      return true ;
   }
 }
 

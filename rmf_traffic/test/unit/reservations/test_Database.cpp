@@ -19,8 +19,6 @@
 #include <rmf_traffic/reservations/Database.hpp>
 #include <rmf_traffic/reservations/Reservation.hpp>
 
-#include <iostream>
-
 using namespace rmf_traffic;
 using namespace rmf_traffic::reservations;
 using namespace std::chrono_literals;
@@ -199,7 +197,7 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
     }
 
 
-    WHEN("We cancel the second reservation")
+    WHEN("We cancel the reservation of the second participant")
     {
       auto request1_alt1 = ReservationRequest::make_request(
         "table_at_timbre",
@@ -226,6 +224,67 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
       THEN("Participant 1 will regain its reservation.")
       {
         REQUIRE(participant1->get_proposal(req_id).has_value());
+      }
+    }
+
+    WHEN("We make three requests")
+    {
+      auto request1_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+          now,
+          now+5s
+        ),
+        {10s}
+      );
+      auto request1 = std::vector{request1_alt1};
+      auto req1_id = participant1->make_request_blocking(database, request1);
+
+      REQUIRE(participant1->get_proposal(req1_id).has_value());
+
+      auto request2_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+          now+10s,
+          now+30s
+        ),
+        {10s}
+      );
+      auto request2 = std::vector{request2_alt1};
+      auto req2_id = participant1->make_request_blocking(database, request2);
+
+      REQUIRE(participant1->get_proposal(req2_id).has_value());
+
+      auto request3_alt1 = ReservationRequest::make_request(
+        "table_at_timbre",
+        ReservationRequest::TimeRange::make_time_range(
+          now+10s,
+          now+20s
+        ),
+        {10s}
+      );
+      auto request3 = std::vector{request3_alt1};
+      auto req3_id = participant1->make_request_blocking(database, request3);
+      THEN("All three proposals are accomodated")
+      {
+        REQUIRE(participant1->get_proposal(req1_id).has_value());
+        REQUIRE(participant1->get_proposal(req2_id).has_value());
+        REQUIRE(participant1->get_proposal(req3_id).has_value());
+
+        REQUIRE(
+          !participant1->get_proposal(req3_id)->conflicts_with(
+            participant1->get_proposal(req2_id).value()
+          ));
+
+        REQUIRE(
+          !participant1->get_proposal(req1_id)->conflicts_with(
+            participant1->get_proposal(req2_id).value()
+          ));
+
+        REQUIRE(
+          !participant1->get_proposal(req3_id)->conflicts_with(
+            participant1->get_proposal(req1_id).value()
+          ));
       }
     }
   }
