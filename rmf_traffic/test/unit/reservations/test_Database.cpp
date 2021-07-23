@@ -274,17 +274,17 @@ SCENARIO("Test database behaviour at the start of our lord, the saviour, UNIX")
         REQUIRE(
           !participant1->get_proposal(req3_id)->conflicts_with(
             participant1->get_proposal(req2_id).value()
-          ));
+        ));
 
         REQUIRE(
           !participant1->get_proposal(req1_id)->conflicts_with(
             participant1->get_proposal(req2_id).value()
-          ));
+        ));
 
         REQUIRE(
           !participant1->get_proposal(req3_id)->conflicts_with(
             participant1->get_proposal(req1_id).value()
-          ));
+        ));
       }
     }
   }

@@ -142,7 +142,7 @@ bool Reservation::conflicts_with(const Reservation& other) const
       && this->actual_finish_time() <= other.start_time())
       return false;
     else
-      return true ;
+      return true;
   }
 }
 
