@@ -55,10 +55,6 @@ public:
     State& state2
   )
   {
-    // TODO(arjo): currently method is O(nlogn). It is possible to implement
-    // in O(n) using a two pointer method, just trickier. Ideally we should
-    // do this.
-
     // Check for reservation shuffling/shifting and assignment
     for (auto [participant, requests]: state1._reservation_assignments)
     {
@@ -123,8 +119,6 @@ public:
         );
       }
     }
-
-    //_differences = toposort(state2);
   }
 
   //============================================================================
@@ -134,61 +128,6 @@ public:
     return _differences;
   }
 private:
-  //============================================================================
-  /// Use something akin to Kahn's algorithm to perform a topological sort of
-  /// the shifts. This ensures that during the rollout phase, if there is a
-  /// communications failure the system will remain in a usable state.
-  std::vector<Difference> toposort(State& state)
-  {
-    std::vector<Difference> result;
-    std::queue<std::size_t> unvisited;
-    State curr_state(state);
-    //Unassignments can go first, since they will never create a conflict.
-    for (std::size_t i = 0; i < _differences.size(); i++)
-    {
-      if (_differences[i].diff_type == DifferenceType::UNASSIGN_RESERVATION)
-      {
-        result.push_back(_differences[i]);
-        curr_state = curr_state.unassign_reservation(
-          _differences[i].participant_id,
-          _differences[i].request_id);
-      }
-      else
-      {
-        unvisited.push(i);
-      }
-    }
-
-    while (!unvisited.empty())
-    {
-      auto index = unvisited.front();
-      unvisited.pop();
-      auto diff = _differences[index];
-      auto reservation = diff.reservation;
-
-      if (!curr_state.check_if_conflicts(reservation.value()))
-      {
-        if (diff.diff_type == DifferenceType::SHIFT_RESERVATION)
-          curr_state = curr_state.unassign_reservation(
-            diff.participant_id,
-            diff.request_id
-          );
-
-        curr_state.assign_reservation(
-          diff.participant_id,
-          diff.request_id,
-          reservation.value()
-        );
-      }
-      else
-      {
-        unvisited.push(index);
-      }
-    }
-
-    return result;
-  }
-
   std::vector<Difference> _differences;
 };
 
