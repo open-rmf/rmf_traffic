@@ -192,6 +192,6 @@ private:
   std::vector<Difference> _differences;
 };
 
-}
-}
+} //end namespace reservations
+} //end namespace rmf_traffic
 #endif

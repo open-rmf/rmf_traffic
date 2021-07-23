@@ -108,7 +108,8 @@ void Database::cancel_request(ParticipantId id, RequestId req)
 Database::Database()
 : _pimpl(rmf_utils::make_impl<Implementation>())
 {
+  // Do nothing
 }
 
-}
-}
+} // end namespace reservations
+} // end namespace rmf_traffic

@@ -849,6 +849,6 @@ NextStateGenerator State::end()
   gen.mode = NextStateGenerator::PotentialActionMode::END;
   return gen;
 }
-}
-}
+} // end namespace reservations
+} // end namespace rmf_traffic
 #endif

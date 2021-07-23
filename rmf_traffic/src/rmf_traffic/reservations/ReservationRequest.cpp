@@ -118,6 +118,5 @@ ReservationRequest::ReservationRequest()
 {
 }
 
-}
-}
-
+} // end namespace reservations
+} // end namespace rmf_traffic

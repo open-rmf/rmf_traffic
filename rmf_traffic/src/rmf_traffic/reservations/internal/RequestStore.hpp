@@ -167,6 +167,6 @@ private:
   > _reservation_info;
 };
 
-}
-}
+} // end namespace reservations
+} // end namespace rmf_traffic
 #endif

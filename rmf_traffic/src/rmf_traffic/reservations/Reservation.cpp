@@ -190,5 +190,5 @@ Reservation::Reservation()
   // do nothing
 }
 
-}
-}
+} // end namespace reservations
+} // end namespace rmf_traffic
