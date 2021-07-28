@@ -4,6 +4,8 @@
 #include <rmf_traffic/reservation/Offer.hpp>
 #include <rmf_traffic/reservation/Contention.hpp>
 
+#include <rmf_utils/impl_ptr.hpp>
+
 #include <functional>
 
 namespace rmf_traffic {
@@ -52,6 +54,35 @@ private:
 };
 
 //==============================================================================
+template<typename> class CallbackNegotiator;
+
+namespace detail {
+class AbstractCallbackNegotiator
+{
+public:
+
+  using Response = std::function<void(std::optional<double>)>;
+  using ConsiderFn = std::function<void(const AbstractOffer&, Response)>;
+  using AwardFn = std::function<void(const AbstractOffer&)>;
+  using FaultFn = std::function<void(const AbstractContention&)>;
+
+  AbstractCallbackNegotiator(
+    ConsiderFn consider_cb,
+    AwardFn award_cb,
+    FaultFn fault_cb);
+
+  void consider(const AbstractOffer& offer, Response response);
+  void award(const AbstractOffer& offer);
+  void fault(const AbstractContention& contention);
+
+  class Implementation;
+private:
+
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+} // namespace detail
+
+//==============================================================================
 template<typename Resource>
 class CallbackNegotiator : public TemplateNegotiator<Resource>
 {
@@ -73,6 +104,9 @@ public:
   void consider(const Offer& offer, Response response) final;
   void award(const Offer& offer) final;
   void fault(const Contention& contention) final;
+
+private:
+  detail::AbstractCallbackNegotiator _impl;
 };
 
 } // namespace reservation
