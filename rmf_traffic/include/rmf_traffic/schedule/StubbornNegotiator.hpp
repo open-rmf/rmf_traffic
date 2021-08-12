@@ -56,6 +56,10 @@ public:
   ///   The Participant who wants to be stubborn.
   StubbornNegotiator(std::shared_ptr<const Participant> participant);
 
+  /// Add a set of acceptable wait times.
+  StubbornNegotiator& acceptable_waits(
+    std::vector<rmf_traffic::Duration> wait_times);
+
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const ResponderPtr& responder) final;
