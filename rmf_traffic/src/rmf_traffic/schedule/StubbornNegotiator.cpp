@@ -16,7 +16,7 @@
 */
 
 #include <rmf_traffic/schedule/StubbornNegotiator.hpp>
-#include <rmf_traffic/DetectConflict.hpp>
+#include <rmf_traffic/agv/RouteValidator.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -30,7 +30,59 @@ public:
   std::shared_ptr<const Participant> shared_ref;
   std::vector<rmf_traffic::Duration> acceptable_waits;
 
+  std::optional<std::vector<rmf_traffic::Route>> test_candidate(
+    rmf_traffic::Duration offset,
+    const std::vector<rmf_traffic::Route>& original,
+    const rmf_traffic::agv::NegotiatingRouteValidator& validator,
+    std::vector<rmf_traffic::schedule::Itinerary>& alternatives) const;
 };
+
+//==============================================================================
+namespace {
+Itinerary move_to_itinerary(std::vector<rmf_traffic::Route>&& candidate)
+{
+  Itinerary output;
+  output.reserve(candidate.size());
+  for (auto&& r : std::move(candidate))
+  {
+    output.push_back(std::make_shared<rmf_traffic::Route>(std::move(r)));
+  }
+
+  return output;
+}
+} // anonymous namespace
+
+//==============================================================================
+std::optional<std::vector<Route>>
+StubbornNegotiator::Implementation::test_candidate(
+  rmf_traffic::Duration offset,
+  const std::vector<rmf_traffic::Route>& original,
+  const rmf_traffic::agv::NegotiatingRouteValidator& validator,
+  std::vector<rmf_traffic::schedule::Itinerary>& alternatives) const
+{
+  using namespace std::chrono_literals;
+  auto candidate = original;
+  if (offset != 0s)
+  {
+    for (auto& r : candidate)
+    {
+      auto& traj = r.trajectory();
+      if (!traj.empty())
+        traj.front().adjust_times(offset);
+    }
+  }
+
+  for (const auto& r : candidate)
+  {
+    if (validator.find_conflict(r))
+    {
+      alternatives.push_back(move_to_itinerary(std::move(candidate)));
+      return std::nullopt;
+    }
+  }
+
+  return candidate;
+}
 
 //==============================================================================
 StubbornNegotiator::StubbornNegotiator(const Participant& participant)
@@ -62,73 +114,58 @@ void StubbornNegotiator::respond(
   const schedule::Negotiation::Table::ViewerPtr& table_viewer,
   const ResponderPtr& responder)
 {
-  std::vector<rmf_traffic::Route> submission;
+  using namespace std::chrono_literals;
 
+  std::vector<rmf_traffic::Route> original;
   const auto& itinerary = _pimpl->participant->itinerary();
   for (const auto& item : itinerary)
-    submission.push_back(*item.route);
+    original.push_back(*item.route);
 
-  const auto table_version = table_viewer->sequence().back().version;
-  if (table_viewer->rejected() && table_version > 0)
+  auto generator =
+    rmf_traffic::agv::NegotiatingRouteValidator::Generator(
+      table_viewer, _pimpl->participant->description().profile());
+
+  std::vector<rmf_traffic::schedule::Itinerary> alternatives;
+  for (const auto& validator : generator.all())
   {
-    const auto wait_index = table_version - 1;
-    if (wait_index < _pimpl->acceptable_waits.size())
+    if (_pimpl->test_candidate(0s, original, *validator, alternatives)
+        .has_value())
     {
-      const auto wait = _pimpl->acceptable_waits[wait_index];
-      for (auto& item : submission)
-        item.trajectory().front().adjust_times(wait);
-
-      const auto& first_wp = submission.front().trajectory().front();
-      submission.front().trajectory().insert(
-        first_wp.time() - wait,
-        first_wp.position(),
-        Eigen::Vector3d::Zero());
+      responder->submit(original);
+      return;
     }
-    else
+
+    if (table_viewer->rejected())
     {
-      // If we can't come up with an itinerary that hasn't been rejected, then we
-      // must forfeit.
-      return responder->forfeit({});
-    }
-  }
-
-  const auto& profile = _pimpl->participant->description().profile();
-  const auto& proposal = table_viewer->base_proposals();
-
-  for (const auto& p : proposal)
-  {
-    const auto other_participant = table_viewer->get_description(p.participant);
-    assert(other_participant);
-    const auto& other_profile = other_participant->profile();
-
-    for (const auto& other_route : p.itinerary)
-    {
-      for (const auto& item : submission)
+      for (const auto& t : _pimpl->acceptable_waits)
       {
-        if (item.map() != other_route->map())
-          continue;
-
-        if (rmf_traffic::DetectConflict::between(
-            profile,
-            item.trajectory(),
-            other_profile,
-            other_route->trajectory()))
+        const auto candidate =
+          _pimpl->test_candidate(t, original, *validator, alternatives);
+        if (candidate.has_value())
         {
-          rmf_traffic::schedule::Itinerary alternative;
-          alternative.reserve(submission.size());
-          for (const auto& item : submission)
-          {
-            alternative.emplace_back(
-              std::make_shared<rmf_traffic::Route>(item));
-          }
-
-          return responder->reject({std::move(alternative)});
+          responder->submit(original);
+          return;
         }
       }
     }
   }
 
-  responder->submit(std::move(submission));
+  if (table_viewer->sequence().back().version < 3)
+  {
+    if (table_viewer->sequence().size() <= 1)
+    {
+      // If this is the first participant in the negotiation sequence, then we
+      // need to forfeit, because there is no lower level proposal to reject.
+      responder->forfeit({});
+    }
+
+    responder->reject(alternatives);
+  }
+  else
+  {
+    // If we have had multiple rejections, then let's just forfeit.
+    responder->forfeit({});
+  }
 }
 
 } // namespace schedule
