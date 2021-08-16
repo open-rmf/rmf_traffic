@@ -29,6 +29,7 @@ public:
   const Participant* participant;
   std::shared_ptr<const Participant> shared_ref;
   std::vector<rmf_traffic::Duration> acceptable_waits;
+  std::function<UpdateVersion(rmf_traffic::Duration)> approval_cb = nullptr;
 
   std::optional<std::vector<rmf_traffic::Route>> test_candidate(
     rmf_traffic::Duration offset,
@@ -103,9 +104,11 @@ StubbornNegotiator::StubbornNegotiator(
 
 //==============================================================================
 StubbornNegotiator& StubbornNegotiator::acceptable_waits(
-  std::vector<rmf_traffic::Duration> wait_times)
+  std::vector<rmf_traffic::Duration> wait_times,
+  std::function<UpdateVersion(rmf_traffic::Duration)> approval_cb)
 {
   _pimpl->acceptable_waits = std::move(wait_times);
+  _pimpl->approval_cb = std::move(approval_cb);
   return *this;
 }
 
@@ -132,7 +135,15 @@ void StubbornNegotiator::respond(
     if (_pimpl->test_candidate(0s, original, *validator, alternatives)
         .has_value())
     {
-      responder->submit(original);
+      responder->submit(
+        original,
+        [cb = _pimpl->approval_cb]() -> UpdateVersion
+        {
+          if (cb)
+            return cb(0s);
+
+          return std::nullopt;
+        });
       return;
     }
 
@@ -144,7 +155,18 @@ void StubbornNegotiator::respond(
           _pimpl->test_candidate(t, original, *validator, alternatives);
         if (candidate.has_value())
         {
-          responder->submit(original);
+          responder->submit(
+            original,
+            [
+              cb = _pimpl->approval_cb,
+              delay = t
+            ]() -> UpdateVersion
+            {
+              if (cb)
+                return cb(delay);
+
+              return std::nullopt;
+            });
           return;
         }
       }

@@ -56,9 +56,18 @@ public:
   ///   The Participant who wants to be stubborn.
   StubbornNegotiator(std::shared_ptr<const Participant> participant);
 
+  using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
+
   /// Add a set of acceptable wait times.
+  ///
+  /// \param[in] wait_times
+  ///   A list of the wait times that would be accepted for negotiation
+  ///
+  /// \param[in] approval_cb
+  ///   A callback that will be triggered
   StubbornNegotiator& acceptable_waits(
-    std::vector<rmf_traffic::Duration> wait_times);
+    std::vector<rmf_traffic::Duration> wait_times,
+    std::function<UpdateVersion(rmf_traffic::Duration)> approval_cb = nullptr);
 
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
