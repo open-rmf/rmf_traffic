@@ -141,9 +141,10 @@ public:
   {
     schedule::Negotiation::Table::ViewerPtr viewer;
     Profile profile;
+    bool ignore_unresponsive;
   };
 
-  std::shared_ptr<const Data> data;
+  std::shared_ptr<Data> data;
   std::vector<schedule::ParticipantId> alternative_sets;
 
   Implementation(
@@ -152,7 +153,8 @@ public:
   : data(std::make_shared<Data>(
         Data{
           std::move(viewer),
-          std::move(profile)
+          std::move(profile),
+          false
         }))
   {
     const auto& alternatives = data->viewer->alternatives();
@@ -161,26 +163,6 @@ public:
       alternative_sets.push_back(r.first);
   }
 };
-
-//==============================================================================
-NegotiatingRouteValidator::Generator::Generator(
-  schedule::Negotiation::Table::ViewerPtr viewer,
-  Profile profile)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      std::move(viewer), std::move(profile)))
-{
-  // Do nothing
-}
-
-//==============================================================================
-NegotiatingRouteValidator::Generator::Generator(
-  schedule::Negotiation::Table::ViewerPtr viewer)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      viewer,
-      viewer->get_description(viewer->participant_id())->profile()))
-{
-  // Do nothing
-}
 
 //==============================================================================
 class NegotiatingRouteValidator::Implementation
@@ -213,6 +195,45 @@ public:
       make(std::move(data), std::move(rollout)));
   }
 };
+
+//==============================================================================
+NegotiatingRouteValidator::Generator::Generator(
+  schedule::Negotiation::Table::ViewerPtr viewer,
+  Profile profile)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      std::move(viewer), std::move(profile)))
+{
+  // Do nothing
+}
+
+//==============================================================================
+NegotiatingRouteValidator::Generator::Generator(
+  schedule::Negotiation::Table::ViewerPtr viewer)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      viewer,
+      viewer->get_description(viewer->participant_id())->profile()))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto NegotiatingRouteValidator::Generator::ignore_unresponsive(const bool val)
+-> Generator&
+{
+  _pimpl->data->ignore_unresponsive = val;
+  return *this;
+}
+
+//==============================================================================
+NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
+{
+  schedule::Negotiation::VersionedKeySequence rollouts;
+  for (const auto& r : _pimpl->data->viewer->alternatives())
+    rollouts.push_back({r.first, 0});
+
+  return NegotiatingRouteValidator::Implementation::make(
+    _pimpl->data, std::move(rollouts));
+}
 
 //==============================================================================
 std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>>
@@ -275,17 +296,6 @@ NegotiatingRouteValidator::Generator::all() const
   }
 
   return validators;
-}
-
-//==============================================================================
-NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
-{
-  schedule::Negotiation::VersionedKeySequence rollouts;
-  for (const auto& r : _pimpl->data->viewer->alternatives())
-    rollouts.push_back({r.first, 0});
-
-  return NegotiatingRouteValidator::Implementation::make(
-    _pimpl->data, std::move(rollouts));
 }
 
 //==============================================================================
@@ -390,10 +400,24 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
   .set_lower_time_bound(*route.trajectory().start_time())
   .set_upper_time_bound(*route.trajectory().finish_time());
 
+  const auto skip_unresponsive =
+    [may_skip = _pimpl->data->ignore_unresponsive](
+      const schedule::ParticipantDescription& description) -> bool
+  {
+    if (!may_skip)
+      return false;
+
+    return description.responsiveness()
+      == schedule::ParticipantDescription::Rx::Unresponsive;
+  };
+
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
   for (const auto& v : view)
   {
     if (_pimpl->masked && (*_pimpl->masked == v.participant))
+      continue;
+
+    if (skip_unresponsive(v.description))
       continue;
 
     // NOTE(MXG): There is no need to check the map, because the query will
@@ -415,6 +439,9 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     const auto& initial_wp = route.trajectory().front();
     for (const auto& other : initial_endpoints)
     {
+      if (skip_unresponsive(other.second.description()))
+        continue;
+
       if (route.map() != other.second.map())
         continue;
 
@@ -451,6 +478,9 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     const auto& final_wp = route.trajectory().back();
     for (const auto& other : final_endpoints)
     {
+      if (skip_unresponsive(other.second.description()))
+        continue;
+
       if (route.map() != other.second.map())
         continue;
 

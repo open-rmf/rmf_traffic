@@ -189,6 +189,11 @@ public:
     ///   concerned with
     Generator(schedule::Negotiation::Table::ViewerPtr viewer);
 
+    /// Toggle whether to ignore "unresponsive" (also called "read-only")
+    /// schedule participants when determining conflicts. By default, conflicts
+    /// with unresponsive participants will be caught.
+    Generator& ignore_unresponsive(bool val = true);
+
     /// Start with a NegotiatingRouteValidator that will use all the most
     /// preferred alternatives from every participant.
     NegotiatingRouteValidator begin() const;
