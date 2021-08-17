@@ -194,6 +194,11 @@ public:
     /// with unresponsive participants will be caught.
     Generator& ignore_unresponsive(bool val = true);
 
+    /// Toggle whether to ignore "bystanders" which means schedule participants
+    /// that are not being involved in the negotiation. By default, conflicts
+    /// with bystanders will be caught.
+    Generator& ignore_bystanders(bool val = true);
+
     /// Start with a NegotiatingRouteValidator that will use all the most
     /// preferred alternatives from every participant.
     NegotiatingRouteValidator begin() const;

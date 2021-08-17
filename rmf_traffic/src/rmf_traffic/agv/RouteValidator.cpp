@@ -139,21 +139,35 @@ class NegotiatingRouteValidator::Generator::Implementation
 public:
   struct Data
   {
+    std::unordered_set<schedule::ParticipantId> cohorts;
     schedule::Negotiation::Table::ViewerPtr viewer;
     Profile profile;
     bool ignore_unresponsive;
+    bool ignore_bystanders;
   };
 
   std::shared_ptr<Data> data;
   std::vector<schedule::ParticipantId> alternative_sets;
+
+  static std::unordered_set<schedule::ParticipantId> get_cohorts(
+    const schedule::Negotiation::Table::ViewerPtr& viewer)
+  {
+    std::unordered_set<schedule::ParticipantId> cohorts;
+    for (const auto& p : viewer->sequence())
+      cohorts.insert(p.participant);
+
+    return cohorts;
+  }
 
   Implementation(
     schedule::Negotiation::Table::ViewerPtr viewer,
     Profile profile)
   : data(std::make_shared<Data>(
         Data{
+          get_cohorts(viewer),
           std::move(viewer),
           std::move(profile),
+          false,
           false
         }))
   {
@@ -221,6 +235,14 @@ auto NegotiatingRouteValidator::Generator::ignore_unresponsive(const bool val)
 -> Generator&
 {
   _pimpl->data->ignore_unresponsive = val;
+  return *this;
+}
+
+//==============================================================================
+auto NegotiatingRouteValidator::Generator::ignore_bystanders(const bool val)
+-> Generator&
+{
+  _pimpl->data->ignore_bystanders = val;
   return *this;
 }
 
@@ -411,13 +433,36 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       == schedule::ParticipantDescription::Rx::Unresponsive;
   };
 
+  const auto skip_bystander =
+    [data = _pimpl->data](const schedule::ParticipantId id) -> bool
+  {
+    if (!data->ignore_bystanders)
+      return false;
+
+    return data->cohorts.find(id) == data->cohorts.end();
+  };
+
+  const auto skip_participant =
+    [skip_unresponsive, skip_bystander](
+      const schedule::ParticipantId id,
+      const schedule::ParticipantDescription& desc) -> bool
+  {
+    if (skip_unresponsive(desc))
+      return true;
+
+    if (skip_bystander(id))
+      return true;
+
+    return false;
+  };
+
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
   for (const auto& v : view)
   {
     if (_pimpl->masked && (*_pimpl->masked == v.participant))
       continue;
 
-    if (skip_unresponsive(v.description))
+    if (skip_participant(v.participant, v.description))
       continue;
 
     // NOTE(MXG): There is no need to check the map, because the query will
@@ -439,13 +484,14 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     const auto& initial_wp = route.trajectory().front();
     for (const auto& other : initial_endpoints)
     {
-      if (skip_unresponsive(other.second.description()))
+      const auto& ep = other.second;
+      if (skip_participant(ep.participant(), ep.description()))
         continue;
 
-      if (route.map() != other.second.map())
+      if (route.map() != ep.map())
         continue;
 
-      const auto& other_wp = other.second.waypoint();
+      const auto& other_wp = ep.waypoint();
       if (other_wp.time() <= initial_wp.time())
         continue;
 
@@ -463,7 +509,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       if (const auto time = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
-          other.second.description().profile(),
+          ep.description().profile(),
           other_start))
       {
         return Conflict{other.first, *time};
@@ -478,13 +524,14 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     const auto& final_wp = route.trajectory().back();
     for (const auto& other : final_endpoints)
     {
-      if (skip_unresponsive(other.second.description()))
+      const auto& ep = other.second;
+      if (skip_participant(ep.participant(), ep.description()))
         continue;
 
-      if (route.map() != other.second.map())
+      if (route.map() != ep.map())
         continue;
 
-      const auto& other_wp = other.second.waypoint();
+      const auto& other_wp = ep.waypoint();
       if (final_wp.time() <= other_wp.time())
         continue;
 
@@ -502,7 +549,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       if (const auto time = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
-          other.second.description().profile(),
+          ep.description().profile(),
           other_finish))
       {
         return Conflict{other.first, *time};

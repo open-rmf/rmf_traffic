@@ -127,7 +127,8 @@ void StubbornNegotiator::respond(
   auto generator =
     rmf_traffic::agv::NegotiatingRouteValidator::Generator(
       table_viewer, _pimpl->participant->description().profile())
-      .ignore_unresponsive();
+      .ignore_unresponsive()
+      .ignore_bystanders();
 
   std::vector<rmf_traffic::schedule::Itinerary> alternatives;
   for (const auto& validator : generator.all())
@@ -177,8 +178,8 @@ void StubbornNegotiator::respond(
   {
     if (table_viewer->sequence().size() <= 1)
     {
-      // If this is the first participant in the negotiation sequence, then we
-      // need to forfeit, because there is no lower level proposal to reject.
+      // We have been rejected too many times, and we have no parent to reject.
+      // Let's just forfeit.
       responder->forfeit({});
     }
 
