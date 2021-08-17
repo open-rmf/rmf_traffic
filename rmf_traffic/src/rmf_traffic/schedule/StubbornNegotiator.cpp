@@ -22,6 +22,42 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
+void add_offset_itinerary(
+  rmf_traffic::Duration offset,
+  const std::vector<rmf_traffic::Route>& original,
+  std::vector<rmf_traffic::Route>& output)
+{
+  auto shadow = original;
+  for (auto& item : shadow)
+  {
+    if (item.trajectory().empty())
+      continue;
+
+    const auto initial_time = *item.trajectory().start_time();
+    item.trajectory().front().adjust_times(offset);
+    item.trajectory().insert(
+      initial_time,
+      item.trajectory().front().position(),
+      Eigen::Vector3d::Zero());
+  }
+
+  output.insert(output.end(), shadow.begin(), shadow.end());
+}
+
+//==============================================================================
+std::vector<rmf_traffic::Route> add_margins(
+  const std::vector<rmf_traffic::Route>& original,
+  const std::vector<rmf_traffic::Duration>& margins)
+{
+  auto itinerary = original;
+  using namespace std::chrono_literals;
+  for (const auto t : margins)
+    add_offset_itinerary(t, original, itinerary);
+
+  return itinerary;
+}
+
+//==============================================================================
 class StubbornNegotiator::Implementation
 {
 public:
@@ -29,6 +65,7 @@ public:
   const Participant* participant;
   std::shared_ptr<const Participant> shared_ref;
   std::vector<rmf_traffic::Duration> acceptable_waits;
+  std::vector<rmf_traffic::Duration> margins;
   std::function<UpdateVersion(rmf_traffic::Duration)> approval_cb = nullptr;
 
   std::optional<std::vector<rmf_traffic::Route>> test_candidate(
@@ -88,7 +125,7 @@ StubbornNegotiator::Implementation::test_candidate(
 //==============================================================================
 StubbornNegotiator::StubbornNegotiator(const Participant& participant)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{&participant, nullptr, {}}))
+      Implementation{&participant, nullptr, {}, {}}))
 {
   // Do nothing
 }
@@ -97,7 +134,7 @@ StubbornNegotiator::StubbornNegotiator(const Participant& participant)
 StubbornNegotiator::StubbornNegotiator(
   std::shared_ptr<const Participant> participant)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{participant.get(), participant, {}}))
+      Implementation{participant.get(), participant, {}, {}}))
 {
   // Do nothing
 }
@@ -109,6 +146,14 @@ StubbornNegotiator& StubbornNegotiator::acceptable_waits(
 {
   _pimpl->acceptable_waits = std::move(wait_times);
   _pimpl->approval_cb = std::move(approval_cb);
+  return *this;
+}
+
+//==============================================================================
+StubbornNegotiator& StubbornNegotiator::additional_margins(
+  std::vector<rmf_traffic::Duration> margins)
+{
+  _pimpl->margins = std::move(margins);
   return *this;
 }
 
@@ -137,7 +182,7 @@ void StubbornNegotiator::respond(
         .has_value())
     {
       responder->submit(
-        original,
+        add_margins(original, _pimpl->margins),
         [cb = _pimpl->approval_cb]() -> UpdateVersion
         {
           if (cb)
@@ -157,7 +202,7 @@ void StubbornNegotiator::respond(
         if (candidate.has_value())
         {
           responder->submit(
-            original,
+            add_margins(*candidate, _pimpl->margins),
             [
               cb = _pimpl->approval_cb,
               delay = t
