@@ -62,7 +62,7 @@ endif()
 # Visual Studio
 if(MSVC)
     if(MSVC_VERSION VERSION_LESS 1900)
-        message(FATAL_ERROR "${PROJECT_NAME} requires Visual Studio 2015 or greater.")
+        message(FATAL_ERROR "fcl requires Visual Studio 2015 or greater.")
     endif()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /MP /W1 /bigobj")
     if(FCL_TREAT_WARNINGS_AS_ERRORS)

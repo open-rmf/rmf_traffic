@@ -35,7 +35,7 @@ set(GENERATED_FILE_MARKER "GENERATED FILE DO NOT EDIT")
 
 configure_file(config.h.in config.h @ONLY)
 
-generate_export_header(${PROJECT_NAME}
+generate_export_header(fcl
   EXPORT_FILE_NAME export.h
 )
 

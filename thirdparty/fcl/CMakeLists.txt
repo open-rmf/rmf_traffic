@@ -33,8 +33,6 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(fcl CXX)
-
 # Compiler ID for Apple Clang is now AppleClang.
 if(POLICY CMP0025)
   cmake_policy(SET CMP0025 NEW)
@@ -314,7 +312,7 @@ endif()
 if(WIN32 AND NOT CYGWIN)
   set(FCL_INSTALL_CONFIGDIR CMake)
 else()
-  set(FCL_INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+  set(FCL_INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/fcl)
 endif()
 
 configure_package_config_file(fcl-config.cmake.in fcl-config.cmake
@@ -392,7 +390,7 @@ if(DOXYGEN_FOUND)
   set(DOXYGEN_DOXYFILE         ${PROJECT_BINARY_DIR}/doc/Doxyfile        )
   set(DOXYGEN_HTML_INDEX       ${PROJECT_SOURCE_DIR}/doc/doxygen/index.html )
   set(DOXYGEN_OUTPUT_ROOT      ${PROJECT_SOURCE_DIR}/doc/doxygen            )
-  set(DOXYGEN_GENERATE_TAGFILE ${DOXYGEN_OUTPUT_ROOT}/${PROJECT_NAME}.tag)
+  set(DOXYGEN_GENERATE_TAGFILE ${DOXYGEN_OUTPUT_ROOT}/fcl.tag)
   set(DOXYGEN_INCLUDE_PATH     ${PROJECT_SOURCE_DIR}                     )
   set(DOXYGEN_INPUT_ROOT       "${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src")
 
