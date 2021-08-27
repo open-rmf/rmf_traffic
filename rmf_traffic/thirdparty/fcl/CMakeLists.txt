@@ -332,10 +332,6 @@ install(FILES
   COMPONENT Development
 )
 
-# FCL's own include dir should be at the front of the include path
-include_directories(BEFORE "include")
-include_directories(BEFORE "${CMAKE_CURRENT_BINARY_DIR}/include")
-
 add_subdirectory(src)
 add_subdirectory(include/fcl)
 
@@ -358,58 +354,3 @@ configure_file(
 add_custom_target(uninstall
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/CMakeModules/cmake_uninstall.cmake")
 
-set(FCL_BUILD_TESTS "DEFAULT" CACHE INTERNAL "Deprecated; use BUILD_TESTING instead.")
-
-if(NOT FCL_BUILD_TESTS STREQUAL "DEFAULT")
-  message(DEPRECATION "FCL_BUILD_TESTS is deprecated; use BUILD_TESTING instead.")
-  if(FCL_BUILD_TESTS)
-    set(_BUILD_TESTING ON)
-  else()
-    set(_BUILD_TESTING OFF)
-  endif()
-  set(BUILD_TESTING ${_BUILD_TESTING} CACHE BOOL "Build the testing tree." FORCE)
-  unset(_BUILD_TESTING)
-endif()
-
-if(BUILD_TESTING AND NOT FCL_HIDE_ALL_SYMBOLS)
-    add_subdirectory(test)
-endif()
-
-#===============================================================================
-# API documentation using Doxygen
-# References:
-#   http://mementocodex.wordpress.com/2013/01/19/how-to-generate-code-documentation-with-doxygen-and-cmake-a-slightly-improved-approach/
-#   http://www.cmake.org/pipermail/cmake/2007-February/012796.html
-#===============================================================================
-# Doxygen
-find_package(Doxygen QUIET)
-
-if(DOXYGEN_FOUND)
-
-  set(DOXYGEN_DOXYFILE_IN      ${PROJECT_SOURCE_DIR}/doc/Doxyfile.in     )
-  set(DOXYGEN_DOXYFILE         ${PROJECT_BINARY_DIR}/doc/Doxyfile        )
-  set(DOXYGEN_HTML_INDEX       ${PROJECT_SOURCE_DIR}/doc/doxygen/index.html )
-  set(DOXYGEN_OUTPUT_ROOT      ${PROJECT_SOURCE_DIR}/doc/doxygen            )
-  set(DOXYGEN_GENERATE_TAGFILE ${DOXYGEN_OUTPUT_ROOT}/fcl.tag)
-  set(DOXYGEN_INCLUDE_PATH     ${PROJECT_SOURCE_DIR}                     )
-  set(DOXYGEN_INPUT_ROOT       "${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src")
-
-  configure_file(${DOXYGEN_DOXYFILE_IN} ${DOXYGEN_DOXYFILE} @ONLY)
-  add_custom_command(OUTPUT ${DOXYGEN_HTML_INDEX}
-                     COMMAND ${CMAKE_COMMAND} -E echo_append "Building API Documentation..."
-                     COMMAND ${DOXYGEN_EXECUTABLE} -u ${DOXYGEN_DOXYFILE}
-                     COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_DOXYFILE}
-                     COMMAND ${CMAKE_COMMAND} -E echo "Done."
-                     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/doc
-                     DEPENDS ${DOXYGEN_DOXYFILE}
-  )
-  add_custom_target(docs DEPENDS ${DOXYGEN_HTML_INDEX})
-  add_custom_target(docs_forced
-                    COMMAND ${CMAKE_COMMAND} -E echo_append "Building API Documentation..."
-                    COMMAND ${DOXYGEN_EXECUTABLE} -u ${DOXYGEN_DOXYFILE}
-                    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_DOXYFILE}
-                    COMMAND ${CMAKE_COMMAND} -E echo "Done."
-                    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/doc
-  )
-
-endif()

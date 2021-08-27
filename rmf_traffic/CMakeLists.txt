@@ -24,9 +24,11 @@ find_package(fcl 0.6 QUIET)
 if(fcl_FOUND)
   message(STATUS "Using installed FCL version: ${FCL_VERSION}")
 else()
-  add_subdirectory(../thirdparty/fcl)
   message(STATUS "Using in-source FCL")
+  add_subdirectory(thirdparty/fcl)
 endif()
+# TODO(MXG): Remove everything related to maintaining compatibility with 0.5,
+# since we are now requiring FCL-0.6+
 set(using_new_fcl true)
 set(FCL_LIBRARIES fcl)
 
