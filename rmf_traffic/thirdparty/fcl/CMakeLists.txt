@@ -309,48 +309,5 @@ else()
   set(FIND_DEPENDENCY_OCTOMAP)
 endif()
 
-if(WIN32 AND NOT CYGWIN)
-  set(FCL_INSTALL_CONFIGDIR CMake)
-else()
-  set(FCL_INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/fcl)
-endif()
-
-configure_package_config_file(fcl-config.cmake.in fcl-config.cmake
-  INSTALL_DESTINATION ${FCL_INSTALL_CONFIGDIR}
-  PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR
-)
-
-write_basic_package_version_file(fcl-config-version.cmake
-  VERSION ${FCL_VERSION}
-  COMPATIBILITY AnyNewerVersion
-)
-
-install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/fcl-config.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/fcl-config-version.cmake"
-  DESTINATION ${FCL_INSTALL_CONFIGDIR}
-  COMPONENT Development
-)
-
 add_subdirectory(src)
 add_subdirectory(include/fcl)
-
-set(PKG_DESC "Flexible Collision Library")
-if(NOT MSVC)
-    set(PKG_CFLAGS "-std=c++11")
-endif()
-configure_file(fcl.pc.in fcl.pc @ONLY)
-
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/fcl.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
-  COMPONENT Development
-)
-
-# Add uninstall target
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules/cmake_uninstall.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/CMakeModules/cmake_uninstall.cmake"
-  IMMEDIATE @ONLY)
-add_custom_target(uninstall
-  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/CMakeModules/cmake_uninstall.cmake")
-
