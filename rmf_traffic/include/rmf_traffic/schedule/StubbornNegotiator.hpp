@@ -69,6 +69,14 @@ public:
     std::vector<rmf_traffic::Duration> wait_times,
     std::function<UpdateVersion(rmf_traffic::Duration)> approval_cb = nullptr);
 
+  /// Add some timing margins that will be put into the negotiation submission.
+  /// This effectively asks other robots to back off somewhat.
+  ///
+  /// \param[in] margins
+  ///   The margins to put into the proposal.
+  StubbornNegotiator& additional_margins(
+    std::vector<rmf_traffic::Duration> margins);
+
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const ResponderPtr& responder) final;
