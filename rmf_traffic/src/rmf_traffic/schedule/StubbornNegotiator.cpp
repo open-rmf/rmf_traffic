@@ -171,15 +171,15 @@ void StubbornNegotiator::respond(
 
   auto generator =
     rmf_traffic::agv::NegotiatingRouteValidator::Generator(
-      table_viewer, _pimpl->participant->description().profile())
-      .ignore_unresponsive()
-      .ignore_bystanders();
+    table_viewer, _pimpl->participant->description().profile())
+    .ignore_unresponsive()
+    .ignore_bystanders();
 
   std::vector<rmf_traffic::schedule::Itinerary> alternatives;
   for (const auto& validator : generator.all())
   {
     if (_pimpl->test_candidate(0s, original, *validator, alternatives)
-        .has_value())
+      .has_value())
     {
       responder->submit(
         add_margins(original, _pimpl->margins),

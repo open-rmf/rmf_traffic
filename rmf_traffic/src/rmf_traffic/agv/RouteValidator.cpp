@@ -424,37 +424,37 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 
   const auto skip_unresponsive =
     [may_skip = _pimpl->data->ignore_unresponsive](
-      const schedule::ParticipantDescription& description) -> bool
-  {
-    if (!may_skip)
-      return false;
+    const schedule::ParticipantDescription& description) -> bool
+    {
+      if (!may_skip)
+        return false;
 
-    return description.responsiveness()
-      == schedule::ParticipantDescription::Rx::Unresponsive;
-  };
+      return description.responsiveness()
+        == schedule::ParticipantDescription::Rx::Unresponsive;
+    };
 
   const auto skip_bystander =
     [data = _pimpl->data](const schedule::ParticipantId id) -> bool
-  {
-    if (!data->ignore_bystanders)
-      return false;
+    {
+      if (!data->ignore_bystanders)
+        return false;
 
-    return data->stakeholders.find(id) == data->stakeholders.end();
-  };
+      return data->stakeholders.find(id) == data->stakeholders.end();
+    };
 
   const auto skip_participant =
     [skip_unresponsive, skip_bystander](
-      const schedule::ParticipantId id,
-      const schedule::ParticipantDescription& desc) -> bool
-  {
-    if (skip_unresponsive(desc))
-      return true;
+    const schedule::ParticipantId id,
+    const schedule::ParticipantDescription& desc) -> bool
+    {
+      if (skip_unresponsive(desc))
+        return true;
 
-    if (skip_bystander(id))
-      return true;
+      if (skip_bystander(id))
+        return true;
 
-    return false;
-  };
+      return false;
+    };
 
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
   for (const auto& v : view)
