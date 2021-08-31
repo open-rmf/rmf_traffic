@@ -68,6 +68,7 @@ if (UNIX)
 endif()
 
 add_definitions("-DFCL_STATIC_DEFINE")
+set_property(TARGET fcl PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Use the IMPORTED target from newer versions of ccd-config.cmake if available,
 # otherwise fall back to CCD_INCLUDE_DIRS and CCD_LIBRARIES
