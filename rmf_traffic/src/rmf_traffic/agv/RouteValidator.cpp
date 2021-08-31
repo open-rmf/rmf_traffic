@@ -139,7 +139,7 @@ class NegotiatingRouteValidator::Generator::Implementation
 public:
   struct Data
   {
-    std::unordered_set<schedule::ParticipantId> cohorts;
+    std::unordered_set<schedule::ParticipantId> stakeholders;
     schedule::Negotiation::Table::ViewerPtr viewer;
     Profile profile;
     bool ignore_unresponsive;
@@ -149,14 +149,14 @@ public:
   std::shared_ptr<Data> data;
   std::vector<schedule::ParticipantId> alternative_sets;
 
-  static std::unordered_set<schedule::ParticipantId> get_cohorts(
+  static std::unordered_set<schedule::ParticipantId> get_stakeholders(
     const schedule::Negotiation::Table::ViewerPtr& viewer)
   {
-    std::unordered_set<schedule::ParticipantId> cohorts;
+    std::unordered_set<schedule::ParticipantId> stakeholders;
     for (const auto& p : viewer->sequence())
-      cohorts.insert(p.participant);
+      stakeholders.insert(p.participant);
 
-    return cohorts;
+    return stakeholders;
   }
 
   Implementation(
@@ -164,7 +164,7 @@ public:
     Profile profile)
   : data(std::make_shared<Data>(
         Data{
-          get_cohorts(viewer),
+          get_stakeholders(viewer),
           std::move(viewer),
           std::move(profile),
           false,
@@ -439,7 +439,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     if (!data->ignore_bystanders)
       return false;
 
-    return data->cohorts.find(id) == data->cohorts.end();
+    return data->stakeholders.find(id) == data->stakeholders.end();
   };
 
   const auto skip_participant =
