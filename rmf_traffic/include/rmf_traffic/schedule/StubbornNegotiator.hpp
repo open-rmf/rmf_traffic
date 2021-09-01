@@ -56,6 +56,30 @@ public:
   ///   The Participant who wants to be stubborn.
   StubbornNegotiator(std::shared_ptr<const Participant> participant);
 
+  using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
+
+  /// Add a set of acceptable wait times.
+  ///
+  /// \param[in] wait_times
+  ///   A list of the wait times that would be accepted for negotiation
+  ///
+  /// \param[in] approval_cb
+  ///   A callback that will be triggered when the negotiator decides that you
+  ///   need to wait for another participant. The callback will receive the
+  ///   chosen wait duration, and is expected to return the schedule version
+  ///   that will incorporate the given wait time.
+  StubbornNegotiator& acceptable_waits(
+    std::vector<Duration> wait_times,
+    std::function<UpdateVersion(Duration wait_time)> approval_cb = nullptr);
+
+  /// Add some timing margins that will be put into the negotiation submission.
+  /// This effectively asks other robots to back off somewhat.
+  ///
+  /// \param[in] margins
+  ///   The margins to put into the proposal.
+  StubbornNegotiator& additional_margins(
+    std::vector<rmf_traffic::Duration> margins);
+
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const ResponderPtr& responder) final;

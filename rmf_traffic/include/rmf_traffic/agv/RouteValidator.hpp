@@ -169,8 +169,9 @@ public:
     /// This version is safe to use even if the participant being negotiated for
     /// is not in the schedule yet.
     ///
-    /// \param[in] table
-    ///   The Negotiation Table that the generated validators are concerned with
+    /// \param[in] viewer
+    ///   A viewer for the Negotiation Table that the generated validators are
+    ///   concerned with
     ///
     /// \param[in] profile
     ///   The profile of the participant whose routes are being validated.
@@ -184,8 +185,19 @@ public:
     /// profile.
     ///
     /// \param[in] table
-    ///   The Negotiation Table that the generated validators are concerned with
+    ///   A viewer for the Negotiation Table that the generated validators are
+    ///   concerned with
     Generator(schedule::Negotiation::Table::ViewerPtr viewer);
+
+    /// Toggle whether to ignore "unresponsive" (also called "read-only")
+    /// schedule participants when determining conflicts. By default, conflicts
+    /// with unresponsive participants will be caught.
+    Generator& ignore_unresponsive(bool val = true);
+
+    /// Toggle whether to ignore "bystanders" which means schedule participants
+    /// that are not being involved in the negotiation. By default, conflicts
+    /// with bystanders will be caught.
+    Generator& ignore_bystanders(bool val = true);
 
     /// Start with a NegotiatingRouteValidator that will use all the most
     /// preferred alternatives from every participant.
