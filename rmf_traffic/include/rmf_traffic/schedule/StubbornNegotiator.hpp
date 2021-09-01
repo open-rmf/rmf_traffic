@@ -64,10 +64,13 @@ public:
   ///   A list of the wait times that would be accepted for negotiation
   ///
   /// \param[in] approval_cb
-  ///   A callback that will be triggered
+  ///   A callback that will be triggered when the negotiator decides that you
+  ///   need to wait for another participant. The callback will receive the
+  ///   chosen wait duration, and is expected to return the schedule version
+  ///   that will incorporate the given wait time.
   StubbornNegotiator& acceptable_waits(
-    std::vector<rmf_traffic::Duration> wait_times,
-    std::function<UpdateVersion(rmf_traffic::Duration)> approval_cb = nullptr);
+    std::vector<Duration> wait_times,
+    std::function<UpdateVersion(Duration wait_time)> approval_cb = nullptr);
 
   /// Add some timing margins that will be put into the negotiation submission.
   /// This effectively asks other robots to back off somewhat.
