@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_traffic VERSION 1.0.2)
+project(rmf_traffic VERSION 1.4.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
@@ -65,7 +65,7 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
   )
 
-  find_file(uncrustify_config_file 
+  find_file(uncrustify_config_file
     NAMES "rmf_code_style.cfg"
     PATHS "${rmf_utils_DIR}/../../../share/rmf_utils/")
 
