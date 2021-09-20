@@ -74,6 +74,10 @@ struct TraversalNode
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
 
+  // TODO(MXG): Replace this with a more intelligent way of handling speed limit
+  // changes that may occur when traversing multiple consecutive lanes
+  std::optional<double> lowest_speed_limit;
+
   // TODO(MXG): Can std::string_view be used to make this more memory efficient?
   std::vector<std::string> map_names;
   std::vector<std::size_t> traversed_lanes;
@@ -172,10 +176,17 @@ void node_to_traversals(
       * yaw
     };
 
+    auto kin_limits = kin.limits;
+    if (node.lowest_speed_limit.has_value())
+    {
+      kin_limits.linear.velocity =
+        std::min(kin_limits.linear.velocity, *node.lowest_speed_limit);
+    }
+
     Traversal::Alternative alternative;
     alternative.yaw = *yaw;
     auto factory_info = make_differential_drive_translate_factory(
-      start, finish, kin.limits,
+      start, finish, kin_limits,
       kin.interpolate.translation_thresh,
       kin.interpolate.rotation_thresh,
       traversal.maps);
@@ -249,6 +260,7 @@ void perform_traversal(
   TraversalNode node;
   node.finish_lane_index = lane_index;
   node.finish_waypoint_index = wp_index_1;
+  node.lowest_speed_limit = lane.properties().speed_limit();
 
   if (parent)
   {
@@ -263,6 +275,19 @@ void perform_traversal(
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
     node.traversed_lanes = parent->traversed_lanes;
+
+    if (parent->lowest_speed_limit.has_value())
+    {
+      if (node.lowest_speed_limit.has_value())
+      {
+        node.lowest_speed_limit =
+          std::min(*node.lowest_speed_limit, *parent->lowest_speed_limit);
+      }
+      else
+      {
+        node.lowest_speed_limit = parent->lowest_speed_limit;
+      }
+    }
 
     if (parent->entry_event)
       node.entry_event = parent->entry_event->clone();
