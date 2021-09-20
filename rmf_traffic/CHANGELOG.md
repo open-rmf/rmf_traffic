@@ -1,5 +1,9 @@
 ## Changelog for package rmf_traffic
 
+Upcoming
+------------------
+* Support lane speed limits: [#44](https://github.com/open-rmf/rmf_traffic/pull/44)
+
 1.4.0 (2021-09-01)
 ------------------
 * Mandate use of FCL>=0.6: [#39](https://github.com/open-rmf/rmf_traffic/pull/39)
