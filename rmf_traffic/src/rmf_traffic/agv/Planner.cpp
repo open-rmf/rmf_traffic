@@ -147,7 +147,7 @@ public:
   rmf_utils::optional<std::size_t> saturation_limit;
 
   std::function<bool()> interrupter = nullptr;
-  std::shared_ptr<const bool> interrupt_flag = nullptr;
+  std::shared_ptr<const std::atomic_bool> interrupt_flag = nullptr;
 
 };
 
@@ -155,7 +155,7 @@ public:
 Planner::Options::Options(
   rmf_utils::clone_ptr<RouteValidator> validator,
   const Duration min_hold_time,
-  std::shared_ptr<const bool> interrupt_flag,
+  std::shared_ptr<const std::atomic_bool> interrupt_flag,
   rmf_utils::optional<double> maximum_cost_estimate,
   rmf_utils::optional<std::size_t> saturation_limit)
 : _pimpl(rmf_utils::make_impl<Implementation>(
@@ -232,7 +232,7 @@ const std::function<bool()>& Planner::Options::interrupter() const
 
 //==============================================================================
 auto Planner::Options::interrupt_flag(
-  std::shared_ptr<const bool> flag) -> Options&
+  std::shared_ptr<const std::atomic_bool> flag) -> Options&
 {
   if (flag)
   {
@@ -249,7 +249,8 @@ auto Planner::Options::interrupt_flag(
 }
 
 //==============================================================================
-const std::shared_ptr<const bool>& Planner::Options::interrupt_flag() const
+const std::shared_ptr<const std::atomic_bool>&
+Planner::Options::interrupt_flag() const
 {
   return _pimpl->interrupt_flag;
 }
@@ -844,7 +845,8 @@ bool Planner::Result::resume()
 }
 
 //==============================================================================
-bool Planner::Result::resume(std::shared_ptr<const bool> interrupt_flag)
+bool Planner::Result::resume(
+  std::shared_ptr<const std::atomic_bool> interrupt_flag)
 {
   _pimpl->state.conditions.options.interrupt_flag(std::move(interrupt_flag));
   return resume();
