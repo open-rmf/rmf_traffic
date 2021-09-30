@@ -126,6 +126,25 @@ ItineraryVersion Participant::Implementation::Shared::current_version() const
 }
 
 //==============================================================================
+ParticipantId Participant::Implementation::Shared::get_id() const
+{
+  return _id;
+}
+
+//==============================================================================
+void Participant::Implementation::Shared::correct_id(ParticipantId new_id)
+{
+  _id = new_id;
+}
+
+//==============================================================================
+const ParticipantDescription&
+Participant::Implementation::Shared::get_description() const
+{
+  return _description;
+}
+
+//==============================================================================
 Participant::Implementation::Implementation(
   const Writer::Registration& registration,
   ParticipantDescription description,

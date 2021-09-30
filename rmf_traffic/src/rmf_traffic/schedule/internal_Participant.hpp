@@ -52,6 +52,12 @@ public:
 
     ItineraryVersion current_version() const;
 
+    ParticipantId get_id() const;
+
+    void correct_id(ParticipantId new_id);
+
+    const ParticipantDescription& get_description() const;
+
     ~Shared();
 
   private:
@@ -60,7 +66,7 @@ public:
     Writer::Input make_input(std::vector<Route> itinerary);
     ItineraryVersion get_next_version();
 
-    const ParticipantId _id;
+    ParticipantId _id;
     ItineraryVersion _version;
     RouteId _last_route_id;
     const ParticipantDescription _description;

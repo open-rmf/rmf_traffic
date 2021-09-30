@@ -43,6 +43,31 @@ void Rectifier::retransmit(
 }
 
 //==============================================================================
+ParticipantId Rectifier::get_id() const
+{
+  // TODO(geoff): There should be a check here for if it couldn't be locked.
+  // What is the correct action in that situation?
+  const auto shared = _pimpl->participant.lock();
+  return shared->get_id();
+}
+
+//==============================================================================
+void Rectifier::correct_id(ParticipantId new_id)
+{
+  if (const auto shared = _pimpl->participant.lock())
+    shared->correct_id(new_id);
+}
+
+//==============================================================================
+const ParticipantDescription& Rectifier::get_description() const
+{
+  // TODO(geoff): There should be a check here for if it couldn't be locked.
+  // What is the correct action in that situation?
+  const auto shared = _pimpl->participant.lock();
+  return shared->get_description();
+}
+
+//==============================================================================
 Rectifier::Rectifier()
 {
   // Do nothing

@@ -72,6 +72,15 @@ public:
   /// Get the current ItineraryVersion of the Participant.
   ItineraryVersion current_version() const;
 
+  /// Get the ID of the Participant
+  ParticipantId get_id() const;
+
+  /// Correct the ID of the participant
+  void correct_id(ParticipantId new_id);
+
+  /// Get the description of the Participant
+  const ParticipantDescription& get_description() const;
+
   class Implementation;
 private:
   Rectifier();
