@@ -41,6 +41,7 @@
 #include "fcl/geometry/shape/shape_base.h"
 
 #include <iostream>
+#include <atomic>
 
 namespace fcl
 {
@@ -77,6 +78,33 @@ public:
     out << "Sphere(" << sphere.radius << ")";
     return out;
   }
+
+  /// An efficient spin lock to ensure that threads only spend a minimal amount
+  /// of time trying to obtain this lock. The implementation is inspired by
+  /// https://rigtorp.se/spinlock/
+  class SpinLock
+  {
+  public:
+    SpinLock(std::atomic_bool& mutex)
+    : _mutex(mutex)
+    {
+      // When the exchange produces a false value, we will know that we have
+      // obtained "ownership" of the mutex.
+      while (_mutex.exchange(true, std::memory_order_acquire));
+    }
+
+    ~SpinLock()
+    {
+      _mutex.store(false, std::memory_order_release);
+    }
+
+  private:
+    std::atomic_bool& _mutex;
+  };
+
+private:
+  std::atomic_bool _mutex_compute_local_aabb = {false};
+  std::optional<S> _last_local_aabb_radius = std::nullopt;
 };
 
 using Spheref = Sphere<float>;

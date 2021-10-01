@@ -237,7 +237,8 @@ auto Planner::Options::interrupt_flag(
   if (flag)
   {
     _pimpl->interrupt_flag = flag;
-    _pimpl->interrupter = [flag = std::move(flag)]() -> bool { return *flag; };
+    _pimpl->interrupter = [flag = std::move(flag)]() -> bool
+      { return flag->load(std::memory_order::memory_order_relaxed); };
   }
   else
   {
