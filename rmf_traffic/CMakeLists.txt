@@ -33,6 +33,7 @@ set(using_new_fcl true)
 set(FCL_LIBRARIES fcl)
 
 find_package(rmf_utils REQUIRED)
+find_package(eigen3_cmake_module QUIET)
 find_package(Eigen3 REQUIRED)
 find_package(Threads)
 
@@ -61,6 +62,8 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
   endif()
 
   target_include_directories(test_rmf_traffic
+    PUBLIC
+      "${Eigen3_INCLUDE_DIRS}"
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
   )
