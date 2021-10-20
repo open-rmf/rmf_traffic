@@ -4,22 +4,12 @@ get_filename_component(rmf_traffic_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(eigen3_cmake_module REQUIRED)
-find_dependency(Eigen3 REQUIRED)
-find_dependency(rmf_utils REQUIRED)
+find_dependency(eigen3_cmake_module)
+find_dependency(Eigen3)
+find_dependency(rmf_utils)
 
 if(NOT TARGET rmf_traffic::rmf_traffic)
     include("${rmf_traffic_CMAKE_DIR}/rmf_traffic-targets.cmake")
-endif()
-
-if (NOT eigen3_cmake_module_FOUND)
-  set(rmf_traffic_FOUND 0)
-  return()
-endif()
-
-if (NOT Eigen3_FOUND)
-  set(rmf_traffic_FOUND 0)
-  return()
 endif()
 
 list(APPEND rmf_traffic_INCLUDE_DIRS ${Eigen3_INCLUDE_DIRS})
