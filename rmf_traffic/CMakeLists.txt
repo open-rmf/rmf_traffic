@@ -33,7 +33,7 @@ set(using_new_fcl true)
 set(FCL_LIBRARIES fcl)
 
 find_package(rmf_utils REQUIRED)
-find_package(eigen3_cmake_module REQUIRED)
+find_package(eigen3_cmake_module QUIET)
 find_package(Eigen3 REQUIRED)
 find_package(Threads)
 
