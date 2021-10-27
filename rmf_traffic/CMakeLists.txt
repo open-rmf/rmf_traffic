@@ -35,7 +35,6 @@ set(FCL_LIBRARIES fcl)
 find_package(rmf_utils REQUIRED)
 find_package(eigen3_cmake_module QUIET)
 find_package(Eigen3 REQUIRED)
-find_package(Threads)
 
 # ===== Traffic control library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_traffic/*.cpp")
@@ -45,6 +44,7 @@ add_library(rmf_traffic SHARED
 
 find_package(ament_cmake_catch2 QUIET)
 find_package(rmf_cmake_uncrustify QUIET)
+find_package (Threads)
 if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
