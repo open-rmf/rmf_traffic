@@ -38,6 +38,6 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: colcon-test-logs
-          path: ${{ steps.tsan_build_test.outputs.ros-workspace-directory-name }}/log/latest_test/rmf_traffic/streams.log
+          path: ${{ steps.tsan_build_test.outputs.ros-workspace-directory-name }}/log
         if: always()
 
