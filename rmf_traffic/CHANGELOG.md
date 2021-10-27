@@ -1,5 +1,9 @@
 ## Changelog for package rmf_traffic
 
+1.4.1 (2021-10-27)
+------------------
+* Using eigen3_cmake_module to fix RHEL build: [#47](https://github.com/open-rmf/rmf_traffic/pull/47)
+
 1.4.0 (2021-09-01)
 ------------------
 * Mandate use of FCL>=0.6: [#39](https://github.com/open-rmf/rmf_traffic/pull/39)
