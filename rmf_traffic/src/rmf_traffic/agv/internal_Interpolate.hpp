@@ -96,6 +96,32 @@ bool interpolate_rotation(
   const Eigen::Vector3d& finish,
   const double threshold);
 
+//==============================================================================
+bool interpolate_ackermann_straightline_curve_to_next(
+  Trajectory& trajectory,
+  const double v_start,
+  const double v_nom,
+  const double a_nom,
+  const double w_nom,
+  const double alpha_nom,
+  const Time start_time,
+  const Eigen::Vector3d& start,
+  const Eigen::Vector3d& mid,
+  const Eigen::Vector3d& finish,
+  const double turn_radius,
+  const double threshold);
+
+//==============================================================================
+bool interpolate_ackermann_straightline_curve_to_point(
+  Trajectory& trajectory,
+  const double w_nom,
+  const double alpha_nom,
+  const Time start_time,
+  const Eigen::Vector3d& start,
+  const Eigen::Vector3d& finish,
+  const double turn_radius,
+  const double threshold);
+
 } // namespace internal
 } // namespace agv
 } // namespace rmf_traffic
