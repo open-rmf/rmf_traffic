@@ -23,7 +23,9 @@
 
 #include <rmf_utils/math.hpp>
 #include <set>
+#include <iostream>
 
+#define RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
@@ -117,7 +119,7 @@ struct OrientationTimeMap
 
         const auto& end_wp =
           node_high->route_from_parent.back().trajectory().back();
-
+        printf("here\n");
         Route new_route{node_low->route_from_parent.back().map(), {}};
         new_route.trajectory().insert(start_wp);
         new_route.trajectory().insert(
@@ -218,6 +220,7 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
   const std::vector<NodePtr>& node_sequence,
   rmf_utils::optional<rmf_traffic::Duration> span = rmf_utils::nullopt)
 {
+  printf("reconstruct_routes %d\n", node_sequence.size());
   if (node_sequence.size() == 1)
   {
     std::vector<Route> output;
@@ -241,6 +244,7 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
             wp.time() + *span,
             wp.position(),
             Eigen::Vector3d::Zero());
+          std::cout << wp.position() << std::endl;
         }
       }
 
@@ -278,12 +282,16 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       {
         for (const auto& waypoint : next_route.trajectory())
         {
+          std::cout << "position:\n" << waypoint.position() << std::endl;
+          // std::cout << "velocity:\n" << waypoint.velocity() << std::endl;
           last_route.trajectory().insert(waypoint);
         }
+        printf("last_route sz:%d\n", last_route.trajectory().size());
       }
       else
       {
         routes.push_back(next_route);
+        printf("next_route sz:%d\n", next_route.trajectory().size());
       }
 
       // We will take note of the itinerary and trajectory indices here
@@ -300,6 +308,13 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
     routes.begin(), routes.end(),
     [](const auto& r) { return r.trajectory().size() < 2; });
   routes.erase(r_it, routes.end());
+  std::cout << "routesz: "<< routes.size() << std::endl;
+  std::cout << "routes[0].trajectory sze: " << routes[0].trajectory().size() << std::endl;
+  for (const auto& waypoint : routes[0].trajectory())
+  {
+    std::cout << waypoint.position() << std::endl;
+  }
+  std::cout << "\n";
 
   return {routes, indexing};
 }
@@ -665,6 +680,7 @@ public:
         const auto& approached = approach_trajectory.back();
         hold.insert(approached);
         hold.insert(approached.time(), approached.position(), {0, 0, 0});
+        printf("here4\n");
 
         bool all_valid = true;
         for (const auto& map : map_names)
@@ -844,6 +860,7 @@ public:
     internal::interpolate_rotation(
       trajectory, _w_nom, _alpha_nom, start_time,
       start_position, finish_position, _rotation_threshold);
+    printf("here5\n");
 
     assert(trajectory.size() >= 2);
 
@@ -914,6 +931,7 @@ public:
       _supergraph->original().waypoints[next_waypoint_index];
     const Eigen::Vector2d next_position = next_waypoint.get_location();
     const std::string& next_map_name = next_waypoint.get_map_name();
+    printf("here6\n");
 
     for (std::size_t i = 0; i < traversal.alternatives.size(); ++i)
     {
@@ -944,7 +962,7 @@ public:
       const Eigen::Vector3d start{p0.x(), p0.y(), initial_yaw};
       approach_trajectory.insert(
         start_time, start, Eigen::Vector3d::Zero());
-
+      
       // TODO(MXG): We could push the logic for creating this trajectory
       // upstream into the traversal alternative.
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
@@ -956,6 +974,7 @@ public:
         internal::interpolate_rotation(
           approach_trajectory, _w_nom, _alpha_nom, start_time,
           start, finish, _rotation_threshold);
+        printf("here6a\n");
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
         approach_cost = time::to_seconds(approach_trajectory.duration());
@@ -991,6 +1010,7 @@ public:
           approach_wp.time() + duration,
           approach_wp.position(), Eigen::Vector3d::Zero());
       }
+      printf("here7\n");
 
       auto entry_event_route =
         Route{
@@ -1192,6 +1212,7 @@ public:
     const SearchNodePtr& top,
     SearchQueue& queue) const
   {
+    printf("expand_freely\n");
     // This function is used when there is no validator. We can just expand
     // freely to the goal without validating the results.
     const auto keys = _supergraph->keys_for(
@@ -1290,8 +1311,10 @@ public:
 
   void expand(const SearchNodePtr& top, SearchQueue& queue) const
   {
+    printf("expand %d\n", queue.size());
     if (!_should_expand_from(top))
     {
+      printf("expand ret\n");
       // This means we have already expanded from this location before, at
       // approximately the same time, so there is no value in expanding this
       // again.
@@ -1300,6 +1323,7 @@ public:
 
     if (!top->waypoint.has_value())
     {
+      printf("expand ret2\n");
       // If the node does not have a waypoint, then it must be a start node.
       assert(top->start.has_value());
       expand_start(top, queue);
@@ -1321,6 +1345,7 @@ public:
         // surely be the optimal solution. We will simply push this new node
         // into the queue and return.
         queue.push(finishing_node);
+        printf("expand ret3\n");
         return;
       }
 
@@ -1351,12 +1376,14 @@ public:
     {
       // If we don't have a validator, then we can jump straight to the solution
       expand_freely(top, queue);
+      printf("expand ret4\n");
       return;
     }
 
     const auto traversals = _supergraph->traversals_from(current_wp_index);
     for (const auto& traversal : *traversals)
       expand_traversal(top, traversal, queue);
+    printf("expand done\n");
   }
 
   struct ApproachInfo
@@ -1444,6 +1471,7 @@ public:
       Trajectory trajectory;
       const Eigen::Vector3d p_start = {p0.x(), p0.y(), start_yaw};
       trajectory.insert(start_time, p_start, zero);
+      printf("inserting\n");
 
       const Eigen::Vector3d p_oriented{p0.x(), p0.y(), yaw};
       internal::interpolate_rotation(
@@ -1463,6 +1491,7 @@ public:
 
   SearchNodePtr make_start_node(const Planner::Start& start) const
   {
+    printf("make_start_node start\n");
     const std::size_t initial_waypoint_index = start.waypoint();
     const auto& initial_waypoint =
       _supergraph->original().waypoints.at(initial_waypoint_index);
@@ -1534,6 +1563,7 @@ public:
         initial_yaw
       };
       start_point_trajectory.insert(initial_time, start_position, {0, 0, 0});
+      printf("here7\n");
     }
     else
     {
@@ -1560,6 +1590,7 @@ public:
         initial_yaw
       };
       start_point_trajectory.insert(initial_time, start_position, {0, 0, 0});
+      printf("make_start_node done\n");
     }
 
     assert(!start_point_trajectory.empty());
@@ -1612,6 +1643,7 @@ public:
     const Issues::BlockedNodes& nodes,
     std::optional<std::size_t> max_rollouts) const
   {
+    printf("rollout\n");
     std::vector<RolloutEntry> rollout_queue;
     for (const auto& void_node : nodes)
     {
@@ -1857,6 +1889,7 @@ public:
     {
       InternalState internal;
       Issues issues;
+      printf("debugger::step\n");
 
       ScheduledDifferentialDriveExpander expander{
         &internal,
@@ -1889,7 +1922,7 @@ public:
       starts,
       std::move(goal),
       std::move(options));
-
+    printf("here9\n");
     for (const auto& start : starts)
     {
       if (auto start_node = make_start_node(start))
@@ -1935,6 +1968,7 @@ public:
 
   PlanData make_plan(const SearchNodePtr& solution) const
   {
+    printf("make_plan\n");
     auto nodes = reconstruct_nodes(solution, _validator);
     auto [routes, index] = reconstruct_routes(nodes);
     auto waypoints = reconstruct_waypoints(
@@ -2092,6 +2126,8 @@ State DifferentialDrivePlanner::initiate(
   auto& internal = static_cast<InternalState&>(*state.internal);
   const auto& goal = state.conditions.goal;
 
+  printf("DifferentialDrivePlanner::intiate\n");
+
   ScheduledDifferentialDriveExpander expander{
     state.internal.get(),
     state.issues,
@@ -2105,7 +2141,7 @@ State DifferentialDrivePlanner::initiate(
     goal,
     state.conditions.options
   };
-
+  
   for (const auto& start : starts)
   {
     if (auto node = expander.make_start_node(start))
@@ -2128,6 +2164,7 @@ State DifferentialDrivePlanner::initiate(
 //==============================================================================
 std::optional<PlanData> DifferentialDrivePlanner::plan(State& state) const
 {
+  printf("DifferentialDrivePlanner::plan\n");
   const auto& goal = state.conditions.goal;
 
   ScheduledDifferentialDriveExpander expander{
@@ -2166,6 +2203,7 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
   using InternalState = ScheduledDifferentialDriveExpander::InternalState;
   InternalState internal;
   Issues issues;
+  printf("DifferentialDrivePlanner::rollout\n");
 
   ScheduledDifferentialDriveExpander expander{
     &internal,
@@ -2200,6 +2238,7 @@ auto DifferentialDrivePlanner::debug_begin(
   using InternalState = ScheduledDifferentialDriveExpander::InternalState;
   InternalState internal;
   Issues issues;
+  printf("DifferentialDrivePlanner::debug_begin\n");
 
   ScheduledDifferentialDriveExpander expander{
     &internal,

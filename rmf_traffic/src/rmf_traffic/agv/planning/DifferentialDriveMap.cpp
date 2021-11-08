@@ -111,11 +111,14 @@ std::optional<FactoryInfo> make_rotate_factory(
   double rotation_thresh,
   std::string map)
 {
+  printf("make_rotate_factory\n");
   double minimum_cost = 0.0;
   if (start_yaw.has_value() && finish_yaw.has_value())
   {
     const double yaw_dist =
       std::abs(rmf_utils::wrap_to_pi(*start_yaw - *finish_yaw));
+
+    printf("start_yaw: %g end_yaw: %g\n", *start_yaw, *finish_yaw);
 
     // If both yaws are known and they are within the rotation threshold of each
     // other, then no rotation will be needed.

@@ -21,6 +21,7 @@
 
 #include <unordered_set>
 
+#define RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
@@ -107,7 +108,7 @@ void node_to_traversals(
   const TraversalGenerator::Kinematics& kin,
   std::vector<Traversal>& output)
 {
-
+  printf("node_to_traversals\n");
   assert(valid_traversal(node));
   Traversal traversal;
   traversal.initial_lane_index = node.initial_lane_index;
@@ -326,6 +327,7 @@ void perform_traversal(
   }
   else
   {
+    printf("perform_traversal else\n");
     const Eigen::Vector2d course_vector = (p1 - p0)/dist;
     const auto orientations =
       kin.constraint->get_orientations(course_vector);
@@ -337,7 +339,7 @@ void perform_traversal(
       const auto orientation = orientations[i];
       if (!orientation.has_value())
         continue;
-
+      printf("%g\n", *orientation);
       const auto* entry_constraint = entry.orientation_constraint();
       if (!orientation_constraint_satisfied(
           p0, *orientation, course_vector, entry_constraint, thresh))
@@ -415,6 +417,7 @@ void initiate_traversal(
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
 {
+  printf("initiate traversal\n");
   perform_traversal(
     nullptr, lane_index, graph, closures, kin, queue, output, visited);
 }
@@ -524,6 +527,7 @@ ConstTraversalsPtr TraversalGenerator::generate(
             "Supergraph died while a TraversalCache was still being used. "
             "Please report this critical bug to the maintainers of rmf_traffic.");
   }
+  printf("TraversalGenerator::generate\n");
 
   const std::size_t waypoint_index = key;
   const auto& graph = supergraph->original();
@@ -729,6 +733,9 @@ DifferentialDriveKeySet Supergraph::keys_for(
   const std::size_t goal_waypoint_index,
   std::optional<double> goal_orientation) const
 {
+  printf("[Supergraph::keys_for] start_waypoint_index: %d goal_waypoint_index: %d\n", start_waypoint_index, goal_waypoint_index);
+  if (goal_orientation.has_value())
+    std::cout << *goal_orientation << std::endl;
   using KeyHash = DifferentialDriveMapTypes::KeyHash;
   DifferentialDriveKeySet keys(31, KeyHash{_original.lanes.size()});
 

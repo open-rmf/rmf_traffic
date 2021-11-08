@@ -263,12 +263,14 @@ public:
 
   SearchNodePtr rotate_to_goal(const SearchNodePtr& top)
   {
+    printf("rotate_to_goal\n");
     const std::size_t waypoint_index = top->info.waypoint;
     const std::string& map_name =
       _graph->original().waypoints[waypoint_index].get_map_name();
 
     const Eigen::Vector2d p = top->info.position;
     const double target_yaw = _goal_yaw.value();
+    printf("target_yaw: %g\n", target_yaw);
 
     // We assume we will get back a valid factory, because if no rotation is
     // needed, then the planner should have accepted this node earlier.
