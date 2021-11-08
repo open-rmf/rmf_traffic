@@ -53,6 +53,7 @@ public:
   Steering _steering_mode;
   Differential _differential;
   Holonomic _holonomic;
+  Ackermann _ackermann;
 
   Implementation(
     Limits linear,

@@ -148,6 +148,27 @@ bool VehicleTraits::Differential::valid() const
 }
 
 //==============================================================================
+class VehicleTraits::Ackermann::Implementation
+{
+public:
+  Eigen::Vector2d forward;
+  double min_turning_radius;
+  bool reversible;
+};
+
+//==============================================================================
+VehicleTraits::Ackermann::Ackermann(
+  Eigen::Vector2d forward,
+  double min_turning_radius,
+  bool reversible)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(forward), min_turning_radius, reversible}))
+{
+  // Do nothing
+}
+
+
+//==============================================================================
 VehicleTraits::Holonomic::Holonomic()
 {
   // Do nothing. No need to instantiate _pimpl because it's not being used (yet)
@@ -258,6 +279,32 @@ auto VehicleTraits::get_holonomic() const -> const Holonomic*
 {
   if (_pimpl->_steering_mode == Steering::Holonomic)
     return &_pimpl->_holonomic;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto VehicleTraits::set_ackermann(Ackermann parameters) -> Ackermann&
+{
+  _pimpl->_steering_mode = Steering::Ackermann;
+  _pimpl->_ackermann = std::move(parameters);
+  return _pimpl->_ackermann;
+}
+
+//==============================================================================
+auto VehicleTraits::get_ackermann() -> Ackermann*
+{
+  if (_pimpl->_steering_mode == Steering::Ackermann)
+    return &_pimpl->_ackermann;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto VehicleTraits::get_ackermann() const -> const Ackermann*
+{
+  if (_pimpl->_steering_mode == Steering::Ackermann)
+    return &_pimpl->_ackermann;
 
   return nullptr;
 }

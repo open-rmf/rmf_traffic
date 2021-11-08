@@ -29,6 +29,9 @@ InterfacePtr make_planner_interface(Planner::Configuration config)
   if (config.vehicle_traits().get_differential())
     return std::make_shared<DifferentialDrivePlanner>(std::move(config));
 
+  if (config.vehicle_traits().get_ackermann())
+    return std::make_shared<DifferentialDrivePlanner>(std::move(config));
+
   throw std::runtime_error(
           "[rmf_traffic::agv::planning::make_planner_interface] The rmf_traffic "
           "Planner currently only supports differential drive vehicles.");

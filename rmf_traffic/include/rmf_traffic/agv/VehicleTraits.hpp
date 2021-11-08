@@ -61,6 +61,11 @@ public:
     /// The vehicle can move holonomically, so it has no limitations about how
     /// it steers.
     Holonomic,
+
+    /// The vehicle can moves non holonomically, it's movement is limited by its
+    /// turning radius
+    Ackermann
+
   };
 
   class Differential
@@ -100,6 +105,19 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  class Ackermann
+  {
+  public:
+    Ackermann(
+        Eigen::Vector2d forward = Eigen::Vector2d::UnitX(),
+        double min_turning_radius = 1.0,
+        bool reversible = true);
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
   /// Constructor.
   VehicleTraits(
     Limits linear,
@@ -129,6 +147,13 @@ public:
   Holonomic* get_holonomic();
 
   const Holonomic* get_holonomic() const;
+
+  Ackermann& set_ackermann(Ackermann parameters);
+  
+  Ackermann* get_ackermann();
+
+  const Ackermann* get_ackermann() const;
+
 
   /// Returns true if the values of the traits are valid. For example, this
   /// means that all velocity and acceleration values are greater than zero.
