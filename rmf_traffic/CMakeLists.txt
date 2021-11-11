@@ -147,5 +147,3 @@ export(
   FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-targets.cmake
   NAMESPACE rmf_traffic::
 )
-
-export(PACKAGE rmf_traffic)
