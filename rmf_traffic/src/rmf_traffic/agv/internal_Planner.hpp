@@ -68,7 +68,8 @@ public:
     planning::InterfacePtr interface,
     const std::vector<Planner::Start>& starts,
     Planner::Goal goal,
-    Planner::Options options);
+    Planner::Options options,
+    bool translation_only = false);
 
   static Result setup(
     planning::InterfacePtr interface,

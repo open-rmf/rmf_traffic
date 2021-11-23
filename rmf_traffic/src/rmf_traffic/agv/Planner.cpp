@@ -21,6 +21,8 @@
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
 
+// #include "planning/DifferentialDrivePlanner.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -496,6 +498,7 @@ public:
 
   Configuration configuration;
 
+  Planner::Unstable unstable = Planner::Unstable();
 };
 
 //==============================================================================
@@ -538,14 +541,16 @@ Planner::Result Planner::Result::Implementation::generate(
   planning::InterfacePtr interface,
   const std::vector<Planner::Start>& starts,
   Planner::Goal goal,
-  Planner::Options options)
+  Planner::Options options,
+  bool translation_only)
 {
   // TODO(MXG): Throw an exception if any of the starts or the goal has an
   // invalid waypoint index.
   auto state = interface->initiate(
     starts, std::move(goal), std::move(options));
 
-  auto plan = Plan::Implementation::make(interface->plan(state));
+  auto plan =
+    Plan::Implementation::make(interface->plan(state, translation_only));
 
   Planner::Result result;
   result._pimpl = rmf_utils::make_impl<Implementation>(
@@ -701,6 +706,34 @@ Planner::Result Planner::setup(
     start,
     std::move(goal),
     std::move(options));
+}
+
+//==============================================================================
+Planner::Unstable& Planner::unstable()
+{
+  return _pimpl->unstable;
+}
+
+//==============================================================================
+const Planner::Unstable& Planner::unstable() const
+{
+  return _pimpl->unstable;
+}
+
+//==============================================================================
+Planner::Result Planner::Unstable::translation_plan(
+  const Start& start, Goal goal) const
+{
+  return Result::Implementation::generate(
+    _pimpl->interface,
+    {start},
+    std::move(goal),
+    _pimpl->default_options);
+
+  // std::shared_ptr<const planning::DifferentialDrivePlanner> interface =
+  //   std::dynamic_pointer_cast<
+  //   const planning::DifferentialDrivePlanner>(_pimpl->interface);
+
 }
 
 //==============================================================================

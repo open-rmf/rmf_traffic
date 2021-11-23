@@ -90,7 +90,8 @@ public:
     agv::Planner::Goal goal,
     agv::Planner::Options options) const = 0;
 
-  virtual std::optional<PlanData> plan(State& state) const = 0;
+  virtual std::optional<PlanData> plan(
+    State& state, bool translation_only = false) const = 0;
 
   virtual std::vector<schedule::Itinerary> rollout(
     const Duration span,

@@ -2126,20 +2126,38 @@ State DifferentialDrivePlanner::initiate(
 }
 
 //==============================================================================
-std::optional<PlanData> DifferentialDrivePlanner::plan(State& state) const
+std::optional<PlanData> DifferentialDrivePlanner::plan(
+  State& state,
+  bool translation_only) const
 {
   const auto& goal = state.conditions.goal;
+  const auto& diff_heuristic_adapter = DifferentialDriveHeuristicAdapter{
+    _cache->get(),
+    _supergraph,
+    goal.waypoint(),
+    rmf_utils::pointer_to_opt(goal.orientation())
+    };
+
+  if (translation_only)
+  {
+    const auto& diff_heuristic_cache = diff_heuristic_adapter.cache(); // Cache<DifferentialDriveHeuristic>
+    const auto keys = _supergraph->keys_for(
+      state.conditions.starts[0].waypoint(),
+      goal.waypoint(),
+      rmf_utils::pointer_to_opt(goal.orientation()));
+
+    // for (const auto& key : keys)
+    // {
+    //   const auto solution_root = diff_heuristic_cache.get(key);
+
+    // }
+  }
 
   ScheduledDifferentialDriveExpander expander{
     state.internal.get(),
     state.issues,
     _supergraph,
-    DifferentialDriveHeuristicAdapter{
-      _cache->get(),
-    _supergraph,
-    goal.waypoint(),
-      rmf_utils::pointer_to_opt(goal.orientation())
-    },
+    diff_heuristic_adapter,
     state.conditions.goal,
     state.conditions.options
   };

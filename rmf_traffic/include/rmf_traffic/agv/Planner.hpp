@@ -524,6 +524,25 @@ public:
 
   class Implementation;
   class Debug;
+
+  class Unstable
+  {
+  public:
+    /// Produce a plan from start to goal while only consiering robot
+    /// translation along the graph.
+    Result translation_plan(
+      const Start& start,
+      Goal goal) const;
+
+  private:
+    friend Implementation;
+    Implementation* _pimpl;
+  };
+
+  /// Get a mutable reference to the unstable API extension
+  Unstable& unstable();
+  /// Get a const reference to the unstable API extension
+  const Unstable& unstable() const;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };

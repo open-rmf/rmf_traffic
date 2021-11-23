@@ -40,6 +40,12 @@ public:
   using Entry = DifferentialDriveMapTypes::Entry;
   using Key = DifferentialDriveMapTypes::Key;
 
+  // Storage = DifferentialDriveMap =
+  // std::unordered_map<
+  //  DifferentialDriveMapTypes::Key,
+  //  DifferentialDriveMapTypes::SolutionNodePtr,
+  //  DifferentialDriveMapTypes::KeyHash >;
+
   SolutionNodePtr generate(
     const Key& key,
     const Storage& old_items,
