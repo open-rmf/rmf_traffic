@@ -23,6 +23,8 @@
 
 #include "ShortestPathHeuristic.hpp"
 
+#include "../internal_planning.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -45,6 +47,11 @@ public:
     const std::size_t& key,
     const Storage& old_items,
     Storage& new_items) const final;
+
+  std::optional<PlanData> translation_solve(
+    const std::size_t& key,
+    const Storage& old_items,
+    Storage& new_items) const;
 
 private:
   std::size_t _goal;
