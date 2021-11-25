@@ -2140,17 +2140,32 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(
 
   if (translation_only)
   {
-    const auto& diff_heuristic_cache = diff_heuristic_adapter.cache(); // Cache<DifferentialDriveHeuristic>
-    const auto keys = _supergraph->keys_for(
+    // const auto& cache_diff_drive_heuristic = diff_heuristic_adapter.cache();
+    // const auto diff_drive_heuristic_ptr =
+    //   cache_diff_drive_heuristic.upstream()->generator;
+    // const auto& cache_manager_map_translation_heuristic_factory =
+    //   diff_drive_heuristic_ptr->heuristic_map();
+    // const auto cache_manager_ptr =
+    //   cache_manager_map_translation_heuristic_factory.get(goal.waypoint());
+    // const auto& cache = cache_manager_ptr->get();
+    // const auto translation_heuristic_ptr = cache.upstream()->generator;
+    // const auto storage = cache.upstream()->storage;
+
+    TranslationHeuristic::Storage new_items = {};
+
+    // return translation_heuristic_ptr->translation_solve(
+    //     state.conditions.starts[0].waypoint(),
+    //     *storage,
+    //     new_items);
+
+    // TODO(YV) get this generator from cache
+    TranslationHeuristic::Storage old_items = {};
+    const auto& factory = TranslationHeuristicFactory(_supergraph);
+    const auto translation_heuristic = factory.make(goal.waypoint());
+    return translation_heuristic->translation_solve(
       state.conditions.starts[0].waypoint(),
-      goal.waypoint(),
-      rmf_utils::pointer_to_opt(goal.orientation()));
-
-    // for (const auto& key : keys)
-    // {
-    //   const auto solution_root = diff_heuristic_cache.get(key);
-
-    // }
+      old_items,
+      new_items);
   }
 
   ScheduledDifferentialDriveExpander expander{

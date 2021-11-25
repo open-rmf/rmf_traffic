@@ -525,14 +525,16 @@ public:
   class Implementation;
   class Debug;
 
+  Result translation_plan(
+    const Start& start,
+    Goal goal) const;
+
   class Unstable
   {
   public:
     /// Produce a plan from start to goal while only consiering robot
     /// translation along the graph.
-    Result translation_plan(
-      const Start& start,
-      Goal goal) const;
+
 
   private:
     friend Implementation;

@@ -20,6 +20,8 @@
 
 #include <queue>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -219,9 +221,11 @@ std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
   std::vector<NodePtr> node_sequence;
   while (node)
   {
+    std::cout << node->waypoint << "->";
     node_sequence.push_back(node);
     node = node->parent;
   }
+  std::cout << std::endl;
 
   return node_sequence;
 }
@@ -354,7 +358,7 @@ std::optional<PlanData> TranslationHeuristic::translation_solve(
   //   nodes, index, _supergraph->original());
   // auto start = find_start(solution);
 
-  // return PlanData{};
+  return std::nullopt;
 }
 
 //==============================================================================

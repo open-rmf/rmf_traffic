@@ -3558,3 +3558,108 @@ SCENARIO("Test speed limits")
     CHECK_FALSE(used_lanes.count(0));
   }
 }
+
+SCENARIO("Testing translation planner", "[translation]")
+{
+  using namespace std::chrono_literals;
+
+  rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.1),
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.1)
+  };
+
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, {5.0, 0.0}); // 0
+  graph.add_waypoint(test_map_name, {10.0, 0.0}); // 1
+  graph.add_waypoint(test_map_name, {0.0, 5.0}); // 2
+  graph.add_waypoint(test_map_name, {5.0, 5.0}); // 3
+  graph.add_waypoint(test_map_name, {10.0, 5.0}); // 4
+  graph.add_waypoint(test_map_name, {15, 5.0}); // 5
+  graph.add_waypoint(test_map_name, {5.0, 10.0}); // 6
+  graph.add_waypoint(test_map_name, {10.0, 10.0}); // 7
+  graph.add_waypoint(test_map_name, {15.0, 10.0}); // 8
+
+  /*
+   *       6-----7-----8
+   *       |     |     |
+   *       |     |     |
+   * 2-----3-----4-----5
+   *       |     |
+   *       |     |
+   *       0     1
+   */
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 3); // 0 1
+  add_bidir_lane(1, 4); // 2 3
+  add_bidir_lane(2, 3); // 4 5
+  add_bidir_lane(3, 4); // 6 7
+  add_bidir_lane(4, 5); // 8 9
+  add_bidir_lane(3, 6); // 10 11
+  add_bidir_lane(4, 7); // 12 13
+  add_bidir_lane(5, 8); // 14 15
+  add_bidir_lane(6, 7); // 16 17
+  add_bidir_lane(7, 8); // 18 19
+
+  const rmf_traffic::agv::VehicleTraits traits{
+    {0.7, 0.3},
+    {1.0, 0.45},
+    profile
+  };
+
+
+  const auto now = std::chrono::steady_clock::now();
+
+  WHEN("Translation Planning from 0->8")
+  {
+    rmf_traffic::agv::Planner planner{
+      rmf_traffic::agv::Planner::Configuration{
+        graph, traits
+      },
+      rmf_traffic::agv::Planner::Options(nullptr)
+    };
+
+    const auto& start = rmf_traffic::agv::Planner::Start{now, 0, 0.0};
+    const auto& goal = rmf_traffic::agv::Planner::Goal{1};
+
+    // const auto& unstable = planner.unstable();
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto result = planner.translation_plan(
+      start, goal);
+    const auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Translation plan: "
+              << (finish_time - start_time).count() / 1e9
+              << std::endl;
+  }
+
+  WHEN("Planning from 0->8")
+  {
+    rmf_traffic::agv::Planner planner{
+      rmf_traffic::agv::Planner::Configuration{
+        graph, traits
+      },
+      rmf_traffic::agv::Planner::Options(nullptr)
+    };
+
+    const auto& start = rmf_traffic::agv::Planner::Start{now, 0, 0.0};
+    const auto& goal = rmf_traffic::agv::Planner::Goal{1};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto result = planner.plan(
+      start, goal);
+    const auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Normal plan: "
+              << (finish_time - start_time).count() / 1e9
+              << std::endl;
+    display_path(result);
+  }
+}
+

@@ -675,6 +675,14 @@ auto DifferentialDriveHeuristic::generate(
 }
 
 //==============================================================================
+const CacheManagerMap<TranslationHeuristicFactory>&
+DifferentialDriveHeuristic::heuristic_map() const
+{
+  return _heuristic_map;
+}
+
+
+//==============================================================================
 CacheManagerPtr<DifferentialDriveHeuristic>
 DifferentialDriveHeuristic::make_manager(
   std::shared_ptr<const Supergraph> supergraph)

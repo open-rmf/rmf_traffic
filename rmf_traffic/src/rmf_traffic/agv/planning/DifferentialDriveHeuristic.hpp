@@ -40,12 +40,6 @@ public:
   using Entry = DifferentialDriveMapTypes::Entry;
   using Key = DifferentialDriveMapTypes::Key;
 
-  // Storage = DifferentialDriveMap =
-  // std::unordered_map<
-  //  DifferentialDriveMapTypes::Key,
-  //  DifferentialDriveMapTypes::SolutionNodePtr,
-  //  DifferentialDriveMapTypes::KeyHash >;
-
   SolutionNodePtr generate(
     const Key& key,
     const Storage& old_items,
@@ -53,6 +47,8 @@ public:
 
   static CacheManagerPtr<DifferentialDriveHeuristic> make_manager(
     std::shared_ptr<const Supergraph> graph);
+
+  const CacheManagerMap<TranslationHeuristicFactory>& heuristic_map() const;
 
 private:
   std::shared_ptr<const Supergraph> _graph;

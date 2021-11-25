@@ -109,6 +109,8 @@ public:
 
   Value get(const Key& key) const;
 
+  std::shared_ptr<const Upstream_type> upstream() const;
+
   ~Cache();
 
 private:
@@ -200,6 +202,13 @@ Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream_type> upstream,
   _new_items(_storage_initializer())
 {
   // Do nothing
+}
+
+//==============================================================================
+template<typename GeneratorArg> auto Cache<GeneratorArg>::upstream() const
+-> std::shared_ptr<const Upstream_type>
+{
+  return _upstream;
 }
 
 //==============================================================================

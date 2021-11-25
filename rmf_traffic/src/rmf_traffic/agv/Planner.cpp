@@ -21,8 +21,6 @@
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
 
-// #include "planning/DifferentialDrivePlanner.hpp"
-
 namespace rmf_traffic {
 namespace agv {
 
@@ -721,19 +719,15 @@ const Planner::Unstable& Planner::unstable() const
 }
 
 //==============================================================================
-Planner::Result Planner::Unstable::translation_plan(
+Planner::Result Planner::translation_plan(
   const Start& start, Goal goal) const
 {
   return Result::Implementation::generate(
     _pimpl->interface,
     {start},
     std::move(goal),
-    _pimpl->default_options);
-
-  // std::shared_ptr<const planning::DifferentialDrivePlanner> interface =
-  //   std::dynamic_pointer_cast<
-  //   const planning::DifferentialDrivePlanner>(_pimpl->interface);
-
+    _pimpl->default_options,
+    true);
 }
 
 //==============================================================================
