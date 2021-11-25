@@ -208,7 +208,9 @@ auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 {
   const auto it = _all_items.find(key);
   if (it != _all_items.end())
+  {
     return it->second;
+  }
 
   Storage new_items = _storage_initializer();
   auto result = _upstream->generator->generate(key, _all_items, new_items);

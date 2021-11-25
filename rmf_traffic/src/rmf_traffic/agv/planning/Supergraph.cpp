@@ -36,6 +36,8 @@ Supergraph::FloorChangeMap find_floor_changes(
 {
   Supergraph::FloorChangeMap all_floor_changes;
 
+  // TODO(MXG): Calculate this in the regular Graph structure while lanes get
+  // added to it.
   for (std::size_t i = 0; i < original.waypoints.size(); ++i)
   {
     const auto& initial_map_name = original.waypoints[i].get_map_name();
@@ -732,7 +734,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
   using KeyHash = DifferentialDriveMapTypes::KeyHash;
   DifferentialDriveKeySet keys(31, KeyHash{_original.lanes.size()});
 
-  const auto relevant_entries = entries_into(goal_waypoint_index)
+  const auto relevant_goal_entries = entries_into(goal_waypoint_index)
     ->relevant_entries(goal_orientation);
 
   const auto relevant_traversals = traversals_from(start_waypoint_index);
@@ -747,7 +749,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
       if (!alt.has_value())
         continue;
 
-      for (const auto& entry : relevant_entries)
+      for (const auto& entry : relevant_goal_entries)
       {
         keys.insert(
           {

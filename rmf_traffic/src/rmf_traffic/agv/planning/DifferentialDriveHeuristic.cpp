@@ -103,18 +103,7 @@ public:
 
   bool is_finished(const SearchNodePtr& top) const
   {
-    const auto& info = top->info;
-    if (info.waypoint == _goal_waypoint)
-    {
-      if (!_goal_yaw.has_value() || !top->info.yaw.has_value())
-        return true;
-
-      const double angle_diff = rmf_utils::wrap_to_pi(*info.yaw - *_goal_yaw);
-      if (std::abs(angle_diff) <= _interpolate.rotation_thresh)
-        return true;
-    }
-
-    return false;
+    return top->info.entry == _goal_entry;
   }
 
   void expand(const SearchNodePtr& top, SearchQueue& queue)
@@ -135,9 +124,6 @@ public:
     const auto current_wp_index = info.waypoint;
     if (current_wp_index == _goal_waypoint)
     {
-      // If there is no goal yaw, then is_finished should have caught this node
-      assert(_goal_yaw.has_value());
-
       queue.push(rotate_to_goal(top));
       return;
     }
@@ -263,20 +249,43 @@ public:
 
   SearchNodePtr rotate_to_goal(const SearchNodePtr& top)
   {
-    const std::size_t waypoint_index = top->info.waypoint;
-    const std::string& map_name =
-      _graph->original().waypoints[waypoint_index].get_map_name();
+    if (_goal_yaw.has_value())
+    {
+      const std::size_t waypoint_index = top->info.waypoint;
+      const std::string& map_name =
+        _graph->original().waypoints[waypoint_index].get_map_name();
 
-    const Eigen::Vector2d p = top->info.position;
-    const double target_yaw = _goal_yaw.value();
+      const Eigen::Vector2d p = top->info.position;
+      const double target_yaw = _goal_yaw.value();
 
-    // We assume we will get back a valid factory, because if no rotation is
-    // needed, then the planner should have accepted this node earlier.
-    auto factory_info = make_rotate_factory(
-      p, top->info.yaw, target_yaw, _limits,
-      _interpolate.rotation_thresh, map_name).value();
+      // We assume we will get back a valid factory, because if no rotation is
+      // needed, then the planner should have accepted this node earlier.
+      auto factory_info = make_rotate_factory(
+        p, top->info.yaw, target_yaw, _limits,
+        _interpolate.rotation_thresh, map_name);
 
-    const double rotation_cost = factory_info.minimum_cost;
+      if (factory_info.has_value())
+      {
+        const double rotation_cost = factory_info->minimum_cost;
+
+        return std::make_shared<SearchNode>(
+          SearchNode{
+            NodeInfo{
+              _goal_entry,
+              top->info.waypoint,
+              {},
+              p,
+              target_yaw,
+              0.0,
+              rotation_cost,
+              nullptr
+            },
+            top->current_cost + rotation_cost,
+            std::move(factory_info->factory),
+            top
+          });
+      }
+    }
 
     return std::make_shared<SearchNode>(
       SearchNode{
@@ -284,15 +293,15 @@ public:
           _goal_entry,
           top->info.waypoint,
           {},
-          p,
-          target_yaw,
+          top->info.position,
+          top->info.yaw,
           0.0,
-          rotation_cost,
+          top->info.cost_from_parent,
           nullptr
         },
-        top->current_cost + rotation_cost,
-        std::move(factory_info.factory),
-        top
+        top->current_cost,
+        top->route_factory,
+        top->parent
       });
   }
 
@@ -579,7 +588,6 @@ auto DifferentialDriveHeuristic::generate(
   SolutionNodePtr output = nullptr;
   SolutionNodePtr solution = nullptr;
 
-
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
   std::cout << "Stashing solutions for " << key << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
@@ -607,7 +615,6 @@ auto DifferentialDriveHeuristic::generate(
       break;
 
     auto node = goal_node;
-    auto previous_node = node;
 
     solution = nullptr;
     double remaining_cost = 0.0;
@@ -661,7 +668,6 @@ auto DifferentialDriveHeuristic::generate(
         new_items.insert({new_key, solution});
       }
 
-      previous_node = node;
       node = node->parent;
     }
 
