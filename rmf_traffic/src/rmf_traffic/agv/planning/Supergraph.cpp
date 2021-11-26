@@ -106,7 +106,7 @@ bool valid_traversal(const TraversalNode& node)
 //==============================================================================
 void node_to_traversals(
   const TraversalNode& node,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<Traversal>& output)
 {
 
@@ -230,7 +230,7 @@ void perform_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
   const LaneClosure& closures,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
@@ -398,7 +398,7 @@ void expand_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
   const LaneClosure& closures,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
@@ -412,7 +412,7 @@ void initiate_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
   const LaneClosure& closures,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
@@ -481,7 +481,7 @@ DifferentialDriveConstraint::get_orientations(
 }
 
 //==============================================================================
-TraversalGenerator::Kinematics::Kinematics(
+TraversalFromGenerator::Kinematics::Kinematics(
   const VehicleTraits& traits,
   const Interpolate::Options::Implementation& interpolate_)
 : limits(VehicleTraits::Implementation::get_limits(traits)),
@@ -495,7 +495,7 @@ TraversalGenerator::Kinematics::Kinematics(
 }
 
 //==============================================================================
-TraversalGenerator::TraversalGenerator(
+TraversalFromGenerator::TraversalFromGenerator(
   const std::shared_ptr<const Supergraph>& graph)
 : _graph(graph),
   _kinematics(graph->traits(), graph->options())
@@ -504,7 +504,7 @@ TraversalGenerator::TraversalGenerator(
 }
 
 //==============================================================================
-ConstTraversalsPtr TraversalGenerator::generate(
+ConstTraversalsPtr TraversalFromGenerator::generate(
   const std::size_t& key,
   const Storage&, // old items are irrelevant
   Storage& new_items) const
@@ -559,6 +559,46 @@ ConstTraversalsPtr TraversalGenerator::generate(
 }
 
 //==============================================================================
+TraversalIntoGenerator::TraversalIntoGenerator(
+  std::shared_ptr<const CacheManager<TraversalFromCache>> traversals_from,
+  const std::shared_ptr<const Supergraph>& graph)
+: _traversals_from(std::move(traversals_from)),
+  _graph(graph)
+{
+  // Do nothing
+}
+
+//==============================================================================
+ConstTraversalsPtr TraversalIntoGenerator::generate(
+  const std::size_t& key,
+  const Storage&, // old items are irrelevant
+  Storage& new_items) const
+{
+  const auto supergraph = _graph.lock();
+  if (!supergraph)
+    return nullptr;
+
+  const auto& graph = supergraph->original();
+  const auto traversals_into = std::make_shared<Traversals>();
+  const auto& lanes_into = graph.lanes_into[key];
+  for (const auto& lane_index : lanes_into)
+  {
+    const auto& waypoint_from =
+      graph.lanes[lane_index].entry().waypoint_index();
+
+    const auto& traversals_from = _traversals_from->get().get(waypoint_from);
+    for (const auto& traversal : *traversals_from)
+    {
+      if (traversal.finish_lane_index == key)
+        traversals_into->push_back(traversal);
+    }
+  }
+
+  new_items.insert({key, traversals_into});
+  return traversals_into;
+}
+
+//==============================================================================
 std::shared_ptr<const Supergraph> Supergraph::make(
   Graph::Implementation original,
   VehicleTraits traits,
@@ -570,9 +610,14 @@ std::shared_ptr<const Supergraph> Supergraph::make(
       std::move(original), std::move(traits),
       std::move(lane_closures), interpolate));
 
-  supergraph->_traversals =
-    CacheManager<TraversalCache>::make(
-    std::make_shared<TraversalGenerator>(supergraph));
+  supergraph->_traversals_from =
+    CacheManager<TraversalFromCache>::make(
+    std::make_shared<TraversalFromGenerator>(supergraph));
+
+  supergraph->_traversals_into =
+    CacheManager<TraversalIntoCache>::make(
+    std::make_shared<TraversalIntoGenerator>(
+      supergraph->_traversals_from, supergraph));
 
   supergraph->_entries_into_waypoint_cache =
     CacheManager<EntriesCache>::make(
@@ -621,7 +666,14 @@ auto Supergraph::floor_change() const -> const FloorChangeMap&
 ConstTraversalsPtr Supergraph::traversals_from(
   const std::size_t waypoint_index) const
 {
-  return _traversals->get().get(waypoint_index);
+  return _traversals_from->get().get(waypoint_index);
+}
+
+//==============================================================================
+ConstTraversalsPtr Supergraph::traversals_into(
+  const std::size_t waypoint_index) const
+{
+  return _traversals_into->get().get(waypoint_index);
 }
 
 //==============================================================================

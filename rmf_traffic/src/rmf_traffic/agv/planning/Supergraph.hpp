@@ -84,12 +84,12 @@ using Traversals = std::vector<Traversal>;
 using ConstTraversalsPtr = std::shared_ptr<const Traversals>;
 
 //==============================================================================
-class TraversalGenerator
+class TraversalFromGenerator
   : public Generator<std::unordered_map<std::size_t, ConstTraversalsPtr>>
 {
 public:
 
-  TraversalGenerator(
+  TraversalFromGenerator(
     const std::shared_ptr<const Supergraph>& graph);
 
   ConstTraversalsPtr generate(
@@ -114,7 +114,30 @@ private:
 };
 
 //==============================================================================
-using TraversalCache = Cache<TraversalGenerator>;
+using TraversalFromCache = Cache<TraversalFromGenerator>;
+
+//==============================================================================
+class TraversalIntoGenerator
+  : public Generator<std::unordered_map<std::size_t, ConstTraversalsPtr>>
+{
+public:
+
+  TraversalIntoGenerator(
+  std::shared_ptr<const CacheManager<TraversalFromCache>> traversals_from,
+  const std::shared_ptr<const Supergraph>& graph);
+
+  ConstTraversalsPtr generate(
+    const std::size_t& key,
+    const Storage& old_items,
+    Storage& new_items) const final;
+
+private:
+  std::shared_ptr<const CacheManager<TraversalFromCache>> _traversals_from;
+  std::weak_ptr<const Supergraph> _graph;
+};
+
+//==============================================================================
+using TraversalIntoCache = Cache<TraversalIntoGenerator>;
 
 //==============================================================================
 /// A Supergraph is derived from a regular Graph. It analyzes the vertices and
@@ -154,6 +177,10 @@ public:
   /// This means traversals during which the robot does not need to stop or
   /// rotate.
   ConstTraversalsPtr traversals_from(std::size_t waypoint_index) const;
+
+  /// Get the continuous traversals that can be done into the given waypoint.
+  ConstTraversalsPtr traversals_into(
+    std::size_t waypoint_index) const;
 
   using Entry = DifferentialDriveMapTypes::Entry;
   using EntryHash = DifferentialDriveMapTypes::EntryHash;
@@ -206,7 +233,8 @@ private:
   LaneClosure _lane_closures;
   Interpolate::Options::Implementation _interpolate;
   FloorChangeMap _floor_changes;
-  std::shared_ptr<const CacheManager<TraversalCache>> _traversals;
+  std::shared_ptr<const CacheManager<TraversalFromCache>> _traversals_from;
+  std::shared_ptr<const CacheManager<TraversalIntoCache>> _traversals_into;
   std::optional<DifferentialDriveConstraint> _constraint;
 
   class EntriesGenerator
