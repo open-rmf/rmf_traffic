@@ -54,17 +54,18 @@ using SolutionNodePtr =
 
 //==============================================================================
 bool compare_routes(
-  const rmf_traffic::Route& a,
-  const rmf_traffic::Route& b)
+  const rmf_traffic::Route& expected,
+  const rmf_traffic::Route& actual)
 {
-  CHECK(a.map() == b.map());
-  REQUIRE(a.trajectory().size() == b.trajectory().size());
+  CHECK(expected.map() == actual.map());
+//  REQUIRE(expected.trajectory().size() == actual.trajectory().size());
+  CHECK(expected.trajectory().size() == actual.trajectory().size());
 
-  bool all_correct = a.map() == b.map();
-  for (std::size_t i = 0; i < a.trajectory().size(); ++i)
+  bool all_correct = expected.map() == actual.map();
+  for (std::size_t i = 0; i < std::min(expected.trajectory().size(), actual.trajectory().size()); ++i)
   {
-    const auto& wp_a = a.trajectory().at(i);
-    const auto& wp_b = b.trajectory().at(i);
+    const auto& wp_a = expected.trajectory().at(i);
+    const auto& wp_b = actual.trajectory().at(i);
 
     std::cout << "Waypoint " << i << ":\n";
 
