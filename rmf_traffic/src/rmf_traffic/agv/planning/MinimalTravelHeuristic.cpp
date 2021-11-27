@@ -452,10 +452,42 @@ std::optional<double> find_overlap(
 } // anonymous namespace
 
 //==============================================================================
+class Timer
+{
+public:
+  Timer(std::string purpose)
+  : _purpose(std::move(purpose))
+  {
+    _start = std::chrono::steady_clock::now();
+  }
+
+  ~Timer()
+  {
+    const auto finish = std::chrono::steady_clock::now();
+    std::cout << _purpose << ": " << rmf_traffic::time::to_seconds(finish - _start) << std::endl;
+  }
+
+private:
+  std::string _purpose;
+  std::chrono::steady_clock::time_point _start;
+};
+
+//==============================================================================
+std::string waypoint_name(std::size_t index, const std::shared_ptr<const Supergraph>& graph)
+{
+  if (const auto* check = graph->original().waypoints[index].name())
+    return std::to_string(index) + " [" + *check + "]";
+
+  return std::to_string(index);
+}
+
+//==============================================================================
 std::optional<double> MinimalTravelHeuristic::get(
   WaypointId start, WaypointId finish) const
 {
 //  std::cout << " ------ \nGetting heuristic for "  << start << " -> " << finish << std::endl;
+//  Timer timer("Heuristic for " + waypoint_name(start, _graph)
+//              + " -> " + waypoint_name(finish, _graph));
 
   if (start == finish)
     return 0.0;
