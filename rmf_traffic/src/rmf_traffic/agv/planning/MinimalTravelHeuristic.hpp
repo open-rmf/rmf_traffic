@@ -21,8 +21,6 @@
 #include "Supergraph.hpp"
 
 #include <queue>
-#include <mutex>
-#include <atomic>
 
 namespace rmf_traffic {
 namespace agv {
@@ -30,45 +28,6 @@ namespace planning {
 
 using LaneId = std::size_t;
 using WaypointId = std::size_t;
-
-/// An efficient spin lock to ensure that threads only spend a minimal amount
-/// of time trying to obtain this lock. The implementation is inspired by
-/// https://rigtorp.se/spinlock/
-class SpinLock
-{
-public:
-  SpinLock(std::atomic_bool& mutex)
-  : _mutex(&mutex)
-  {
-    // When the exchange produces a false value, we will know that we have
-    // obtained "ownership" of the mutex.
-    while (_mutex->exchange(true, std::memory_order_acquire));
-  }
-
-  SpinLock(const SpinLock&) = delete;
-  SpinLock& operator=(const SpinLock&) = delete;
-
-  SpinLock(SpinLock&& other)
-  {
-    *this = std::move(other);
-  }
-
-  SpinLock& operator=(SpinLock&& other)
-  {
-    _mutex = other._mutex;
-    other._mutex = nullptr;
-    return *this;
-  }
-
-  ~SpinLock()
-  {
-    if (_mutex)
-      _mutex->store(false, std::memory_order_release);
-  }
-
-private:
-  std::atomic_bool* _mutex = nullptr;
-};
 
 //==============================================================================
 template<typename NodePtrT>

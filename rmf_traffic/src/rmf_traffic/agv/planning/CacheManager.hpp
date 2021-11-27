@@ -23,10 +23,55 @@
 #include <mutex>
 #include <functional>
 #include <unordered_map>
+#include <shared_mutex>
+#include <atomic>
+
+
+#include <iostream>
 
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
+
+//==============================================================================
+/// An efficient spin lock to ensure that threads only spend a minimal amount
+/// of time trying to obtain this lock. The implementation is inspired by
+/// https://rigtorp.se/spinlock/
+class SpinLock
+{
+public:
+  SpinLock(std::atomic_bool& mutex)
+  : _mutex(&mutex)
+  {
+    // When the exchange produces a false value, we will know that we have
+    // obtained "ownership" of the mutex.
+    while (_mutex->exchange(true, std::memory_order_acquire));
+  }
+
+  SpinLock(const SpinLock&) = delete;
+  SpinLock& operator=(const SpinLock&) = delete;
+
+  SpinLock(SpinLock&& other)
+  {
+    *this = std::move(other);
+  }
+
+  SpinLock& operator=(SpinLock&& other)
+  {
+    _mutex = other._mutex;
+    other._mutex = nullptr;
+    return *this;
+  }
+
+  ~SpinLock()
+  {
+    if (_mutex)
+      _mutex->store(false, std::memory_order_release);
+  }
+
+private:
+  std::atomic_bool* _mutex = nullptr;
+};
 
 //==============================================================================
 template<typename StorageArg>
@@ -74,13 +119,15 @@ public:
   Upstream(
     std::function<Storage()> storage_initializer,
     std::shared_ptr<const Generator> generator_)
-  : storage(std::make_shared<Storage>(storage_initializer())),
+  : storage(storage_initializer()),
     generator(std::move(generator_))
   {
     // Do nothing
   }
 
-  std::shared_ptr<Storage> storage;
+  std::atomic_bool read_blocker = false;
+  std::shared_mutex storage_mutex;
+  Storage storage;
   const std::shared_ptr<const Generator> generator;
 };
 
@@ -93,14 +140,16 @@ class Cache
 {
 public:
 
+  // TODO(MXG): There is no actual use for Cache anymore after changing this
+  // implementation. Consider flattening this class into CacheManager.
+
   using Generator = GeneratorArg;
   using Storage = typename Generator::Storage;
   using Self = Cache<Generator>;
   using Upstream_type = Upstream<Generator>;
 
   Cache(
-    std::shared_ptr<const Upstream_type> upstream,
-    std::shared_ptr<const CacheManager<Self>> manager,
+    std::shared_ptr<Upstream_type> upstream,
     std::function<Storage()> storage_initializer);
 
 
@@ -109,14 +158,9 @@ public:
 
   Value get(const Key& key) const;
 
-  ~Cache();
-
 private:
-  std::shared_ptr<const Upstream_type> _upstream;
-  std::shared_ptr<const CacheManager<Self>> _manager;
+  std::shared_ptr<Upstream_type> _upstream;
   std::function<Storage()> _storage_initializer;
-  mutable Storage _all_items;
-  mutable Storage _new_items;
 };
 
 //==============================================================================
@@ -144,14 +188,9 @@ private:
     std::shared_ptr<const Generator> generator,
     std::function<Storage()> storage_initializer = []() { return Storage(); });
 
-  void _update(Storage new_items) const;
-
-  std::unique_lock<std::mutex> _lock() const;
-
   template<typename G> friend class Cache;
   std::shared_ptr<Upstream_type> _upstream;
   const std::function<Storage()> _storage_initializer;
-  mutable std::mutex _update_mutex;
 };
 
 //==============================================================================
@@ -190,14 +229,11 @@ private:
 
 //==============================================================================
 template<typename GeneratorArg>
-Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream_type> upstream,
-  std::shared_ptr<const CacheManager<Self>> manager,
+Cache<GeneratorArg>::Cache(
+  std::shared_ptr<Upstream_type> upstream,
   std::function<Storage()> storage_initializer)
 : _upstream(std::move(upstream)),
-  _manager(std::move(manager)),
-  _storage_initializer(std::move(storage_initializer)),
-  _all_items(*_upstream->storage),
-  _new_items(_storage_initializer())
+  _storage_initializer(std::move(storage_initializer))
 {
   // Do nothing
 }
@@ -206,30 +242,36 @@ Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream_type> upstream,
 template<typename GeneratorArg>
 auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 {
-  const auto it = _all_items.find(key);
-  if (it != _all_items.end())
   {
-    return it->second;
+    // Check if the read blocker is up to avoid starving the writers
+    SpinLock wait_for_writers(_upstream->read_blocker);
   }
+
+  std::shared_lock<std::shared_mutex> read_lock(
+    _upstream->storage_mutex, std::defer_lock);
+  while (!read_lock.try_lock());
+
+  const auto& all_items = _upstream->storage;
+  const auto it = all_items.find(key);
+  if (it != all_items.end())
+    return it->second;
 
   Storage new_items = _storage_initializer();
-  auto result = _upstream->generator->generate(key, _all_items, new_items);
+  auto result = _upstream->generator->generate(key, all_items, new_items);
 
-  for (const auto& item : new_items)
-  {
-    _all_items.insert(item);
-    _new_items.insert(item);
-  }
+  read_lock.unlock();
+
+  // Record the new items into the upstream storage
+  SpinLock lock_out_readers(_upstream->read_blocker);
+  std::unique_lock<std::shared_mutex> write_lock(
+    _upstream->storage_mutex, std::defer_lock);
+  while (!write_lock.try_lock());
+
+  auto& storage = _upstream->storage;
+  for (auto&& item : new_items)
+    storage[item.first] = std::move(item.second);
 
   return result;
-}
-
-//==============================================================================
-template<typename GeneratorArg>
-Cache<GeneratorArg>::~Cache()
-{
-  if (!_new_items.empty())
-    _manager->_update(std::move(_new_items));
 }
 
 //==============================================================================
@@ -248,34 +290,7 @@ CacheManager<CacheArg>::CacheManager(
 template<typename CacheArg>
 CacheArg CacheManager<CacheArg>::get() const
 {
-  auto lock = _lock();
-  return CacheArg{_upstream, this->shared_from_this(), _storage_initializer};
-}
-
-//==============================================================================
-template<typename CacheArg>
-void CacheManager<CacheArg>::_update(Storage new_items) const
-{
-  auto lock = _lock();
-  auto new_storage = std::make_shared<Storage>(*_upstream->storage);
-  for (auto&& item : new_items)
-    (*new_storage)[item.first] = std::move(item.second);
-
-  _upstream->storage = std::move(new_storage);
-}
-
-//==============================================================================
-template<typename CacheArg>
-std::unique_lock<std::mutex> CacheManager<CacheArg>::_lock() const
-{
-  std::unique_lock<std::mutex> lock(_update_mutex, std::defer_lock);
-  while (!lock.try_lock())
-  {
-    // Intentionally busy-wait to get the lock as soon as possible. Other lock
-    // holders should only be holding the lock very briefly.
-  }
-
-  return lock;
+  return CacheArg{_upstream, _storage_initializer};
 }
 
 //==============================================================================
