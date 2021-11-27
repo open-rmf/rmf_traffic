@@ -142,7 +142,9 @@ public:
 
       const auto initial_lane_index = traversal.initial_lane_index;
       const auto next_lane_index = traversal.finish_lane_index;
-      const auto remaining_cost_estimate = _heuristic.get(next_waypoint_index);
+      const auto remaining_cost_estimate =
+        _heuristic->get(next_waypoint_index, _goal_waypoint);
+
       if (!remaining_cost_estimate.has_value())
       {
         // If the heuristic for this waypoint is a nullopt, then there is no way
@@ -452,7 +454,7 @@ public:
   DifferentialDriveExpander(
     Entry goal_entry,
     const DifferentialDriveHeuristic::Storage& old_items,
-    Cache<TranslationHeuristic> heuristic,
+    ConstMinimalTravelHeuristicPtr heuristic,
     std::shared_ptr<const Supergraph> graph)
   : _goal_entry(std::move(goal_entry)),
     _old_items(old_items),
@@ -480,7 +482,7 @@ private:
   std::optional<double> _goal_yaw;
   Entry _goal_entry;
   const DifferentialDriveHeuristic::Storage& _old_items;
-  Cache<TranslationHeuristic> _heuristic;
+  std::shared_ptr<const MinimalTravelHeuristic> _heuristic;
   std::shared_ptr<const Supergraph> _graph;
   KinematicLimits _limits;
   Interpolate::Options::Implementation _interpolate;
@@ -492,7 +494,7 @@ private:
 DifferentialDriveHeuristic::DifferentialDriveHeuristic(
   std::shared_ptr<const Supergraph> graph)
 : _graph(std::move(graph)),
-  _heuristic_map(std::make_shared<TranslationHeuristicFactory>(_graph))
+  _heuristic(std::make_shared<const MinimalTravelHeuristic>(_graph))
 {
   // Do nothing
 }
@@ -516,9 +518,8 @@ auto DifferentialDriveHeuristic::generate(
   const auto& goal_lane = original.lanes[goal_lane_index];
   const std::size_t goal_waypoint_index = goal_lane.exit().waypoint_index();
 
-  auto heuristic = _heuristic_map.get(goal_waypoint_index)->get();
-
-  auto start_heuristic = heuristic.get(start_waypoint_index);
+  auto start_heuristic =
+    _heuristic->get(start_waypoint_index, goal_waypoint_index);
   if (!start_heuristic.has_value())
   {
     // If the heuristic of this starting waypoint is a nullopt, then it is
@@ -569,7 +570,7 @@ auto DifferentialDriveHeuristic::generate(
       Side::Finish
     },
     old_items,
-    std::move(heuristic),
+    std::move(_heuristic),
     _graph
   };
 

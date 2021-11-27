@@ -22,7 +22,7 @@
 #include "Supergraph.hpp"
 #include "DifferentialDriveMap.hpp"
 
-#include "TranslationHeuristic.hpp"
+#include "MinimalTravelHeuristic.hpp"
 
 namespace rmf_traffic {
 namespace agv {
@@ -50,7 +50,7 @@ public:
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  CacheManagerMap<TranslationHeuristicFactory> _heuristic_map;
+  std::shared_ptr<const MinimalTravelHeuristic> _heuristic;
 };
 
 //==============================================================================
