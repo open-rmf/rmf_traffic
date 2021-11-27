@@ -146,11 +146,12 @@ public:
       const auto next_lane_index = traversal.finish_lane_index;
       const auto remaining_cost_estimate =
         _heuristic->get(next_waypoint_index, _goal_waypoint);
-      std::cout << "Heuristic " << next_waypoint_index << " -> " << _goal_waypoint << ": ";
-      if (remaining_cost_estimate.has_value())
-        std::cout << *remaining_cost_estimate << std::endl;
-      else
-        std::cout << "null" << std::endl;
+
+//      std::cout << "Heuristic " << next_waypoint_index << " -> " << _goal_waypoint << ": ";
+//      if (remaining_cost_estimate.has_value())
+//        std::cout << *remaining_cost_estimate << std::endl;
+//      else
+//        std::cout << "null" << std::endl;
 
       if (!remaining_cost_estimate.has_value())
       {
@@ -527,12 +528,14 @@ auto DifferentialDriveHeuristic::generate(
 
   auto start_heuristic =
     _heuristic->get(start_waypoint_index, goal_waypoint_index);
-  std::cout << "Heuristic " << start_waypoint_index << " -> " << goal_waypoint_index
-            << ": ";
-  if (start_heuristic.has_value())
-    std::cout << *start_heuristic << std::endl;
-  else
-    std::cout << "null" << std::endl;
+
+//  std::cout << "Heuristic " << start_waypoint_index << " -> " << goal_waypoint_index
+//            << ": ";
+//  if (start_heuristic.has_value())
+//    std::cout << *start_heuristic << std::endl;
+//  else
+//    std::cout << "null" << std::endl;
+
   if (!start_heuristic.has_value())
   {
     // If the heuristic of this starting waypoint is a nullopt, then it is

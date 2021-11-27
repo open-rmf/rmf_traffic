@@ -583,17 +583,35 @@ ConstTraversalsPtr TraversalIntoGenerator::generate(
 
   const auto& graph = supergraph->original();
   const auto traversals_into = std::make_shared<Traversals>();
-  const auto& lanes_into = graph.lanes_into[key];
-  for (const auto& lane_index : lanes_into)
+  std::unordered_set<std::size_t> visited;
+  std::vector<std::size_t> frontier;
+  frontier.push_back(key);
+  while (!frontier.empty())
   {
-    const auto& waypoint_from =
-      graph.lanes[lane_index].entry().waypoint_index();
+    const auto next = frontier.back();
+    frontier.pop_back();
+    if (!visited.insert(next).second)
+      continue;
 
-    const auto& traversals_from = _traversals_from->get().get(waypoint_from);
-    for (const auto& traversal : *traversals_from)
+    const auto& lanes_into = graph.lanes_into[next];
+    for (const auto& lane_index : lanes_into)
     {
-      if (traversal.finish_lane_index == lane_index)
-        traversals_into->push_back(traversal);
+      const auto& waypoint_from =
+        graph.lanes[lane_index].entry().waypoint_index();
+
+      const auto& traversals_from = _traversals_from->get().get(waypoint_from);
+      bool keep_exploring = false;
+      for (const auto& traversal : *traversals_from)
+      {
+        if (traversal.finish_waypoint_index == key)
+        {
+          keep_exploring = true;
+          traversals_into->push_back(traversal);
+        }
+      }
+
+      if (keep_exploring)
+        frontier.push_back(waypoint_from);
     }
   }
 

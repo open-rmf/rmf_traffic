@@ -58,7 +58,7 @@ bool compare_routes(
   const rmf_traffic::Route& actual)
 {
   CHECK(expected.map() == actual.map());
-//  REQUIRE(expected.trajectory().size() == actual.trajectory().size());
+  CHECK(expected.trajectory().size() == actual.trajectory().size());
   CHECK(expected.trajectory().size() == actual.trajectory().size());
 
   bool all_correct = expected.map() == actual.map();
@@ -67,13 +67,11 @@ bool compare_routes(
     const auto& wp_a = expected.trajectory().at(i);
     const auto& wp_b = actual.trajectory().at(i);
 
-    std::cout << "Waypoint " << i << ":\n";
-
     const double time_diff =
       rmf_traffic::time::to_seconds(wp_a.time() - wp_b.time());
     const bool time_matches = time_diff == Approx(0.0).margin(1e-8);
-//    CHECK(time_matches);
-//    if (!time_matches)
+    CHECK(time_matches);
+    if (!time_matches)
     {
       std::cout << "time: " << rmf_traffic::time::to_seconds(wp_a.time().time_since_epoch())
                 << " - "
@@ -84,8 +82,8 @@ bool compare_routes(
     const Eigen::Vector3d p_a = wp_a.position();
     const Eigen::Vector3d p_b = wp_b.position();
     const bool positions_match = (p_a - p_b).norm() == Approx(0.0).margin(1e-8);
-//    CHECK(positions_match);
-//    if (!positions_match)
+    CHECK(positions_match);
+    if (!positions_match)
     {
       std::cout << "position: |(" << p_a.transpose() << ") - (" << p_b.transpose()
                 << ")| = " << (p_a - p_b).norm() << std::endl;
@@ -95,8 +93,8 @@ bool compare_routes(
     const Eigen::Vector3d v_b = wp_b.velocity();
     const bool velocities_match =
       (v_a - v_b).norm() == Approx(0.0).margin(1e-8);
-//    CHECK(velocities_match);
-//    if (!velocities_match)
+    CHECK(velocities_match);
+    if (!velocities_match)
     {
       std::cout << "velocity: |(" << v_a.transpose() << ") - (" << v_b.transpose()
                 << ")| = " << (v_a - v_b).norm() << std::endl;
@@ -121,13 +119,9 @@ bool compare_plan(
   rmf_traffic::Time time = start_time;
   double yaw = initial_position[2];
   std::vector<rmf_traffic::Route> routes;
-  std::cout << "Solution:";
   while (solution)
   {
     REQUIRE(solution->route_factory);
-
-    std::cout << " " << solution->info.waypoint << "(" << solution->info.position.transpose()
-              << ") ->";
 
     auto new_route_info = solution->route_factory(time, yaw);
     routes.insert(
@@ -139,7 +133,6 @@ bool compare_plan(
 
     solution = solution->child;
   }
-  std::cout << " Done" << std::endl;
 
   Eigen::Vector3d position = initial_position;
   time = start_time;

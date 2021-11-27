@@ -143,8 +143,8 @@ using ForwardNodePtr = std::shared_ptr<const ForwardNode>;
 struct ForwardNode
 {
   // This node represents the state of a robot that is at the end of this lane
-  // and ready to exit it. The cost is how much time it took the robot to reach
-  // the end of this lane, starting from the initial waypoint of the tree.
+  // and finished exiting it. The cost is how much time it took the robot to
+  // reach the end of this lane, starting from the initial waypoint of the tree.
   LaneId lane;
   double cost;
   double lane_cost;

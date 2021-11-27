@@ -161,7 +161,6 @@ void initialize_traversals(
   DijkstraQueue<NodePtrT>& frontier,
   const Traversals& traversals)
 {
-//  std::cout << "initializing:";
   for (const auto& traversal : traversals)
   {
     std::optional<double> orientation;
@@ -174,7 +173,6 @@ void initialize_traversals(
       }
     }
 
-//    std::cout << " " << traversal.*get_next_lane;
     frontier.push(
       std::make_shared<typename NodePtrT::element_type>(
         typename NodePtrT::element_type{
@@ -185,7 +183,6 @@ void initialize_traversals(
           nullptr
         }));
   }
-//  std::cout << std::endl;
 }
 } // anonymous namespace
 
@@ -246,6 +243,20 @@ ReverseNodePtr ReverseExpander::expand(
   DijkstraQueue<ReverseNodePtr>& frontier,
   std::unordered_map<LaneId, ReverseNodePtr>& visited) const
 {
+//  const auto& lane = _graph->original().lanes[top->lane];
+//  std::cout << "Selecting " << lane.entry().waypoint_index() << " -> "
+//            << lane.exit().waypoint_index() << " (" << top->cost << ":" << top->lane_cost << ") for expansion";
+//  if (top->parent)
+//  {
+//    const auto& parent_lane = _graph->original().lanes[top->parent->lane];
+//    std::cout << " | parent: " << parent_lane.entry().waypoint_index() << " -> "
+//              << parent_lane.exit().waypoint_index() << std::endl;
+//  }
+//  else
+//  {
+//    std::cout << " | no parent" << std::endl;
+//  }
+
   const auto insertion = visited.insert({top->lane, top});
   const auto was_inserted = insertion.second;
   if (!was_inserted)
@@ -274,6 +285,14 @@ void ReverseExpander::initialize(
   DijkstraQueue<ReverseNodePtr>& frontier) const
 {
   const auto& traversals = *_graph->traversals_into(waypoint_index);
+//  std::cout << "Initial reverse traversals:" << std::endl;
+//  for (const auto& t : traversals)
+//  {
+//    std::cout << _graph->original().lanes[t.initial_lane_index].entry().waypoint_index()
+//        << " -> " << _graph->original().lanes[t.finish_lane_index].exit().waypoint_index()
+//        << "(" << t.best_time << ")" << std::endl;
+//  }
+
   initialize_traversals<&Traversal::initial_lane_index>(frontier, traversals);
 }
 
@@ -406,7 +425,13 @@ std::optional<double> lowest_cost_overlap(
 
     const auto check = combine_costs(*visit, *m_it->second);
     if (!lowest_cost.has_value() || check < *lowest_cost)
+    {
       lowest_cost = check;
+//      std::cout << "New lowest overlap at " << visit->lane
+//                << ": (" << visit->cost << ", " << visit->lane_cost << ") ("
+//                << m_it->second->cost << ", " << m_it->second->lane_cost
+//                << ") -> " << check << std::endl;
+    }
   }
 
   return lowest_cost;
@@ -430,6 +455,11 @@ std::optional<double> find_overlap(
 std::optional<double> MinimalTravelHeuristic::get(
   WaypointId start, WaypointId finish) const
 {
+//  std::cout << " ------ \nGetting heuristic for "  << start << " -> " << finish << std::endl;
+
+  if (start == finish)
+    return 0.0;
+
   if (const auto solution = _check_for_solution(start, finish))
     return *solution;
 
@@ -486,18 +516,84 @@ std::optional<double> MinimalTravelHeuristic::_search(
           if (const auto overlap = reverse.visited(next_forward->lane))
           {
             result = combine_costs(*next_forward, *overlap);
+
+//            const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
+//            std::cout << "Met at " << wp << " | " << next_forward->lane
+//                      << ": (" << next_forward->cost << ", "
+//                      << next_forward->lane_cost << ") ("
+//                      << overlap->cost << ", " << overlap->lane_cost
+//                      << ") -> " << *result << std::endl;
+
+//            auto f = next_forward;
+//            std::cout << "Forward: ";
+//            while (f)
+//            {
+//              const auto f_lane = _graph->original().lanes[f->lane];
+//              const auto f_wp_0 = f_lane.entry().waypoint_index();
+//              const auto f_wp_1 = f_lane.exit().waypoint_index();
+//              std::cout << f_wp_1 << " <- " << f_wp_0 << " (" << f->cost << ":" << f->lane_cost << ") | ";
+//              f = f->parent;
+//            }
+//            std::cout << "Begin" << std::endl;
+
+//            std::cout << "Reverse: ";
+//            auto r = overlap;
+//            while (r)
+//            {
+//              const auto r_lane = _graph->original().lanes[r->lane];
+//              const auto r_wp_0 = r_lane.entry().waypoint_index();
+//              const auto r_wp_1 = r_lane.exit().waypoint_index();
+//              std::cout << r_wp_0 << " -> " << r_wp_1 << " (" << r->cost << ":" << r->lane_cost << ") -> ";
+//              r = r->parent;
+//            }
+//            std::cout << "Finish" << std::endl;
+
             break;
           }
         }
       }
 
-      const auto next_reverse = reverse.expand();
-      if (next_reverse)
       {
-        if (const auto overlap = forward.visited(next_reverse->lane))
+        const auto next_reverse = reverse.expand();
+        if (next_reverse)
         {
-          result = combine_costs(*next_reverse, *overlap);
-          break;
+          if (const auto overlap = forward.visited(next_reverse->lane))
+          {
+            result = combine_costs(*next_reverse, *overlap);
+
+//            const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
+//            std::cout << "Met at " << f_wp << " | " << next_reverse->lane
+//                      << ": (" << next_reverse->cost << ", "
+//                      << next_reverse->lane_cost << ") ("
+//                      << overlap->cost << ", " << overlap->lane_cost
+//                      << ") -> " << *result << std::endl;
+
+//            auto f = overlap;
+//            std::cout << "Forward: ";
+//            while (f)
+//            {
+//              const auto f_lane = _graph->original().lanes[f->lane];
+//              const auto f_wp_0 = f_lane.entry().waypoint_index();
+//              const auto f_wp_1 = f_lane.exit().waypoint_index();
+//              std::cout << f_wp_1 << " <- " << f_wp_0 << " (" << f->cost << ":" << f->lane_cost << ") | ";
+//              f = f->parent;
+//            }
+//            std::cout << "Begin" << std::endl;
+
+//            std::cout << "Reverse: ";
+//            auto r = next_reverse;
+//            while (r)
+//            {
+//              const auto r_lane = _graph->original().lanes[r->lane];
+//              const auto r_wp_0 = r_lane.entry().waypoint_index();
+//              const auto r_wp_1 = r_lane.exit().waypoint_index();
+//              std::cout << r_wp_0 << " -> " << r_wp_1 << " (" << r->cost << ":" << r->lane_cost << ") -> ";
+//              r = r->parent;
+//            }
+//            std::cout << "Finish" << std::endl;
+
+            break;
+          }
         }
       }
     }

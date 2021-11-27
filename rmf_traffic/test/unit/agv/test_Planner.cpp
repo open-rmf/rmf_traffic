@@ -235,18 +235,23 @@ void test_ignore_obstacle(
   REQUIRE(database_version > 0);
   const auto& start = original_result->get_start();
   rmf_traffic::agv::Plan::Options options = original_result.options();
-  std::unordered_set<rmf_traffic::schedule::ParticipantId> ignore_ids;
-  for (rmf_traffic::schedule::Version v = 0; v <= database_version; ++v)
-    ignore_ids.insert(v);
-
   options.validator(nullptr);
 
   const auto new_plan = original_result.replan(start, std::move(options));
 
   // The new plan which ignores the conflicts should be the same as the original
   REQUIRE(new_plan->get_itinerary().size() == 1);
-  CHECK(new_plan->get_itinerary().front().trajectory().duration()
-    == original_result->get_itinerary().front().trajectory().duration());
+  const auto new_duration = new_plan->get_itinerary().front().trajectory().duration();
+  const auto old_duration = original_result->get_itinerary().front().trajectory().duration();
+  CHECK(new_duration == old_duration);
+  if (new_duration != old_duration)
+  {
+    std::cout << "new_duration: " << rmf_traffic::time::to_seconds(new_duration)
+              << "\nold_duration: " << rmf_traffic::time::to_seconds(old_duration)
+              << "\ndiff: " << rmf_traffic::time::to_seconds(new_duration - old_duration)
+              << std::endl;
+  }
+
   REQUIRE(new_plan->get_waypoints().size()
     == original_result->get_waypoints().size());
 
