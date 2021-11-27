@@ -66,22 +66,40 @@ bool compare_routes(
     const auto& wp_a = a.trajectory().at(i);
     const auto& wp_b = b.trajectory().at(i);
 
+    std::cout << "Waypoint " << i << ":\n";
+
     const double time_diff =
       rmf_traffic::time::to_seconds(wp_a.time() - wp_b.time());
     const bool time_matches = time_diff == Approx(0.0).margin(1e-8);
-    CHECK(time_matches);
+//    CHECK(time_matches);
+//    if (!time_matches)
+    {
+      std::cout << "time: " << rmf_traffic::time::to_seconds(wp_a.time().time_since_epoch())
+                << " - "
+                << rmf_traffic::time::to_seconds(wp_b.time().time_since_epoch())
+                << " = " << time_diff << std::endl;
+    }
 
     const Eigen::Vector3d p_a = wp_a.position();
     const Eigen::Vector3d p_b = wp_b.position();
     const bool positions_match = (p_a - p_b).norm() == Approx(0.0).margin(1e-8);
-    CHECK(positions_match);
+//    CHECK(positions_match);
+//    if (!positions_match)
+    {
+      std::cout << "position: |(" << p_a.transpose() << ") - (" << p_b.transpose()
+                << ")| = " << (p_a - p_b).norm() << std::endl;
+    }
 
     const Eigen::Vector3d v_a = wp_a.velocity();
     const Eigen::Vector3d v_b = wp_b.velocity();
     const bool velocities_match =
       (v_a - v_b).norm() == Approx(0.0).margin(1e-8);
-
-    CHECK(velocities_match);
+//    CHECK(velocities_match);
+//    if (!velocities_match)
+    {
+      std::cout << "velocity: |(" << v_a.transpose() << ") - (" << v_b.transpose()
+                << ")| = " << (v_a - v_b).norm() << std::endl;
+    }
 
     all_correct &= time_matches && positions_match && velocities_match;
   }
@@ -102,9 +120,13 @@ bool compare_plan(
   rmf_traffic::Time time = start_time;
   double yaw = initial_position[2];
   std::vector<rmf_traffic::Route> routes;
+  std::cout << "Solution:";
   while (solution)
   {
     REQUIRE(solution->route_factory);
+
+    std::cout << " " << solution->info.waypoint << "(" << solution->info.position.transpose()
+              << ") ->";
 
     auto new_route_info = solution->route_factory(time, yaw);
     routes.insert(
@@ -116,6 +138,7 @@ bool compare_plan(
 
     solution = solution->child;
   }
+  std::cout << " Done" << std::endl;
 
   Eigen::Vector3d position = initial_position;
   time = start_time;
@@ -267,6 +290,7 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
 
   const double initial_yaw = 0._deg;
 
+  WHEN("116, B, S, 59, B")
   {
     const Key key{116, Ori::Backward, Side::Start, 59, Ori::Backward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -303,9 +327,12 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    const bool plan_matches =
+      compare_plan(traits, initial_position, actions, solution);
+    CHECK(plan_matches);
   }
 
+  WHEN("116, F, S, 119, B")
   {
     const Key key{116, Ori::Forward, Side::Start, 119, Ori::Backward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -336,9 +363,12 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    const bool plan_matches =
+      compare_plan(traits, initial_position, actions, solution);
+    CHECK(plan_matches);
   }
 
+  WHEN("1, B, S, 119, B")
   {
     const Key key{1, Ori::Backward, Side::Start, 119, Ori::Forward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -375,7 +405,9 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    const bool plan_matches =
+      compare_plan(traits, initial_position, actions, solution);
+    CHECK(plan_matches);
   }
 }
 

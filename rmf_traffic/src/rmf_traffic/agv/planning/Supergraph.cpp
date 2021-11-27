@@ -25,6 +25,9 @@
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -589,7 +592,7 @@ ConstTraversalsPtr TraversalIntoGenerator::generate(
     const auto& traversals_from = _traversals_from->get().get(waypoint_from);
     for (const auto& traversal : *traversals_from)
     {
-      if (traversal.finish_lane_index == key)
+      if (traversal.finish_lane_index == lane_index)
         traversals_into->push_back(traversal);
     }
   }

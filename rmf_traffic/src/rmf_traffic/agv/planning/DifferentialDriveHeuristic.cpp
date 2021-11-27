@@ -28,6 +28,8 @@
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -482,7 +484,7 @@ private:
   std::optional<double> _goal_yaw;
   Entry _goal_entry;
   const DifferentialDriveHeuristic::Storage& _old_items;
-  std::shared_ptr<const MinimalTravelHeuristic> _heuristic;
+  ConstMinimalTravelHeuristicPtr _heuristic;
   std::shared_ptr<const Supergraph> _graph;
   KinematicLimits _limits;
   Interpolate::Options::Implementation _interpolate;
@@ -520,6 +522,13 @@ auto DifferentialDriveHeuristic::generate(
 
   auto start_heuristic =
     _heuristic->get(start_waypoint_index, goal_waypoint_index);
+  std::cout << "Result for " << start_waypoint_index << " -> " << goal_waypoint_index
+            << ": ";
+  if (start_heuristic.has_value())
+    std::cout << *start_heuristic;
+  else
+    std::cout << "null";
+  std::cout << std::endl;
   if (!start_heuristic.has_value())
   {
     // If the heuristic of this starting waypoint is a nullopt, then it is

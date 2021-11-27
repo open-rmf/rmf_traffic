@@ -20,6 +20,8 @@
 
 #include <rmf_utils/math.hpp>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -159,6 +161,7 @@ void initialize_traversals(
   DijkstraQueue<NodePtrT>& frontier,
   const Traversals& traversals)
 {
+  std::cout << "initializing:";
   for (const auto& traversal : traversals)
   {
     std::optional<double> orientation;
@@ -171,6 +174,7 @@ void initialize_traversals(
       }
     }
 
+    std::cout << " " << traversal.*get_next_lane;
     frontier.push(
       std::make_shared<typename NodePtrT::element_type>(
         typename NodePtrT::element_type{
@@ -181,6 +185,7 @@ void initialize_traversals(
           nullptr
         }));
   }
+  std::cout << std::endl;
 }
 } // anonymous namespace
 
@@ -496,6 +501,14 @@ std::optional<double> MinimalTravelHeuristic::_search(
         }
       }
     }
+
+    std::cout << "Forward visits:";
+    for (const auto& visit : forward.all_visits())
+      std::cout << " " << visit.second->lane;
+    std::cout << "\n\nReverse visits:";
+    for (const auto& visit : reverse.all_visits())
+      std::cout << " " << visit.second->lane;
+    std::cout << "\n" << std::endl;
   }
 
   // Release the locks since we are done with these trees

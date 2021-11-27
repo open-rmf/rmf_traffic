@@ -67,7 +67,7 @@ public:
   }
 
 private:
-  std::atomic_bool* _mutex;
+  std::atomic_bool* _mutex = nullptr;
 };
 
 //==============================================================================
@@ -245,13 +245,13 @@ private:
   void _process_waiting_list();
 
   std::optional<Tree> _tree;
-  std::atomic_bool _tree_mutex;
+  std::atomic_bool _tree_mutex = false;
 
   // This field contains the solution node of the minimum cost path from some
   // other waypoint to the one for this tree's root. These nodes should be
   // flipped and inserted into the tree at the start of any usage of this tree.
   std::vector<ComplementNodePtr> _waiting_list;
-  std::atomic_bool _waiting_list_mutex;
+  std::atomic_bool _waiting_list_mutex = false;
 };
 
 //==============================================================================
@@ -288,16 +288,16 @@ private:
   std::shared_ptr<const Supergraph> _graph;
 
   mutable ForwardTreeManagerMap _forward;
-  mutable std::atomic_bool _forward_mutex;
+  mutable std::atomic_bool _forward_mutex = false;
 
   mutable ReverseTreeManagerMap _reverse;
-  mutable std::atomic_bool _reverse_mutex;
+  mutable std::atomic_bool _reverse_mutex = false;
 
   using SolutionMap =
     std::unordered_map<
       WaypointId, std::unordered_map<WaypointId, std::optional<double>>>;
   mutable SolutionMap _solutions;
-  mutable std::atomic_bool _solutions_mutex;
+  mutable std::atomic_bool _solutions_mutex = false;
 };
 
 //==============================================================================
