@@ -27,6 +27,58 @@ namespace agv {
 namespace planning {
 
 //==============================================================================
+template<typename E, typename C>
+FrontierTemplate<E, C>::FrontierTemplate(Compare comparator)
+: _comparator(std::move(comparator))
+{
+  // Do nothing
+}
+
+//==============================================================================
+template<typename E, typename C>
+auto FrontierTemplate<E, C>::pop() -> Element
+{
+  auto element = std::move(_storage.back());
+  _storage.pop_back();
+  return element;
+}
+
+//==============================================================================
+template<typename E, typename C>
+void FrontierTemplate<E, C>::push(Element new_element)
+{
+  _storage.push_back(std::move(new_element));
+  std::push_heap(_storage.begin(), _storage.end(), _comparator);
+}
+
+//==============================================================================
+template<typename E, typename C>
+auto FrontierTemplate<E, C>::peek() const -> const Element*
+{
+  if (_storage.empty())
+    return nullptr;
+
+  return &_storage.back();
+}
+
+//==============================================================================
+template<typename E, typename C>
+bool FrontierTemplate<E, C>::empty() const
+{
+  return _storage.empty();
+}
+
+//==============================================================================
+template<typename E, typename C>
+void FrontierTemplate<E, C>::retarget(std::function<void(Element&)> transform)
+{
+  for (auto& element : _storage)
+    transform(element);
+
+  std::make_heap(_storage.begin(), _storage.end(), _comparator);
+}
+
+//==============================================================================
 template<typename ExpanderT>
 Tree<ExpanderT>::Tree(
   std::size_t initial_waypoint,
@@ -43,8 +95,7 @@ auto Tree<ExpanderT>::expand() -> NodePtr
   if (_frontier.empty())
     return nullptr;
 
-  const auto top = _frontier.top();
-  _frontier.pop();
+  const auto top = _frontier.pop();
   return _expander.expand(top, _frontier, _visited);
 }
 
@@ -78,17 +129,39 @@ auto Tree<ExpanderT>::all_visits() const
 template<typename ExpanderT>
 bool Tree<ExpanderT>::exhausted() const
 {
-  return _frontier.empty();
+  const auto* peek = _frontier.peek();
+  if (!peek)
+    return true;
+
+  // We always put expanded elements into the frontier even if they have no
+  // prospect of reach the current target, because they might still matter for
+  // reaching a different target during a different search. However we sort
+  // those elements to all be in the bottom of the frontier queue. If one of
+  // those elements reaches the top of the queue, then we know we have run out
+  // of nodes that are worth exploring for this search.
+  return !(*peek)->remaining_cost_estimate.has_value();
+}
+
+//==============================================================================
+template<typename ExpanderT>
+void Tree<ExpanderT>::retarget(Cache<EuclideanHeuristic> new_heuristic)
+{
+  _expander.retarget(std::move(new_heuristic), _frontier);
 }
 
 namespace {
 //==============================================================================
-template<std::size_t Traversal::*get_next_lane, typename NodePtrT>
+template<
+  std::size_t Traversal::*get_next_lane,
+  std::size_t Traversal::*get_next_waypoint,
+  std::size_t Traversal::*get_complement_waypoint,
+  typename NodePtrT, typename C>
 void expand_traversals(
   const NodePtrT& top,
-  DijkstraQueue<NodePtrT>& frontier,
+  FrontierTemplate<NodePtrT, C>& frontier,
   std::unordered_map<LaneId, NodePtrT>& visited,
   const std::shared_ptr<const Supergraph>& graph,
+  const Cache<EuclideanHeuristic>& heuristic,
   const Traversals& traversals)
 {
   for (const auto& traversal : traversals)
@@ -143,12 +216,16 @@ void expand_traversals(
       }
     }
 
+    const auto next_waypoint = traversal.*get_next_waypoint;
     frontier.push(
       std::make_shared<typename NodePtrT::element_type>(
         typename NodePtrT::element_type{
           next_lane,
-          top->cost + traversal.best_time + rotational_cost,
+          top->current_cost + traversal.best_time + rotational_cost,
+          heuristic.get(next_waypoint),
           traversal.best_time,
+          next_waypoint,
+          traversal.*get_complement_waypoint,
           next_orientation,
           top
         }));
@@ -156,9 +233,14 @@ void expand_traversals(
 }
 
 //==============================================================================
-template<std::size_t Traversal::*get_next_lane, typename NodePtrT>
+template<
+  std::size_t Traversal::*get_next_lane,
+  std::size_t Traversal::*get_next_waypoint,
+  std::size_t Traversal::*get_complement_waypoint,
+  typename NodePtrT, typename C>
 void initialize_traversals(
-  DijkstraQueue<NodePtrT>& frontier,
+  FrontierTemplate<NodePtrT, C>& frontier,
+  const Cache<EuclideanHeuristic>& heuristic,
   const Traversals& traversals)
 {
   for (const auto& traversal : traversals)
@@ -173,12 +255,16 @@ void initialize_traversals(
       }
     }
 
+    const auto next_waypoint = traversal.*get_next_waypoint;
     frontier.push(
       std::make_shared<typename NodePtrT::element_type>(
         typename NodePtrT::element_type{
           traversal.*get_next_lane,
           traversal.best_time,
+          heuristic.get(next_waypoint),
           traversal.best_time,
+          next_waypoint,
+          traversal.*get_complement_waypoint,
           orientation,
           nullptr
         }));
@@ -187,16 +273,18 @@ void initialize_traversals(
 } // anonymous namespace
 
 //==============================================================================
-ForwardExpander::ForwardExpander(std::shared_ptr<const Supergraph> graph)
-: _graph(std::move(graph))
+ForwardExpander::ForwardExpander(
+  std::shared_ptr<const Supergraph> graph,
+  Cache<EuclideanHeuristic> heuristic)
+: _graph(std::move(graph)),
+  _heuristic(std::move(heuristic))
 {
   // Do nothing
 }
 
 //==============================================================================
-ForwardNodePtr ForwardExpander::expand(
-  const ForwardNodePtr& top,
-  DijkstraQueue<ForwardNodePtr>& frontier,
+ForwardNodePtr ForwardExpander::expand(const ForwardNodePtr& top,
+  Frontier& frontier,
   std::unordered_map<LaneId, ForwardNodePtr>& visited) const
 {
   const auto insertion = visited.insert({top->lane, top});
@@ -211,36 +299,62 @@ ForwardNodePtr ForwardExpander::expand(
 
   const auto& top_lane = _graph->original().lanes.at(top->lane);
   const auto waypoint = top_lane.exit().waypoint_index();
-  expand_traversals<&Traversal::finish_lane_index>(
-    top,
-    frontier,
-    visited,
-    _graph,
-    *_graph->traversals_from(waypoint));
+  expand_traversals<
+    &Traversal::finish_lane_index,
+    &Traversal::finish_waypoint_index,
+    &Traversal::initial_waypoint_index>(
+      top,
+      frontier,
+      visited,
+      _graph,
+      _heuristic,
+      *_graph->traversals_from(waypoint));
 
   return top;
 }
 
 //==============================================================================
-void ForwardExpander::initialize(
-  std::size_t waypoint_index,
-  DijkstraQueue<ForwardNodePtr>& frontier) const
+void ForwardExpander::initialize(std::size_t waypoint_index,
+  Frontier& frontier) const
 {
   const auto& traversals = *_graph->traversals_from(waypoint_index);
-  initialize_traversals<&Traversal::finish_lane_index>(frontier, traversals);
+  initialize_traversals<
+    &Traversal::finish_lane_index,
+    &Traversal::finish_waypoint_index,
+    &Traversal::initial_waypoint_index>(
+      frontier, _heuristic, traversals);
 }
 
 //==============================================================================
-ReverseExpander::ReverseExpander(std::shared_ptr<const Supergraph> graph)
-: _graph(std::move(graph))
+void ForwardExpander::retarget(
+  Cache<EuclideanHeuristic> new_heuristic,
+  Frontier& frontier)
+{
+  _heuristic = std::move(new_heuristic);
+
+  // It is okay to capture by reference because the lambda only gets used within
+  // the scope of this function. The retarget(~) function does not store it for
+  // later.
+  frontier.retarget(
+    [&](const std::shared_ptr<ForwardNode>& element)
+    {
+      element->remaining_cost_estimate = _heuristic.get(element->waypoint);
+    });
+}
+
+//==============================================================================
+ReverseExpander::ReverseExpander(
+  std::shared_ptr<const Supergraph> graph,
+  Cache<EuclideanHeuristic> heuristic)
+: _graph(std::move(graph)),
+  _heuristic(std::move(heuristic))
 {
   // Do nothing
 }
 
 //==============================================================================
-ReverseNodePtr ReverseExpander::expand(
-  const ReverseNodePtr& top,
-  DijkstraQueue<ReverseNodePtr>& frontier,
+ReverseNodePtr ReverseExpander::expand(const ReverseNodePtr& top,
+  Frontier& frontier,
   std::unordered_map<LaneId, ReverseNodePtr>& visited) const
 {
 //  const auto& lane = _graph->original().lanes[top->lane];
@@ -269,20 +383,23 @@ ReverseNodePtr ReverseExpander::expand(
 
   const auto& top_lane = _graph->original().lanes.at(top->lane);
   const auto waypoint = top_lane.entry().waypoint_index();
-  expand_traversals<&Traversal::initial_lane_index>(
-    top,
-    frontier,
-    visited,
-    _graph,
-    *_graph->traversals_into(waypoint));
+  expand_traversals<
+    &Traversal::initial_lane_index,
+    &Traversal::initial_waypoint_index,
+    &Traversal::finish_waypoint_index>(
+      top,
+      frontier,
+      visited,
+      _graph,
+      _heuristic,
+      *_graph->traversals_into(waypoint));
 
   return top;
 }
 
 //==============================================================================
-void ReverseExpander::initialize(
-  std::size_t waypoint_index,
-  DijkstraQueue<ReverseNodePtr>& frontier) const
+void ReverseExpander::initialize(std::size_t waypoint_index,
+  Frontier& frontier) const
 {
   const auto& traversals = *_graph->traversals_into(waypoint_index);
 //  std::cout << "Initial reverse traversals:" << std::endl;
@@ -293,18 +410,40 @@ void ReverseExpander::initialize(
 //        << "(" << t.best_time << ")" << std::endl;
 //  }
 
-  initialize_traversals<&Traversal::initial_lane_index>(frontier, traversals);
+  initialize_traversals<
+    &Traversal::initial_lane_index,
+    &Traversal::initial_waypoint_index,
+    &Traversal::finish_waypoint_index>(
+      frontier, _heuristic, traversals);
+}
+
+//==============================================================================
+void ReverseExpander::retarget(
+  Cache<EuclideanHeuristic> heuristic,
+  Frontier& frontier)
+{
+  _heuristic = std::move(heuristic);
+
+  // It is okay to capture by reference because the lambda only gets used within
+  // the scope of this function. The retarget(~) function does not store it for
+  // later.
+  frontier.retarget(
+    [&](const std::shared_ptr<ReverseNode>& element)
+    {
+      element->remaining_cost_estimate = _heuristic.get(element->waypoint);
+    });
 }
 
 //==============================================================================
 template<typename T, typename C>
 LockedTree<T> TreeManager<T, C>::get_tree(
   std::size_t waypoint,
-  const std::shared_ptr<const Supergraph>& graph)
+  const std::shared_ptr<const Supergraph>& graph,
+  const Cache<EuclideanHeuristic>& heuristic)
 {
   SpinLock lock(_tree_mutex);
   if (!_tree.has_value())
-    _tree = Tree(waypoint, graph);
+    _tree = Tree(waypoint, typename Tree::Expander(graph, heuristic));
 
   _process_waiting_list();
   return LockedTree<T>{&(*_tree), std::move(lock)};
@@ -326,7 +465,7 @@ void TreeManager<T, C>::_process_waiting_list()
 
   for (const auto& complement_node : _waiting_list)
   {
-    const double full_cost = complement_node->cost;
+    const double full_cost = complement_node->current_cost;
     std::vector<NodePtr> new_nodes;
     NodePtr parent_node = nullptr;
     ComplementNodePtr current_node = complement_node;
@@ -341,8 +480,13 @@ void TreeManager<T, C>::_process_waiting_list()
         auto new_node = std::make_shared<Node>(
               Node{
                 current_node->lane,
-                full_cost - current_node->cost + current_node->lane_cost,
+                full_cost - current_node->current_cost + current_node->lane_cost,
+                0.0, // placeholder which will get overwritten when retarget(~) is called
                 current_node->lane_cost,
+                // We switch the waypoint and the complement_waypoint here
+                // because we are reversing the type of node
+                current_node->complement_waypoint,
+                current_node->waypoint,
                 current_node->orientation,
                 parent_node
               });
@@ -366,7 +510,8 @@ void TreeManager<T, C>::_process_waiting_list()
 //==============================================================================
 MinimalTravelHeuristic::MinimalTravelHeuristic(
   std::shared_ptr<const Supergraph> graph)
-: _graph(std::move(graph))
+: _graph(std::move(graph)),
+  _heuristic_cache(std::make_shared<EuclideanHeuristicFactory>(_graph))
 {
   // Do nothing
 }
@@ -381,7 +526,7 @@ double combine_costs(const A& a, const B& b)
   // other because it may be going across multiple lanes instead of only going
   // down one lane. We subtract the lower of the two lane costs because the
   // lower lane cost would be leaving a gap in the overall path.
-  return a.cost + b.cost - std::min(a.lane_cost, b.lane_cost);
+  return a.current_cost + b.current_cost - std::min(a.lane_cost, b.lane_cost);
 }
 
 //==============================================================================
@@ -403,11 +548,12 @@ LockedTree<T> lock_tree(
   std::atomic_bool& mutex,
   TreeManagerMap<T, C>& manager_map,
   WaypointId waypoint,
-  const std::shared_ptr<const Supergraph>& graph)
+  const std::shared_ptr<const Supergraph>& graph,
+  const Cache<EuclideanHeuristic>& heuristic)
 {
   SpinLock lock(mutex);
   return get_manager(manager_map, waypoint)
-    ->second->get_tree(waypoint, graph);
+    ->second->get_tree(waypoint, graph, heuristic);
 }
 
 //==============================================================================
@@ -496,10 +642,12 @@ std::optional<double> MinimalTravelHeuristic::get(
     return *solution;
 
   LockedTree<ForwardTree> forward =
-    lock_tree(_forward_mutex, _forward, start, _graph);
+    lock_tree(_forward_mutex, _forward, start, _graph,
+              _heuristic_cache.get(finish)->get());
 
   LockedTree<ReverseTree> reverse =
-    lock_tree(_reverse_mutex, _reverse, finish, _graph);
+    lock_tree(_reverse_mutex, _reverse, finish, _graph,
+              _heuristic_cache.get(start)->get());
 
   if (const auto overlap = find_overlap(*forward.tree, *reverse.tree))
   {
@@ -538,7 +686,11 @@ std::optional<double> MinimalTravelHeuristic::_search(
   std::vector<ReverseNodePtr> new_reverses;
   {
     auto& forward = *forward_locked->tree;
+    forward.retarget(_heuristic_cache.get(finish)->get());
+
     auto& reverse = *reverse_locked->tree;
+    reverse.retarget(_heuristic_cache.get(start)->get());
+
     while (!(forward.exhausted() && reverse.exhausted()))
     {
       {

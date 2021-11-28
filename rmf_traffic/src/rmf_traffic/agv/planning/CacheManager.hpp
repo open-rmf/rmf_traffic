@@ -152,7 +152,6 @@ public:
     std::shared_ptr<Upstream_type> upstream,
     std::function<Storage()> storage_initializer);
 
-
   using Key = typename Storage::key_type;
   using Value = typename Storage::mapped_type;
 

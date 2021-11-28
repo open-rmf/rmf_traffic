@@ -62,6 +62,7 @@ struct Traversal
 {
   std::size_t initial_lane_index;
   std::size_t finish_lane_index;
+  std::size_t initial_waypoint_index;
   std::size_t finish_waypoint_index;
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;

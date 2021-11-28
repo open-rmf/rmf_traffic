@@ -71,6 +71,7 @@ struct TraversalNode
 {
   std::size_t initial_lane_index;
   std::size_t finish_lane_index;
+  std::size_t initial_waypoint_index;
   std::size_t finish_waypoint_index;
 
   Eigen::Vector2d initial_p;
@@ -117,6 +118,7 @@ void node_to_traversals(
   Traversal traversal;
   traversal.initial_lane_index = node.initial_lane_index;
   traversal.finish_lane_index = node.finish_lane_index;
+  traversal.initial_waypoint_index = node.initial_waypoint_index;
   traversal.finish_waypoint_index = node.finish_waypoint_index;
   traversal.best_time = 0.0;
   traversal.maps = std::vector<std::string>(
@@ -264,6 +266,7 @@ void perform_traversal(
 
   TraversalNode node;
   node.finish_lane_index = lane_index;
+  node.initial_waypoint_index = wp_index_0;
   node.finish_waypoint_index = wp_index_1;
   node.lowest_speed_limit = lane.properties().speed_limit();
 
@@ -277,6 +280,7 @@ void perform_traversal(
     }
 
     node.initial_lane_index = parent->initial_lane_index;
+    node.initial_waypoint_index = parent->initial_waypoint_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
     node.traversed_lanes = parent->traversed_lanes;
