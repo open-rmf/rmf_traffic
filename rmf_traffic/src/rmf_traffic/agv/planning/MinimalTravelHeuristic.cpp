@@ -708,7 +708,8 @@ std::optional<double> MinimalTravelHeuristic::_search(
             result = combine_costs(*next_forward, *overlap);
 
             const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
-            std::cout << "Met at " << wp << " | " << next_forward->lane
+            std::cout << start << " -> " << finish
+                      << " | Forward met at " << wp << " | " << next_forward->lane
                       << ": (" << next_forward->current_cost << ", "
                       << next_forward->lane_cost << ") ("
                       << overlap->current_cost << ", " << overlap->lane_cost
@@ -752,7 +753,8 @@ std::optional<double> MinimalTravelHeuristic::_search(
             result = combine_costs(*next_reverse, *overlap);
 
             const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
-            std::cout << "Met at " << f_wp << " | " << next_reverse->lane
+            std::cout << start << " -> " << finish
+                      << "Met at " << f_wp << " | " << next_reverse->lane
                       << ": (" << next_reverse->current_cost << ", "
                       << next_reverse->lane_cost << ") ("
                       << overlap->current_cost << ", " << overlap->lane_cost
@@ -795,6 +797,11 @@ std::optional<double> MinimalTravelHeuristic::_search(
 //    for (const auto& visit : reverse.all_visits())
 //      std::cout << " " << visit.second->lane;
 //    std::cout << "\n" << std::endl;
+  }
+
+  if (!result.has_value())
+  {
+    std::cout << "FAILED TO FIND SOLUTION FOR " << start << " -> " << finish << std::endl;
   }
 
   // Release the locks since we are done with these trees
