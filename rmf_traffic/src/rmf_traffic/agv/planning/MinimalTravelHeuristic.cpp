@@ -18,8 +18,6 @@
 #include "MinimalTravelHeuristic.hpp"
 #include "../internal_Interpolate.hpp"
 
-#include <rmf_utils/math.hpp>
-
 #include <iostream>
 
 namespace rmf_traffic {
@@ -27,263 +25,21 @@ namespace agv {
 namespace planning {
 
 //==============================================================================
-template<typename E, typename C>
-FrontierTemplate<E, C>::FrontierTemplate(Compare comparator)
-: _comparator(std::move(comparator))
-{
-  // Do nothing
-}
-
-//==============================================================================
-template<typename E, typename C>
-auto FrontierTemplate<E, C>::pop() -> Element
-{
-  auto element = std::move(_storage.back());
-  _storage.pop_back();
-  return element;
-}
-
-//==============================================================================
-template<typename E, typename C>
-void FrontierTemplate<E, C>::push(Element new_element)
-{
-  _storage.push_back(std::move(new_element));
-  std::push_heap(_storage.begin(), _storage.end(), _comparator);
-}
-
-//==============================================================================
-template<typename E, typename C>
-auto FrontierTemplate<E, C>::peek() const -> const Element*
-{
-  if (_storage.empty())
-    return nullptr;
-
-  return &_storage.back();
-}
-
-//==============================================================================
-template<typename E, typename C>
-bool FrontierTemplate<E, C>::empty() const
-{
-  return _storage.empty();
-}
-
-//==============================================================================
-template<typename E, typename C>
-void FrontierTemplate<E, C>::retarget(std::function<void(Element&)> transform)
-{
-  for (auto& element : _storage)
-    transform(element);
-
-  std::make_heap(_storage.begin(), _storage.end(), _comparator);
-}
-
-//==============================================================================
-template<typename ExpanderT>
-Tree<ExpanderT>::Tree(
-  std::size_t initial_waypoint,
-  Expander expander)
-: _expander(std::move(expander))
-{
-  _expander.initialize(initial_waypoint, _frontier);
-}
-
-//==============================================================================
-template<typename ExpanderT>
-auto Tree<ExpanderT>::expand() -> NodePtr
-{
-  if (_frontier.empty())
-    return nullptr;
-
-  const auto top = _frontier.pop();
-  return _expander.expand(top, _frontier, _visited);
-}
-
-//==============================================================================
-template<typename ExpanderT>
-void Tree<ExpanderT>::insert(NodePtr node)
-{
-  _expander.expand(node, _frontier, _visited);
-}
-
-//==============================================================================
-template<typename ExpanderT>
-auto Tree<ExpanderT>::visited(LaneId lane_index) const -> NodePtr
-{
-  const auto it = _visited.find(lane_index);
-  if (it == _visited.end())
-    return nullptr;
-
-  return it->second;
-}
-
-//==============================================================================
-template<typename ExpanderT>
-auto Tree<ExpanderT>::all_visits() const
--> const std::unordered_map<LaneId, NodePtr>&
-{
-  return _visited;
-}
-
-//==============================================================================
-template<typename ExpanderT>
-bool Tree<ExpanderT>::exhausted() const
-{
-  const auto* peek = _frontier.peek();
-  if (!peek)
-    return true;
-
-  // We always put expanded elements into the frontier even if they have no
-  // prospect of reach the current target, because they might still matter for
-  // reaching a different target during a different search. However we sort
-  // those elements to all be in the bottom of the frontier queue. If one of
-  // those elements reaches the top of the queue, then we know we have run out
-  // of nodes that are worth exploring for this search.
-  return !(*peek)->remaining_cost_estimate.has_value();
-}
-
-//==============================================================================
-template<typename ExpanderT>
-void Tree<ExpanderT>::retarget(Cache<ChildOfMinimalTravelHeuristic> new_heuristic)
-{
-  _expander.retarget(std::move(new_heuristic), _frontier);
-}
-
-namespace {
-//==============================================================================
-template<
-  std::size_t Traversal::*get_next_lane,
-  std::size_t Traversal::*get_next_waypoint,
-  std::size_t Traversal::*get_complement_waypoint,
-  typename NodePtrT, typename C>
-void expand_traversals(
-  const NodePtrT& top,
-  FrontierTemplate<NodePtrT, C>& frontier,
-  std::unordered_map<LaneId, NodePtrT>& visited,
-  const std::shared_ptr<const Supergraph>& graph,
-  const Cache<ChildOfMinimalTravelHeuristic>& heuristic,
-  const Traversals& traversals)
-{
-  for (const auto& traversal : traversals)
-  {
-    const auto next_lane = traversal.*get_next_lane;
-    if (visited.count(next_lane) != 0)
-    {
-      // If this lane has already been visited, then we should not bother trying
-      // to expand it.
-      continue;
-    }
-
-    // TODO(MXG): We may be able to get a stronger heuristic here if we account
-    // for irreversible robots and/or orientation constraints
-    double rotational_cost = 0.0;
-    std::optional<double> next_orientation;
-    if (top->orientation.has_value())
-    {
-      const auto forward_init_angle = *top->orientation;
-      const auto reverse_init_angle =
-        rmf_utils::wrap_to_pi(forward_init_angle - M_PI);
-
-      std::optional<double> minimum_angle;
-      for (const auto init_angle : {forward_init_angle, reverse_init_angle})
-      {
-        for (const auto alternative : traversal.alternatives)
-        {
-          if (!alternative.has_value())
-            continue;
-
-          const auto next_angle = alternative->yaw;
-          if (next_angle.has_value())
-          {
-            next_orientation = next_angle;
-            const double check =
-              std::abs(rmf_utils::wrap_to_pi(*next_angle - init_angle));
-
-            if (!minimum_angle.has_value() || check < *minimum_angle)
-              minimum_angle = check;
-          }
-        }
-      }
-
-      if (minimum_angle.has_value())
-      {
-        const auto& traits = graph->traits();
-        rotational_cost = time::to_seconds(internal::estimate_rotation_time(
-          traits.rotational().get_nominal_velocity(),
-          traits.rotational().get_nominal_acceleration(),
-          0.0, *minimum_angle,
-          graph->options().rotation_thresh));
-      }
-    }
-
-    const auto next_waypoint = traversal.*get_next_waypoint;
-    frontier.push(
-      std::make_shared<typename NodePtrT::element_type>(
-        typename NodePtrT::element_type{
-          next_lane,
-          top->current_cost + traversal.best_time + rotational_cost,
-          heuristic.get(next_waypoint),
-          traversal.best_time,
-          next_waypoint,
-          traversal.*get_complement_waypoint,
-          next_orientation,
-          top
-        }));
-  }
-}
-
-//==============================================================================
-template<
-  std::size_t Traversal::*get_next_lane,
-  std::size_t Traversal::*get_next_waypoint,
-  std::size_t Traversal::*get_complement_waypoint,
-  typename NodePtrT, typename C>
-void initialize_traversals(
-  FrontierTemplate<NodePtrT, C>& frontier,
-  const Cache<ChildOfMinimalTravelHeuristic>& heuristic,
-  const Traversals& traversals)
-{
-  for (const auto& traversal : traversals)
-  {
-    std::optional<double> orientation;
-    for (const auto& alternative : traversal.alternatives)
-    {
-      if (alternative.has_value() && alternative->yaw.has_value())
-      {
-        orientation = *alternative->yaw;
-        break;
-      }
-    }
-
-    const auto next_waypoint = traversal.*get_next_waypoint;
-    frontier.push(
-      std::make_shared<typename NodePtrT::element_type>(
-        typename NodePtrT::element_type{
-          traversal.*get_next_lane,
-          traversal.best_time,
-          heuristic.get(next_waypoint),
-          traversal.best_time,
-          next_waypoint,
-          traversal.*get_complement_waypoint,
-          orientation,
-          nullptr
-        }));
-  }
-}
-} // anonymous namespace
-
-//==============================================================================
-ForwardExpander::ForwardExpander(
+MinimumTravel::ForwardExpander::ForwardExpander(
   std::shared_ptr<const Supergraph> graph,
-  Cache<ChildOfMinimalTravelHeuristic> heuristic)
-: _graph(std::move(graph)),
-  _heuristic(std::move(heuristic))
+  const ChildHeuristicManagerMapPtr& cache,
+  const WaypointId target)
+: _graph(std::move(graph))
 {
-  // Do nothing
+  _heuristic = [cache = cache->get(target)->get()](WaypointId from)
+    {
+      return cache.get(from);
+    };
 }
 
 //==============================================================================
-ForwardNodePtr ForwardExpander::expand(const ForwardNodePtr& top,
+MinimumTravel::ForwardNodePtr MinimumTravel::ForwardExpander::expand(
+  const ForwardNodePtr& top,
   Frontier& frontier,
   std::unordered_map<LaneId, ForwardNodePtr>& visited) const
 {
@@ -317,7 +73,7 @@ ForwardNodePtr ForwardExpander::expand(const ForwardNodePtr& top,
 }
 
 //==============================================================================
-void ForwardExpander::initialize(std::size_t waypoint_index,
+void MinimumTravel::ForwardExpander::initialize(std::size_t waypoint_index,
   Frontier& frontier) const
 {
   const auto& traversals = *_graph->traversals_from(waypoint_index);
@@ -329,11 +85,15 @@ void ForwardExpander::initialize(std::size_t waypoint_index,
 }
 
 //==============================================================================
-void ForwardExpander::retarget(
-  Cache<ChildOfMinimalTravelHeuristic> new_heuristic,
+void MinimumTravel::ForwardExpander::retarget(
+  const ChildHeuristicManagerMapPtr& cache,
+  WaypointId new_target,
   Frontier& frontier)
 {
-  _heuristic = std::move(new_heuristic);
+  _heuristic = [cache = cache->get(new_target)->get()](WaypointId from)
+    {
+      return cache.get(from);
+    };
 
   // It is okay to capture by reference because the lambda only gets used within
   // the scope of this function. The retarget(~) function does not store it for
@@ -341,22 +101,26 @@ void ForwardExpander::retarget(
   frontier.retarget(
     [&](const std::shared_ptr<ForwardNode>& element)
     {
-      element->remaining_cost_estimate = _heuristic.get(element->waypoint);
+      element->remaining_cost_estimate = _heuristic(element->waypoint);
     });
 }
 
 //==============================================================================
-ReverseExpander::ReverseExpander(
+MinimumTravel::ReverseExpander::ReverseExpander(
   std::shared_ptr<const Supergraph> graph,
-  Cache<ChildOfMinimalTravelHeuristic> heuristic)
-: _graph(std::move(graph)),
-  _heuristic(std::move(heuristic))
+  const ChildHeuristicManagerMapPtr& heuristic,
+  WaypointId target)
+: _graph(std::move(graph))
 {
-  // Do nothing
+  _heuristic = [cache = heuristic, target](WaypointId from)
+    {
+      return cache->get(from)->get().get(target);
+    };
 }
 
 //==============================================================================
-ReverseNodePtr ReverseExpander::expand(const ReverseNodePtr& top,
+MinimumTravel::ReverseNodePtr MinimumTravel::ReverseExpander::expand(
+  const ReverseNodePtr& top,
   Frontier& frontier,
   std::unordered_map<LaneId, ReverseNodePtr>& visited) const
 {
@@ -404,7 +168,7 @@ ReverseNodePtr ReverseExpander::expand(const ReverseNodePtr& top,
 }
 
 //==============================================================================
-void ReverseExpander::initialize(std::size_t waypoint_index,
+void MinimumTravel::ReverseExpander::initialize(std::size_t waypoint_index,
   Frontier& frontier) const
 {
   const auto& traversals = *_graph->traversals_into(waypoint_index);
@@ -424,11 +188,15 @@ void ReverseExpander::initialize(std::size_t waypoint_index,
 }
 
 //==============================================================================
-void ReverseExpander::retarget(
-  Cache<ChildOfMinimalTravelHeuristic> heuristic,
+void MinimumTravel::ReverseExpander::retarget(
+  const ChildHeuristicManagerMapPtr& cache,
+  WaypointId new_target,
   Frontier& frontier)
 {
-  _heuristic = std::move(heuristic);
+  _heuristic = [cache = std::move(cache), new_target](WaypointId from)
+    {
+      return cache->get(from)->get().get(new_target);
+    };
 
   // It is okay to capture by reference because the lambda only gets used within
   // the scope of this function. The retarget(~) function does not store it for
@@ -436,172 +204,18 @@ void ReverseExpander::retarget(
   frontier.retarget(
     [&](const std::shared_ptr<ReverseNode>& element)
     {
-      element->remaining_cost_estimate = _heuristic.get(element->waypoint);
+      element->remaining_cost_estimate = _heuristic(element->waypoint);
     });
-}
-
-//==============================================================================
-template<typename T, typename C>
-LockedTree<T> TreeManager<T, C>::get_tree(
-  std::size_t waypoint,
-  const std::shared_ptr<const Supergraph>& graph,
-  const Cache<ChildOfMinimalTravelHeuristic>& heuristic)
-{
-  SpinLock lock(_tree_mutex);
-  if (!_tree.has_value())
-    _tree = Tree(waypoint, typename Tree::Expander(graph, heuristic));
-
-  _process_waiting_list();
-  return LockedTree<T>{&(*_tree), std::move(lock)};
-}
-
-//==============================================================================
-template<typename T, typename C>
-void TreeManager<T, C>::add_to_waiting(ComplementNodePtr node)
-{
-  SpinLock lock(_waiting_list_mutex);
-  _waiting_list.emplace_back(std::move(node));
-}
-
-//==============================================================================
-template<typename T, typename C>
-void TreeManager<T, C>::_process_waiting_list()
-{
-  SpinLock lock(_waiting_list_mutex);
-
-  for (const auto& complement_node : _waiting_list)
-  {
-    const double full_cost = complement_node->current_cost;
-    std::vector<NodePtr> new_nodes;
-    NodePtr parent_node = nullptr;
-    ComplementNodePtr current_node = complement_node;
-    while (current_node)
-    {
-      if (const auto existing_node = _tree->visited(current_node->lane))
-      {
-        parent_node = existing_node;
-      }
-      else
-      {
-        auto new_node = std::make_shared<Node>(
-              Node{
-                current_node->lane,
-                full_cost - current_node->current_cost + current_node->lane_cost,
-                0.0, // placeholder which will get overwritten when retarget(~) is called
-                current_node->lane_cost,
-                // We switch the waypoint and the complement_waypoint here
-                // because we are reversing the type of node
-                current_node->complement_waypoint,
-                current_node->waypoint,
-                current_node->orientation,
-                parent_node
-              });
-
-        parent_node = new_node;
-        new_nodes.emplace_back(std::move(new_node));
-      }
-
-      current_node = current_node->parent;
-    }
-
-    // We iterate in reverse to minimize the amount of new frontier that gets
-    // generated by inserting these.
-    for (auto rit = new_nodes.rbegin(); rit != new_nodes.rend(); ++rit)
-      _tree->insert(*rit);
-  }
-
-  _waiting_list.clear();
 }
 
 //==============================================================================
 MinimalTravelHeuristic::MinimalTravelHeuristic(
   std::shared_ptr<const Supergraph> graph)
 : _graph(std::move(graph)),
-  _heuristic_cache(std::make_shared<ChildHeuristicFactory>(_graph))
+  _heuristic_cache(std::make_shared<ChildHeuristicManagerMap>(std::make_shared<ChildHeuristicFactory>(_graph)))
 {
   // Do nothing
 }
-
-namespace {
-//==============================================================================
-template<typename A, typename B>
-double combine_costs(const A& a, const B& b)
-{
-  // The cost of boths nodes contains the cost of crossing the lane where their
-  // states intersect. However, one of the lane costs might be greater than the
-  // other because it may be going across multiple lanes instead of only going
-  // down one lane. We subtract the lower of the two lane costs because the
-  // lower lane cost would be leaving a gap in the overall path.
-  return a.current_cost + b.current_cost - std::min(a.lane_cost, b.lane_cost);
-}
-
-//==============================================================================
-template<typename T, typename C>
-typename TreeManagerMap<T, C>::iterator get_manager(
-  TreeManagerMap<T, C>& manager_map,
-  WaypointId waypoint)
-{
-  const auto insertion = manager_map.insert({waypoint, nullptr});
-  if (insertion.second)
-    insertion.first->second = std::make_unique<TreeManager<T, C>>();
-
-  return insertion.first;
-}
-
-//==============================================================================
-template<typename T, typename C>
-LockedTree<T> lock_tree(
-  std::atomic_bool& mutex,
-  TreeManagerMap<T, C>& manager_map,
-  WaypointId waypoint,
-  const std::shared_ptr<const Supergraph>& graph,
-  const Cache<ChildOfMinimalTravelHeuristic>& heuristic)
-{
-  SpinLock lock(mutex);
-  return get_manager(manager_map, waypoint)
-    ->second->get_tree(waypoint, graph, heuristic);
-}
-
-//==============================================================================
-template<typename A, typename B>
-std::optional<double> lowest_cost_overlap(
-  const A& fewer_visits,
-  const B& more_visits)
-{
-  std::optional<double> lowest_cost;
-  for (const auto& [_, visit] : fewer_visits)
-  {
-    const auto m_it = more_visits.find(visit->lane);
-    if (m_it == more_visits.end())
-      continue;
-
-    const auto check = combine_costs(*visit, *m_it->second);
-    if (!lowest_cost.has_value() || check < *lowest_cost)
-    {
-      lowest_cost = check;
-//      std::cout << "New lowest overlap at " << visit->lane
-//                << ": (" << visit->cost << ", " << visit->lane_cost << ") ("
-//                << m_it->second->cost << ", " << m_it->second->lane_cost
-//                << ") -> " << check << std::endl;
-    }
-  }
-
-  return lowest_cost;
-}
-
-//==============================================================================
-std::optional<double> find_overlap(
-  const ForwardTree& forward,
-  const ReverseTree& reverse)
-{
-  const auto& f_visits = forward.all_visits();
-  const auto& r_visits = reverse.all_visits();
-  if (f_visits.size() < r_visits.size())
-    return lowest_cost_overlap(f_visits, r_visits);
-
-  return lowest_cost_overlap(r_visits, f_visits);
-}
-} // anonymous namespace
 
 //==============================================================================
 class Timer
@@ -648,12 +262,10 @@ std::optional<double> MinimalTravelHeuristic::get(
     return *solution;
 
   LockedTree<ForwardTree> forward =
-    lock_tree(_forward_mutex, _forward, start, _graph,
-              _heuristic_cache.get(finish)->get());
+    lock_tree(_forward_mutex, _forward, start, _graph, _heuristic_cache, finish);
 
   LockedTree<ReverseTree> reverse =
-    lock_tree(_reverse_mutex, _reverse, finish, _graph,
-              _heuristic_cache.get(start)->get());
+    lock_tree(_reverse_mutex, _reverse, finish, _graph, _heuristic_cache, start);
 
   if (const auto overlap = find_overlap(*forward.tree, *reverse.tree))
   {
@@ -687,15 +299,24 @@ std::optional<double> MinimalTravelHeuristic::_search(
   WaypointId finish,
   std::optional<LockedTree<ReverseTree>> reverse_locked) const
 {
+//  std::cout << "Searching for solution to " << start << " -> " << finish << std::endl;
+//  Timer timer("Whole search");
+
   std::optional<double> result;
   std::vector<ForwardNodePtr> new_forwards;
   std::vector<ReverseNodePtr> new_reverses;
   {
     auto& forward = *forward_locked->tree;
-    forward.retarget(_heuristic_cache.get(finish)->get());
+    {
+//      Timer("retarget forward");
+      forward.retarget(_heuristic_cache, finish);
+    }
 
     auto& reverse = *reverse_locked->tree;
-    reverse.retarget(_heuristic_cache.get(start)->get());
+    {
+//      Timer("retarget reverse");
+      reverse.retarget(_heuristic_cache, start);
+    }
 
     while (!(forward.exhausted() && reverse.exhausted()))
     {
@@ -707,37 +328,42 @@ std::optional<double> MinimalTravelHeuristic::_search(
           {
             result = combine_costs(*next_forward, *overlap);
 
-            const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
-            std::cout << start << " -> " << finish
-                      << " | Forward met at " << wp << " | " << next_forward->lane
-                      << ": (" << next_forward->current_cost << ", "
-                      << next_forward->lane_cost << ") ("
-                      << overlap->current_cost << ", " << overlap->lane_cost
-                      << ") -> " << *result << std::endl;
+//            const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
+//            std::cout << start << " -> " << finish
+//                      << " | Forward met at " << wp << " | " << next_forward->lane
+//                      << ": (" << next_forward->current_cost << ", "
+//                      << next_forward->lane_cost << ") ("
+//                      << overlap->current_cost << ", " << overlap->lane_cost
+//                      << ") -> " << *result << std::endl;
 
-//            auto f = next_forward;
-//            std::cout << "Forward: ";
-//            while (f)
+//            if (start == 4054 && finish == 1542)
 //            {
-//              const auto f_lane = _graph->original().lanes[f->lane];
-//              const auto f_wp_0 = f_lane.entry().waypoint_index();
-//              const auto f_wp_1 = f_lane.exit().waypoint_index();
-//              std::cout << f_wp_1 << " <- " << f_wp_0 << " (" << f->cost << ":" << f->lane_cost << ") | ";
-//              f = f->parent;
-//            }
-//            std::cout << "Begin" << std::endl;
+//              auto f = next_forward;
+//              std::cout << "Forward: ";
+//              while (f)
+//              {
+//                const auto f_lane = _graph->original().lanes[f->lane];
+//                const auto f_wp_0 = f->complement_waypoint;
+//                const auto f_wp_1 = f->waypoint;
+//                std::cout << f_wp_1 << " <- " << f_wp_0 << " (c " << f->current_cost << " : l " << f->lane_cost
+//                          << " : r " << f->remaining_cost_estimate.value() << ") | ";
+//                f = f->parent;
+//              }
+//              std::cout << "Begin" << std::endl;
 
-//            std::cout << "Reverse: ";
-//            auto r = overlap;
-//            while (r)
-//            {
-//              const auto r_lane = _graph->original().lanes[r->lane];
-//              const auto r_wp_0 = r_lane.entry().waypoint_index();
-//              const auto r_wp_1 = r_lane.exit().waypoint_index();
-//              std::cout << r_wp_0 << " -> " << r_wp_1 << " (" << r->cost << ":" << r->lane_cost << ") -> ";
-//              r = r->parent;
+//              std::cout << "Reverse: ";
+//              auto r = overlap;
+//              while (r)
+//              {
+//                const auto r_lane = _graph->original().lanes[r->lane];
+//                const auto r_wp_0 = r->waypoint;
+//                const auto r_wp_1 = r->complement_waypoint;
+//                std::cout << r_wp_0 << " -> " << r_wp_1 << " (c " << r->current_cost << " : l " << r->lane_cost
+//                          << " : r " << r->remaining_cost_estimate.value() << ") | ";
+//                r = r->parent;
+//              }
+//              std::cout << "Finish" << std::endl;
 //            }
-//            std::cout << "Finish" << std::endl;
 
             break;
           }
@@ -752,37 +378,42 @@ std::optional<double> MinimalTravelHeuristic::_search(
           {
             result = combine_costs(*next_reverse, *overlap);
 
-            const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
-            std::cout << start << " -> " << finish
-                      << "Met at " << f_wp << " | " << next_reverse->lane
-                      << ": (" << next_reverse->current_cost << ", "
-                      << next_reverse->lane_cost << ") ("
-                      << overlap->current_cost << ", " << overlap->lane_cost
-                      << ") -> " << *result << std::endl;
+//            const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
+//            std::cout << start << " -> " << finish
+//                      << " | Reverse met at " << f_wp << " | " << next_reverse->lane
+//                      << ": (" << next_reverse->current_cost << ", "
+//                      << next_reverse->lane_cost << ") ("
+//                      << overlap->current_cost << ", " << overlap->lane_cost
+//                      << ") -> " << *result << std::endl;
 
-//            auto f = overlap;
-//            std::cout << "Forward: ";
-//            while (f)
+//            if (start == 4054 && finish == 1542)
 //            {
-//              const auto f_lane = _graph->original().lanes[f->lane];
-//              const auto f_wp_0 = f_lane.entry().waypoint_index();
-//              const auto f_wp_1 = f_lane.exit().waypoint_index();
-//              std::cout << f_wp_1 << " <- " << f_wp_0 << " (" << f->cost << ":" << f->lane_cost << ") | ";
-//              f = f->parent;
-//            }
-//            std::cout << "Begin" << std::endl;
+//              auto f = overlap;
+//              std::cout << "Forward: ";
+//              while (f)
+//              {
+//                const auto f_lane = _graph->original().lanes[f->lane];
+//                const auto f_wp_0 = f->complement_waypoint;
+//                const auto f_wp_1 = f->waypoint;
+//                std::cout << f_wp_1 << " <- " << f_wp_0 << " (c " << f->current_cost << " : l " << f->lane_cost
+//                          << " : r " << f->remaining_cost_estimate.value() << ") | ";
+//                f = f->parent;
+//              }
+//              std::cout << "Begin" << std::endl;
 
-//            std::cout << "Reverse: ";
-//            auto r = next_reverse;
-//            while (r)
-//            {
-//              const auto r_lane = _graph->original().lanes[r->lane];
-//              const auto r_wp_0 = r_lane.entry().waypoint_index();
-//              const auto r_wp_1 = r_lane.exit().waypoint_index();
-//              std::cout << r_wp_0 << " -> " << r_wp_1 << " (" << r->cost << ":" << r->lane_cost << ") -> ";
-//              r = r->parent;
+//              std::cout << "Reverse: ";
+//              auto r = next_reverse;
+//              while (r)
+//              {
+//                const auto r_lane = _graph->original().lanes[r->lane];
+//                const auto r_wp_0 = r->waypoint;
+//                const auto r_wp_1 = r->complement_waypoint;
+//                std::cout << r_wp_0 << " -> " << r_wp_1 << " (c " << r->current_cost << " : l " << r->lane_cost
+//                          << " : r " << r->remaining_cost_estimate.value() << ") | ";
+//                r = r->parent;
+//              }
+//              std::cout << "Finish" << std::endl;
 //            }
-//            std::cout << "Finish" << std::endl;
 
             break;
           }
@@ -799,10 +430,10 @@ std::optional<double> MinimalTravelHeuristic::_search(
 //    std::cout << "\n" << std::endl;
   }
 
-  if (!result.has_value())
-  {
-    std::cout << "FAILED TO FIND SOLUTION FOR " << start << " -> " << finish << std::endl;
-  }
+//  if (!result.has_value())
+//  {
+//    std::cout << "FAILED TO FIND SOLUTION FOR " << start << " -> " << finish << std::endl;
+//  }
 
   // Release the locks since we are done with these trees
   forward_locked = std::nullopt;

@@ -47,6 +47,22 @@ public:
     const Storage& old_items,
     Storage& new_items) const final;
 
+  struct Node;
+  using NodePtr = std::shared_ptr<const Node>;
+
+  struct Node
+  {
+    std::size_t waypoint;
+
+    // For the remaining_cost_estimate we'll use the Euclidean Heuristic, which
+    // takes floor changes into account.
+    double remaining_cost_estimate;
+    double current_cost;
+    NodePtr parent;
+  };
+
+  NodePtr solve(std::size_t from_waypoint) const;
+
 private:
   std::size_t _goal;
   double _max_speed;

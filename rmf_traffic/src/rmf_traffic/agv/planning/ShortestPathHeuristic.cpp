@@ -29,20 +29,8 @@ class ShortestPathExpander
 {
 public:
 
-  struct Node;
-  using NodePtr = std::shared_ptr<const Node>;
-
-  struct Node
-  {
-    std::size_t waypoint;
-
-    // For the remaining_cost_estimate we'll use the Euclidean Heuristic, which
-    // takes floor changes into account.
-    double remaining_cost_estimate;
-    double current_cost;
-    NodePtr parent;
-  };
-
+  using Node = ShortestPathHeuristic::Node;
+  using NodePtr = ShortestPathHeuristic::NodePtr;
   using SearchQueue =
     std::priority_queue<NodePtr, std::vector<NodePtr>, SimpleCompare<NodePtr>>;
 
@@ -243,6 +231,35 @@ std::optional<double> ShortestPathHeuristic::generate(
   }
 
   return final_cost;
+}
+
+//==============================================================================
+auto ShortestPathHeuristic::solve(std::size_t from_waypoint) const -> NodePtr
+{
+  auto heuristic = _heuristic->get();
+  auto start_heuristic = heuristic.get(from_waypoint);
+  if (!start_heuristic.has_value())
+    return nullptr;
+
+  ShortestPathExpander::SearchQueue queue;
+  queue.push(
+    std::make_shared<ShortestPathExpander::Node>(
+      ShortestPathExpander::Node{
+        from_waypoint,
+        start_heuristic.value(),
+        0.0,
+        nullptr
+      }));
+
+  ShortestPathExpander expander{
+    _goal,
+    _max_speed,
+    {},
+    std::move(heuristic),
+    _graph
+  };
+
+  return a_star_search(expander, queue);
 }
 
 //==============================================================================

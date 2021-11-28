@@ -221,7 +221,7 @@ private:
   // changing significantly. Besides memoizing the results of previous
   // computations, the cache manager does not actually have any internal state.
   mutable std::unordered_map<std::size_t, CacheManagerPtr> _managers;
-  mutable std::mutex _map_mutex;
+  mutable std::atomic_bool _map_mutex = false;
   const std::shared_ptr<const GeneratorFactory> _generator_factory;
   const std::function<Storage()> _storage_initializer;
 };
@@ -308,13 +308,7 @@ template<typename CacheArg>
 auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
 -> CacheManagerPtr
 {
-  std::unique_lock<std::mutex> lock(_map_mutex, std::defer_lock);
-  while (!lock.try_lock())
-  {
-    // Intentionally busy-wait to get the lock as soon as possible. Other lock
-    // holders should only be holding the lock very briefly.
-  }
-
+  SpinLock lock(_map_mutex);
   const auto it = _managers.insert({goal_index, nullptr});
   auto& manager = it.first->second;
   if (manager == nullptr)
