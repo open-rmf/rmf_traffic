@@ -112,7 +112,7 @@ public:
   virtual NodePtr expand(
     const NodePtr& top,
     Frontier& frontier,
-    std::unordered_map<LaneId, NodePtr>& visited) const = 0;
+    std::unordered_map<std::size_t, NodePtr>& visited) const = 0;
 
   virtual void initialize(
     std::size_t waypoint,
@@ -212,6 +212,58 @@ private:
 template<typename T, typename C>
 using TreeManagerMap =
   std::unordered_map<WaypointId, std::unique_ptr<TreeManager<T, C>>>;
+
+//==============================================================================
+template<typename T>
+class Garden
+{
+public:
+
+  using ForwardTree = typename T::ForwardTree;
+  using ForwardNode = typename ForwardTree::Node;
+  using ForwardNodePtr = typename ForwardTree::NodePtr;
+
+  using ReverseTree = typename T::ReverseTree;
+  using ReverseNode = typename ReverseTree::Node;
+  using ReverseNodePtr = typename ReverseTree::NodePtr;
+
+  using Cache = typename ForwardTree::Cache;
+
+  Garden(
+    std::shared_ptr<const Supergraph> graph,
+    Cache cache);
+
+  std::optional<double> get(WaypointId start, WaypointId finish) const;
+
+private:
+
+  using ForwardTreeManagerMap = TreeManagerMap<ForwardTree, ReverseTree>;
+  using ReverseTreeManagerMap = TreeManagerMap<ReverseTree, ForwardTree>;
+
+  std::optional<double> _check_for_solution(
+    WaypointId start, WaypointId finish) const;
+
+  std::optional<double> _search(
+    WaypointId start,
+    std::optional<LockedTree<ForwardTree>> forward_locked,
+    WaypointId finish,
+    std::optional<LockedTree<ReverseTree>> reverse_locked) const;
+
+  std::shared_ptr<const Supergraph> _graph;
+  Cache _heuristic_cache;
+
+  mutable ForwardTreeManagerMap _forward;
+  mutable std::atomic_bool _forward_mutex = false;
+
+  mutable ReverseTreeManagerMap _reverse;
+  mutable std::atomic_bool _reverse_mutex = false;
+
+  using SolutionMap =
+    std::unordered_map<
+      WaypointId, std::unordered_map<WaypointId, std::optional<double>>>;
+  mutable SolutionMap _solutions;
+  mutable std::atomic_bool _solutions_mutex = false;
+};
 
 } // namespace rmf_traffic
 } // namespace agv

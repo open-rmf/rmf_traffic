@@ -22,6 +22,7 @@
 #include "Supergraph.hpp"
 
 #include "EuclideanHeuristic.hpp"
+#include "Tree.hpp"
 
 namespace rmf_traffic {
 namespace agv {
@@ -31,69 +32,186 @@ namespace planning {
 /// The ShortestPathHeuristic finds the shortest (in terms of time required)
 /// path between two waypoints, not accounting for acceleration, deceleration,
 /// turning, or orientation constraints.
-class ShortestPathHeuristic
-  : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
+class ShortestPath
+{
+public:
+
+  using HeuristicCachePtr =
+    std::shared_ptr<const CacheManagerMap<EuclideanHeuristicFactory>>;
+
+  struct ForwardNode;
+  using ForwardNodePtr = std::shared_ptr<ForwardNode>;
+  struct ForwardNode
+  {
+    std::size_t waypoint;
+    double current_cost;
+    std::optional<double> remaining_cost_estimate;
+    ForwardNodePtr parent;
+  };
+
+  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr>
+  {
+  public:
+
+    ForwardExpander(
+      std::shared_ptr<const Supergraph> graph,
+      const HeuristicCachePtr& cache,
+      const WaypointId target);
+
+    ForwardNodePtr expand(
+      const ForwardNodePtr& top,
+      Frontier& frontier,
+      std::unordered_map<WaypointId, ForwardNodePtr>& visited) const final;
+
+    void initialize(std::size_t waypoint, Frontier& frontier) const final;
+
+    void retarget(
+      const Cache& cache,
+      WaypointId new_target,
+      Frontier& frontier) final;
+
+  private:
+    std::shared_ptr<const Supergraph> _graph;
+    double _max_speed;
+    std::function<std::optional<double>(WaypointId)> _heuristic;
+  };
+  using ForwardTree = Tree<ForwardExpander>;
+
+
+  struct ReverseNode;
+  using ReverseNodePtr = std::shared_ptr<ReverseNode>;
+  struct ReverseNode
+  {
+    std::size_t waypoint;
+    double current_cost;
+    std::optional<double> remaining_cost_estimate;
+    ReverseNodePtr parent;
+  };
+
+  struct GetKey
+  {
+    WaypointId operator()(const ForwardNodePtr& node) const
+    {
+      return node->waypoint;
+    }
+
+    WaypointId operator()(const ReverseNodePtr& node) const
+    {
+      return node->waypoint;
+    }
+  };
+
+  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr>
+  {
+  public:
+
+    ReverseExpander(
+      std::shared_ptr<const Supergraph> graph,
+      const HeuristicCachePtr& cache,
+      const WaypointId target);
+
+    ReverseNodePtr expand(
+      const ReverseNodePtr& top,
+      Frontier& frontier,
+      std::unordered_map<WaypointId, ReverseNodePtr>& visited) const final;
+
+    void initialize(std::size_t waypoint, Frontier& frontier) const final;
+
+    void retarget(
+      const Cache& cache,
+      WaypointId new_target,
+      Frontier& frontier) final;
+
+  private:
+    std::shared_ptr<const Supergraph> _graph;
+    double _max_speed;
+    std::function<std::optional<double>(WaypointId)> _heuristic;
+  };
+
+  using ReverseTree = Tree<ReverseExpander>;
+
+  using ForwardTreeManager = TreeManager<ForwardTree, ReverseTree>;
+  using ReverseTreeManager = TreeManager<ReverseTree, ForwardTree>;
+
+  using ForwardTreeManagerMap = TreeManagerMap<ForwardTree, ReverseTree>;
+  using ReverseTreeManagerMap = TreeManagerMap<ReverseTree, ForwardTree>;
+
+  template<typename T, typename C>
+  static std::vector<typename T::NodePtr> flip_node(
+    C current_node,
+    const T& tree)
+  {
+    std::vector<typename T::NodePtr> new_nodes;
+    const double full_cost = current_node->current_cost;
+    typename T::NodePtr parent_node = nullptr;
+    while (current_node)
+    {
+      if (const auto existing_node = tree.visited(current_node->waypoint))
+      {
+        parent_node = existing_node;
+      }
+      else
+      {
+        auto new_node = std::make_shared<typename T::Node>(
+          typename T::Node{
+            current_node->waypoint,
+            full_cost - current_node->current_cost,
+            0.0, // placeholder which will get overwritten when retarget(~) is called
+            parent_node
+          });
+
+        parent_node = new_node;
+        new_nodes.emplace_back(std::move(new_node));
+      }
+
+      current_node = current_node->parent;
+    }
+
+    return new_nodes;
+  }
+};
+
+//==============================================================================
+class ShortestPathHeuristic : public Garden<ShortestPath>
 {
 public:
 
   ShortestPathHeuristic(
-    std::size_t goal,
-    double max_speed,
-    std::shared_ptr<const Supergraph> graph,
-    CacheManagerPtr<EuclideanHeuristic> heuristic);
+    std::shared_ptr<const Supergraph> graph);
 
-  std::optional<double> generate(
-    const std::size_t& key,
-    const Storage& old_items,
-    Storage& new_items) const final;
-
-  struct Node;
-  using NodePtr = std::shared_ptr<const Node>;
-
-  struct Node
-  {
-    std::size_t waypoint;
-
-    // For the remaining_cost_estimate we'll use the Euclidean Heuristic, which
-    // takes floor changes into account.
-    double remaining_cost_estimate;
-    double current_cost;
-    NodePtr parent;
-  };
-
-  NodePtr solve(std::size_t from_waypoint) const;
-
-private:
-  std::size_t _goal;
-  double _max_speed;
-  std::shared_ptr<const Supergraph> _graph;
-  CacheManagerPtr<EuclideanHeuristic> _heuristic;
 };
 
 //==============================================================================
-using ConstShortestPathHeuristicPtr =
-  std::shared_ptr<const ShortestPathHeuristic>;
-
-//==============================================================================
-class ShortestPathHeuristicFactory : public Factory<ShortestPathHeuristic>
+inline double combine_costs(
+  const ShortestPath::ForwardNode& a,
+  const ShortestPath::ReverseNode& b)
 {
-public:
-
-  using Generator = ShortestPathHeuristic;
-
-  ShortestPathHeuristicFactory(std::shared_ptr<const Supergraph> graph);
-
-  ConstShortestPathHeuristicPtr make(const std::size_t goal) const final;
-
-private:
-  std::shared_ptr<const Supergraph> _graph;
-  double _max_speed;
-  EuclideanHeuristicCacheMap _heuristic_cache;
-};
+  return a.current_cost + b.current_cost;
+}
 
 //==============================================================================
-using ShortestPathHeuristicCacheMap =
-  CacheManagerMap<ShortestPathHeuristicFactory>;
+inline double combine_costs(
+  const ShortestPath::ReverseNode& b,
+  const ShortestPath::ForwardNode& a)
+{
+  return combine_costs(a, b);
+}
+
+//==============================================================================
+inline std::vector<ShortestPath::ReverseNodePtr> flip_node(
+  ShortestPath::ForwardNodePtr current_node,
+  const ShortestPath::ReverseTree& tree)
+{
+  return ShortestPath::flip_node(current_node, tree);
+}
+
+//==============================================================================
+inline std::vector<ShortestPath::ForwardNodePtr> flip_node(
+  ShortestPath::ReverseNodePtr current_node,
+  const ShortestPath::ForwardTree& tree)
+{
+  return ShortestPath::flip_node(current_node, tree);
+}
 
 } // namespace planning
 } // namespace agv

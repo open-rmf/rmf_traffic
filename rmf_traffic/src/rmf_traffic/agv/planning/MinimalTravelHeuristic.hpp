@@ -26,18 +26,13 @@
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
-using ChildOfMinimalTravelHeuristic = ShortestPathHeuristic;
-using ChildHeuristicFactory = ShortestPathHeuristicFactory;
-
-//using ChildOfMinimalTravelHeuristic = EuclideanHeuristic;
-//using ChildHeuristicFactory = EuclideanHeuristicFactory;
-
-using ChildHeuristicManagerMap = CacheManagerMap<ChildHeuristicFactory>;
-using ChildHeuristicManagerMapPtr = std::shared_ptr<const ChildHeuristicManagerMap>;
 
 class MinimumTravel
 {
 public:
+
+  using HeuristicCachePtr = std::shared_ptr<const ShortestPathHeuristic>;
+
   struct ForwardNode;
   using ForwardNodePtr = std::shared_ptr<ForwardNode>;
   using ConstForwardNodePtr = std::shared_ptr<const ForwardNode>;
@@ -57,13 +52,13 @@ public:
     ForwardNodePtr parent;
   };
 
-  class ForwardExpander : public Expander<ForwardNode, ChildHeuristicManagerMapPtr>
+  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr>
   {
   public:
 
     ForwardExpander(
       std::shared_ptr<const Supergraph> graph,
-      const ChildHeuristicManagerMapPtr& cache,
+      const HeuristicCachePtr& cache,
       const WaypointId target);
 
     ForwardNodePtr expand(
@@ -76,7 +71,7 @@ public:
       Frontier& frontier) const final;
 
     void retarget(
-      const ChildHeuristicManagerMapPtr& cache,
+      const HeuristicCachePtr& cache,
       WaypointId new_target,
       Frontier& frontier) final;
 
@@ -104,13 +99,26 @@ public:
     ReverseNodePtr parent;
   };
 
-  class ReverseExpander : public Expander<ReverseNode, ChildHeuristicManagerMapPtr>
+  struct GetKey
+  {
+    LaneId operator()(const ForwardNodePtr& node) const
+    {
+      return node->lane;
+    }
+
+    LaneId operator()(const ReverseNodePtr& node) const
+    {
+      return node->lane;
+    }
+  };
+
+  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr>
   {
   public:
 
     ReverseExpander(
       std::shared_ptr<const Supergraph> graph,
-      const ChildHeuristicManagerMapPtr& cache,
+      const HeuristicCachePtr& cache,
       const WaypointId target);
 
     ReverseNodePtr expand(
@@ -123,7 +131,7 @@ public:
       Frontier& frontier) const final;
 
     void retarget(
-      const ChildHeuristicManagerMapPtr& cache,
+      const HeuristicCachePtr& cache,
       WaypointId new_target,
       Frontier& frontier) final;
 
@@ -139,48 +147,97 @@ public:
 
   using ForwardTreeManagerMap = TreeManagerMap<ForwardTree, ReverseTree>;
   using ReverseTreeManagerMap = TreeManagerMap<ReverseTree, ForwardTree>;
+
+  template<typename T, typename C>
+  static std::vector<typename T::NodePtr> flip_node(
+    C current_node,
+    const T& tree)
+  {
+    std::vector<typename T::NodePtr> new_nodes;
+    const double full_cost = current_node->current_cost;
+    typename T::NodePtr parent_node = nullptr;
+    while (current_node)
+    {
+      if (const auto existing_node = tree.visited(current_node->lane))
+      {
+        parent_node = existing_node;
+      }
+      else
+      {
+        auto new_node = std::make_shared<typename T::Node>(
+              typename T::Node{
+                current_node->lane,
+                full_cost - current_node->current_cost + current_node->lane_cost,
+                0.0, // placeholder which will get overwritten when retarget(~) is called
+                current_node->lane_cost,
+                // We switch the waypoint and the complement_waypoint here
+                // because we are reversing the type of node
+                current_node->complement_waypoint,
+                current_node->waypoint,
+                current_node->orientation,
+                parent_node
+              });
+
+        parent_node = new_node;
+        new_nodes.emplace_back(std::move(new_node));
+      }
+
+      current_node = current_node->parent;
+    }
+
+    return new_nodes;
+  }
 };
 
 //==============================================================================
-class MinimalTravelHeuristic : public MinimumTravel
+class MinimalTravelHeuristic : public Garden<MinimumTravel>
 {
 public:
 
   MinimalTravelHeuristic(
     std::shared_ptr<const Supergraph> graph);
-
-  std::optional<double> get(WaypointId start, WaypointId finish) const;
-
-private:
-
-  std::optional<double> _check_for_solution(
-    WaypointId start, WaypointId finish) const;
-
-  std::optional<double> _search(
-    WaypointId start,
-    std::optional<LockedTree<ForwardTree>> forward_locked,
-    WaypointId finish,
-    std::optional<LockedTree<ReverseTree>> reverse_locked) const;
-
-  std::shared_ptr<const Supergraph> _graph;
-  ChildHeuristicManagerMapPtr _heuristic_cache;
-
-  mutable ForwardTreeManagerMap _forward;
-  mutable std::atomic_bool _forward_mutex = false;
-
-  mutable ReverseTreeManagerMap _reverse;
-  mutable std::atomic_bool _reverse_mutex = false;
-
-  using SolutionMap =
-    std::unordered_map<
-      WaypointId, std::unordered_map<WaypointId, std::optional<double>>>;
-  mutable SolutionMap _solutions;
-  mutable std::atomic_bool _solutions_mutex = false;
 };
 
 //==============================================================================
 using ConstMinimalTravelHeuristicPtr =
   std::shared_ptr<const MinimalTravelHeuristic>;
+
+//==============================================================================
+inline double combine_costs(
+  const MinimumTravel::ForwardNode& a,
+  const MinimumTravel::ReverseNode& b)
+{
+  // The cost of boths nodes contains the cost of crossing the lane where their
+  // states intersect. However, one of the lane costs might be greater than the
+  // other because it may be going across multiple lanes instead of only going
+  // down one lane. We subtract the lower of the two lane costs because the
+  // lower lane cost would be leaving a gap in the overall path.
+  return a.current_cost + b.current_cost - std::min(a.lane_cost, b.lane_cost);
+}
+
+//==============================================================================
+inline double combine_costs(
+  const MinimumTravel::ReverseNode& b,
+  const MinimumTravel::ForwardNode& a)
+{
+  return combine_costs(a, b);
+}
+
+//==============================================================================
+inline std::vector<MinimumTravel::ReverseNodePtr> flip_node(
+  MinimumTravel::ForwardNodePtr current_node,
+  const MinimumTravel::ReverseTree& tree)
+{
+  return MinimumTravel::flip_node(current_node, tree);
+}
+
+//==============================================================================
+inline std::vector<MinimumTravel::ForwardNodePtr> flip_node(
+  MinimumTravel::ReverseNodePtr current_node,
+  const MinimumTravel::ForwardTree& tree)
+{
+  return MinimumTravel::flip_node(current_node, tree);
+}
 
 } // namespace planning
 } // namespace agv
