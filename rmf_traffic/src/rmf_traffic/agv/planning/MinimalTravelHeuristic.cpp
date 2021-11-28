@@ -144,7 +144,7 @@ bool Tree<ExpanderT>::exhausted() const
 
 //==============================================================================
 template<typename ExpanderT>
-void Tree<ExpanderT>::retarget(Cache<EuclideanHeuristic> new_heuristic)
+void Tree<ExpanderT>::retarget(Cache<ChildOfMinimalTravelHeuristic> new_heuristic)
 {
   _expander.retarget(std::move(new_heuristic), _frontier);
 }
@@ -161,7 +161,7 @@ void expand_traversals(
   FrontierTemplate<NodePtrT, C>& frontier,
   std::unordered_map<LaneId, NodePtrT>& visited,
   const std::shared_ptr<const Supergraph>& graph,
-  const Cache<EuclideanHeuristic>& heuristic,
+  const Cache<ChildOfMinimalTravelHeuristic>& heuristic,
   const Traversals& traversals)
 {
   for (const auto& traversal : traversals)
@@ -240,7 +240,7 @@ template<
   typename NodePtrT, typename C>
 void initialize_traversals(
   FrontierTemplate<NodePtrT, C>& frontier,
-  const Cache<EuclideanHeuristic>& heuristic,
+  const Cache<ChildOfMinimalTravelHeuristic>& heuristic,
   const Traversals& traversals)
 {
   for (const auto& traversal : traversals)
@@ -275,7 +275,7 @@ void initialize_traversals(
 //==============================================================================
 ForwardExpander::ForwardExpander(
   std::shared_ptr<const Supergraph> graph,
-  Cache<EuclideanHeuristic> heuristic)
+  Cache<ChildOfMinimalTravelHeuristic> heuristic)
 : _graph(std::move(graph)),
   _heuristic(std::move(heuristic))
 {
@@ -310,6 +310,9 @@ ForwardNodePtr ForwardExpander::expand(const ForwardNodePtr& top,
       _heuristic,
       *_graph->traversals_from(waypoint));
 
+  if (!top->remaining_cost_estimate.has_value())
+    return nullptr;
+
   return top;
 }
 
@@ -327,7 +330,7 @@ void ForwardExpander::initialize(std::size_t waypoint_index,
 
 //==============================================================================
 void ForwardExpander::retarget(
-  Cache<EuclideanHeuristic> new_heuristic,
+  Cache<ChildOfMinimalTravelHeuristic> new_heuristic,
   Frontier& frontier)
 {
   _heuristic = std::move(new_heuristic);
@@ -345,7 +348,7 @@ void ForwardExpander::retarget(
 //==============================================================================
 ReverseExpander::ReverseExpander(
   std::shared_ptr<const Supergraph> graph,
-  Cache<EuclideanHeuristic> heuristic)
+  Cache<ChildOfMinimalTravelHeuristic> heuristic)
 : _graph(std::move(graph)),
   _heuristic(std::move(heuristic))
 {
@@ -394,6 +397,9 @@ ReverseNodePtr ReverseExpander::expand(const ReverseNodePtr& top,
       _heuristic,
       *_graph->traversals_into(waypoint));
 
+  if (!top->remaining_cost_estimate.has_value())
+    return nullptr;
+
   return top;
 }
 
@@ -419,7 +425,7 @@ void ReverseExpander::initialize(std::size_t waypoint_index,
 
 //==============================================================================
 void ReverseExpander::retarget(
-  Cache<EuclideanHeuristic> heuristic,
+  Cache<ChildOfMinimalTravelHeuristic> heuristic,
   Frontier& frontier)
 {
   _heuristic = std::move(heuristic);
@@ -439,7 +445,7 @@ template<typename T, typename C>
 LockedTree<T> TreeManager<T, C>::get_tree(
   std::size_t waypoint,
   const std::shared_ptr<const Supergraph>& graph,
-  const Cache<EuclideanHeuristic>& heuristic)
+  const Cache<ChildOfMinimalTravelHeuristic>& heuristic)
 {
   SpinLock lock(_tree_mutex);
   if (!_tree.has_value())
@@ -511,7 +517,7 @@ void TreeManager<T, C>::_process_waiting_list()
 MinimalTravelHeuristic::MinimalTravelHeuristic(
   std::shared_ptr<const Supergraph> graph)
 : _graph(std::move(graph)),
-  _heuristic_cache(std::make_shared<EuclideanHeuristicFactory>(_graph))
+  _heuristic_cache(std::make_shared<ChildHeuristicFactory>(_graph))
 {
   // Do nothing
 }
@@ -549,7 +555,7 @@ LockedTree<T> lock_tree(
   TreeManagerMap<T, C>& manager_map,
   WaypointId waypoint,
   const std::shared_ptr<const Supergraph>& graph,
-  const Cache<EuclideanHeuristic>& heuristic)
+  const Cache<ChildOfMinimalTravelHeuristic>& heuristic)
 {
   SpinLock lock(mutex);
   return get_manager(manager_map, waypoint)
@@ -701,12 +707,12 @@ std::optional<double> MinimalTravelHeuristic::_search(
           {
             result = combine_costs(*next_forward, *overlap);
 
-//            const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
-//            std::cout << "Met at " << wp << " | " << next_forward->lane
-//                      << ": (" << next_forward->cost << ", "
-//                      << next_forward->lane_cost << ") ("
-//                      << overlap->cost << ", " << overlap->lane_cost
-//                      << ") -> " << *result << std::endl;
+            const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
+            std::cout << "Met at " << wp << " | " << next_forward->lane
+                      << ": (" << next_forward->current_cost << ", "
+                      << next_forward->lane_cost << ") ("
+                      << overlap->current_cost << ", " << overlap->lane_cost
+                      << ") -> " << *result << std::endl;
 
 //            auto f = next_forward;
 //            std::cout << "Forward: ";
@@ -745,12 +751,12 @@ std::optional<double> MinimalTravelHeuristic::_search(
           {
             result = combine_costs(*next_reverse, *overlap);
 
-//            const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
-//            std::cout << "Met at " << f_wp << " | " << next_reverse->lane
-//                      << ": (" << next_reverse->cost << ", "
-//                      << next_reverse->lane_cost << ") ("
-//                      << overlap->cost << ", " << overlap->lane_cost
-//                      << ") -> " << *result << std::endl;
+            const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
+            std::cout << "Met at " << f_wp << " | " << next_reverse->lane
+                      << ": (" << next_reverse->current_cost << ", "
+                      << next_reverse->lane_cost << ") ("
+                      << overlap->current_cost << ", " << overlap->lane_cost
+                      << ") -> " << *result << std::endl;
 
 //            auto f = overlap;
 //            std::cout << "Forward: ";

@@ -20,6 +20,7 @@
 
 #include "Supergraph.hpp"
 #include "EuclideanHeuristic.hpp"
+#include "ShortestPathHeuristic.hpp"
 
 #include <queue>
 
@@ -29,6 +30,9 @@ namespace planning {
 
 using LaneId = std::size_t;
 using WaypointId = std::size_t;
+
+using ChildOfMinimalTravelHeuristic = ShortestPathHeuristic;
+using ChildHeuristicFactory = ShortestPathHeuristicFactory;
 
 ////==============================================================================
 //template<typename NodePtrT>
@@ -110,7 +114,7 @@ public:
     Frontier& frontier) const = 0;
 
   virtual void retarget(
-    Cache<EuclideanHeuristic> new_heuristic,
+    Cache<ChildOfMinimalTravelHeuristic> new_heuristic,
     Frontier& frontier) = 0;
 };
 
@@ -139,7 +143,7 @@ public:
 
   bool exhausted() const;
 
-  void retarget(Cache<EuclideanHeuristic> new_heuristic);
+  void retarget(Cache<ChildOfMinimalTravelHeuristic> new_heuristic);
 
 private:
   Frontier _frontier;
@@ -174,7 +178,7 @@ public:
 
   ForwardExpander(
     std::shared_ptr<const Supergraph> graph,
-    Cache<EuclideanHeuristic> heuristic);
+    Cache<ChildOfMinimalTravelHeuristic> heuristic);
 
   ForwardNodePtr expand(
     const ForwardNodePtr& top,
@@ -186,12 +190,12 @@ public:
     Frontier& frontier) const final;
 
   void retarget(
-    Cache<EuclideanHeuristic> new_heuristic,
+    Cache<ChildOfMinimalTravelHeuristic> new_heuristic,
     Frontier &frontier) final;
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  Cache<EuclideanHeuristic> _heuristic;
+  Cache<ChildOfMinimalTravelHeuristic> _heuristic;
 };
 
 using ForwardTree = Tree<ForwardExpander>;
@@ -221,7 +225,7 @@ public:
 
   ReverseExpander(
     std::shared_ptr<const Supergraph> graph,
-    Cache<EuclideanHeuristic> heuristic);
+    Cache<ChildOfMinimalTravelHeuristic> heuristic);
 
   ReverseNodePtr expand(
     const ReverseNodePtr& top,
@@ -233,11 +237,11 @@ public:
     Frontier& frontier) const final;
 
   void retarget(
-    Cache<EuclideanHeuristic> new_heuristic, Frontier& frontier) final;
+    Cache<ChildOfMinimalTravelHeuristic> new_heuristic, Frontier& frontier) final;
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  Cache<EuclideanHeuristic> _heuristic;
+  Cache<ChildOfMinimalTravelHeuristic> _heuristic;
 };
 
 using ReverseTree = Tree<ReverseExpander>;
@@ -269,7 +273,7 @@ public:
   LockedTree<Tree> get_tree(
     std::size_t waypoint,
     const std::shared_ptr<const Supergraph>& graph,
-    const Cache<EuclideanHeuristic>& heuristic);
+    const Cache<ChildOfMinimalTravelHeuristic>& heuristic);
 
   void add_to_waiting(ComplementNodePtr node);
 
@@ -319,7 +323,7 @@ private:
     std::optional<LockedTree<ReverseTree>> reverse_locked) const;
 
   std::shared_ptr<const Supergraph> _graph;
-  EuclideanHeuristicCacheMap _heuristic_cache;
+  CacheManagerMap<ChildHeuristicFactory> _heuristic_cache;
 
   mutable ForwardTreeManagerMap _forward;
   mutable std::atomic_bool _forward_mutex = false;

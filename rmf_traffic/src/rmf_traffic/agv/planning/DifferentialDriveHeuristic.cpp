@@ -332,6 +332,11 @@ public:
     if (old_it == _old_items.end())
       return false;
 
+    if (!old_it->second)
+    {
+      std::cout << "Old item is nullptr?? " << key << std::endl;
+    }
+
     auto solution = old_it->second->child;
     auto node = top;
     while (solution)
