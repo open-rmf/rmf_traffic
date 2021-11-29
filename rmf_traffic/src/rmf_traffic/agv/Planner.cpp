@@ -21,9 +21,21 @@
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
 
+#include <iostream>
+
+#include "planning/TranslationHeuristic.hpp"
+#include "planning/ShortestPathHeuristic.hpp"
+#include "planning/EuclideanHeuristic.hpp"
+#include "planning/DifferentialDriveHeuristic.hpp"
+#include "planning/Supergraph.hpp"
+
 namespace rmf_traffic {
 namespace agv {
-
+using TranslationHeuristic = planning::TranslationHeuristic;
+using ShortestPathHeuristic = planning::ShortestPathHeuristic;
+using EuclideanHeuristic = planning::EuclideanHeuristic;
+using DifferentialDriveHeuristic = planning::DifferentialDriveHeuristic;
+using Supergraph = planning::Supergraph;
 //==============================================================================
 // This line tells the linker to take care of defining the value of this field
 // inside of this translation unit.
@@ -544,21 +556,58 @@ Planner::Result Planner::Result::Implementation::generate(
 {
   // TODO(MXG): Throw an exception if any of the starts or the goal has an
   // invalid waypoint index.
+  std::optional<planning::PlanData> plan_data;
+  auto start_time = std::chrono::steady_clock::now();
+  if (!translation_only)
+  {
   auto state = interface->initiate(
     starts, std::move(goal), std::move(options));
+  auto end_time = std::chrono::steady_clock::now();
+  std::cout << "Interface initialization ran for :" << (end_time-start_time).count()/1e9 << std::endl;
 
-  auto plan =
-    Plan::Implementation::make(interface->plan(state, translation_only));
+  start_time = std::chrono::steady_clock::now();
+  plan_data =
+    interface->plan(state, translation_only);
+  end_time = std::chrono::steady_clock::now();
+  std::cout << "Interface plan ran for :" << (end_time-start_time).count()/1e9 << std::endl;
+  }
 
-  Planner::Result result;
-  result._pimpl = rmf_utils::make_impl<Implementation>(
-    Implementation{
-      std::move(interface),
-      std::move(state),
-      std::move(plan)
-    });
+  else
+  {
+    const auto& _config = interface->get_configuration();
+    const auto  _supergraph = Supergraph::make(
+    Graph::Implementation::get(_config.graph()),
+    _config.vehicle_traits(),
+    _config.lane_closures(),
+    _config.interpolation());
 
-  return result;
+    // Directly use TrasnlationHeuristic
+    TranslationHeuristic::Storage new_items = {};
+    TranslationHeuristic::Storage old_items = {};
+    const auto& factory = planning::TranslationHeuristicFactory(_supergraph);
+    const auto translation_heuristic = factory.make(goal.waypoint());
+    plan_data = translation_heuristic->translation_solve(
+      starts[0].waypoint(),
+      old_items,
+      new_items);
+    std::cout << "ShortestPathHeuristic::generate() run_time: " << ShortestPathHeuristic::run_time.count() /1e9 << std::endl;
+    std::cout << "EuclideanHeuristic::generate() run_time: " << EuclideanHeuristic::run_time.count() /1e9 << std::endl;
+    std::cout << "TranslationHeuristic::generate() run_time: " << TranslationHeuristic::run_time.count() /1e9 << std::endl;
+    std::cout << "DifferentialDriveHeuristic::generate() run_time: " << DifferentialDriveHeuristic::run_time.count() /1e9 << std::endl;
+  }
+
+// auto plan =
+//     Plan::Implementation::make(plan_data);
+
+//   Planner::Result result;
+//   result._pimpl = rmf_utils::make_impl<Implementation>(
+//     Implementation{
+//       std::move(interface),
+//       std::move(state),
+//       std::move(plan)
+//     });
+
+//   return result;
 }
 
 //==============================================================================

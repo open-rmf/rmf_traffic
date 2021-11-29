@@ -195,6 +195,9 @@ std::optional<double> ShortestPathHeuristic::generate(
   const Storage& old_items,
   Storage& new_items) const
 {
+  const auto start_time = std::chrono::steady_clock::now();
+  auto finish_time = start_time;
+
   auto heuristic = _heuristic->get();
   auto start_heuristic = heuristic.get(key);
   if (!start_heuristic.has_value())
@@ -202,6 +205,8 @@ std::optional<double> ShortestPathHeuristic::generate(
     // If the heuristic of this starting waypoint is a nullopt, then it is
     // impossible for the start to reach the goal.
     new_items.insert({key, std::nullopt});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return std::nullopt;
   }
 
@@ -228,6 +233,8 @@ std::optional<double> ShortestPathHeuristic::generate(
   {
     // This means there is no way to move to the goal from the start waypoint
     new_items.insert({key, std::nullopt});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return std::nullopt;
   }
 
@@ -242,6 +249,8 @@ std::optional<double> ShortestPathHeuristic::generate(
     node = node->parent;
   }
 
+  finish_time = std::chrono::steady_clock::now();
+  run_time += (finish_time - start_time);
   return final_cost;
 }
 

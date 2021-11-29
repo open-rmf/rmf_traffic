@@ -47,6 +47,8 @@ public:
     const Storage& old_items,
     Storage& new_items) const final;
 
+  static inline std::chrono::nanoseconds run_time;
+
 private:
   std::size_t _goal;
   double _max_speed;

@@ -24,6 +24,8 @@
 #include <rmf_utils/math.hpp>
 #include <set>
 
+#include <iostream>
+
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
@@ -2061,12 +2063,14 @@ DifferentialDrivePlanner::DifferentialDrivePlanner(
   Planner::Configuration config)
 : _config(std::move(config))
 {
+  auto start_time = std::chrono::steady_clock::now();
   _supergraph = Supergraph::make(
     Graph::Implementation::get(_config.graph()),
     _config.vehicle_traits(),
     _config.lane_closures(),
     _config.interpolation());
-
+  auto end_time = std::chrono::steady_clock::now();
+  std::cout << "Supergraph generation ran for :" << (end_time-start_time).count()/1e9 << std::endl;
   _cache = DifferentialDriveHeuristic::make_manager(_supergraph);
 }
 
@@ -2162,6 +2166,7 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(
     TranslationHeuristic::Storage old_items = {};
     const auto& factory = TranslationHeuristicFactory(_supergraph);
     const auto translation_heuristic = factory.make(goal.waypoint());
+
     return translation_heuristic->translation_solve(
       state.conditions.starts[0].waypoint(),
       old_items,
@@ -2181,6 +2186,11 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(
   auto& internal = static_cast<InternalState&>(*state.internal);
 
   const auto solution = a_star_search(expander, internal.queue);
+
+  std::cout << "ShortestPathHeuristic::generate() run_time: " << ShortestPathHeuristic::run_time.count() /1e9 << std::endl;
+  std::cout << "EuclideanHeuristic::generate() run_time: " << EuclideanHeuristic::run_time.count() /1e9 << std::endl;
+  std::cout << "TranslationHeuristic::generate() run_time: " << TranslationHeuristic::run_time.count() /1e9 << std::endl;
+  std::cout << "DifferentialDriveHeuristic::generate() run_time: " << DifferentialDriveHeuristic::run_time.count() /1e9 << std::endl;
 
   if (!solution)
     return std::nullopt;

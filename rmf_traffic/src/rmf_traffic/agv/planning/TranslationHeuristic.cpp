@@ -335,6 +335,8 @@ std::optional<PlanData> TranslationHeuristic::translation_solve(
   const Storage& old_items,
   Storage& new_items) const
 {
+  const auto start_time = std::chrono::steady_clock::now();
+  auto finish_time = start_time;
   const TranslationExpander::NodePtr solution = search(
     key, old_items, new_items, _heuristic, _goal, _graph);
 
@@ -342,6 +344,8 @@ std::optional<PlanData> TranslationHeuristic::translation_solve(
   {
     // This means there is no way to move to the goal from the start waypoint
     new_items.insert({key, std::nullopt});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return std::nullopt;
   }
 
@@ -357,7 +361,8 @@ std::optional<PlanData> TranslationHeuristic::translation_solve(
   // auto waypoints = reconstruct_waypoints(
   //   nodes, index, _supergraph->original());
   // auto start = find_start(solution);
-
+  finish_time = std::chrono::steady_clock::now();
+  run_time += (finish_time - start_time);
   return std::nullopt;
 }
 
@@ -367,6 +372,10 @@ std::optional<double> TranslationHeuristic::generate(
   const Storage& old_items,
   Storage& new_items) const
 {
+
+  const auto start_time = std::chrono::steady_clock::now();
+  auto finish_time = start_time;
+
   const TranslationExpander::NodePtr solution = search(
     key, old_items, new_items, _heuristic, _goal, _graph);
 
@@ -374,6 +383,8 @@ std::optional<double> TranslationHeuristic::generate(
   {
     // This means there is no way to move to the goal from the start waypoint
     new_items.insert({key, std::nullopt});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return std::nullopt;
   }
 
@@ -388,6 +399,8 @@ std::optional<double> TranslationHeuristic::generate(
     node = node->parent;
   }
 
+  finish_time = std::chrono::steady_clock::now();
+  run_time += (finish_time - start_time);
   return final_cost;
 }
 

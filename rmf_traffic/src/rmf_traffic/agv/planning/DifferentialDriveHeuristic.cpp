@@ -494,6 +494,8 @@ auto DifferentialDriveHeuristic::generate(
   const Storage& old_items,
   Storage& new_items) const -> SolutionNodePtr
 {
+  const auto start_time = std::chrono::steady_clock::now();
+  auto finish_time = start_time;
   using SearchQueue = DifferentialDriveExpander::SearchQueue;
   using SearchNode = DifferentialDriveExpander::SearchNode;
   using NodeInfo = DifferentialDriveExpander::NodeInfo;
@@ -515,6 +517,8 @@ auto DifferentialDriveHeuristic::generate(
     // If the heuristic of this starting waypoint is a nullopt, then it is
     // impossible for the start to reach the goal.
     new_items.insert({key, nullptr});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return nullptr;
   }
 
@@ -571,6 +575,8 @@ auto DifferentialDriveHeuristic::generate(
     std::cout << "NO SOLUTION FOR " << key << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
     new_items.insert({key, nullptr});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return nullptr;
   }
 
@@ -671,6 +677,8 @@ auto DifferentialDriveHeuristic::generate(
     goal_node = goal_node->parent;
   }
 
+  finish_time = std::chrono::steady_clock::now();
+  run_time += (finish_time - start_time);
   return output;
 }
 

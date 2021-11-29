@@ -33,6 +33,8 @@ class DifferentialDriveHeuristic : public Generator<DifferentialDriveMap>
 {
 public:
 
+  static inline std::chrono::nanoseconds run_time;
+
   DifferentialDriveHeuristic(std::shared_ptr<const Supergraph> graph);
 
   using SolutionNode = DifferentialDriveMapTypes::SolutionNode;

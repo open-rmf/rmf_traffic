@@ -22,6 +22,8 @@
 #include "Supergraph.hpp"
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include "../internal_planning.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -37,6 +39,8 @@ class EuclideanHeuristic
 {
 public:
 
+  static inline std::chrono::nanoseconds run_time;
+
   EuclideanHeuristic(
     std::size_t goal,
     double max_speed,
@@ -46,6 +50,11 @@ public:
     const std::size_t& key,
     const Storage& old_items,
     Storage& new_items) const final;
+
+  std::optional<PlanData> translation_solve(
+    const std::size_t& key,
+    const Storage& old_items,
+    Storage& new_items) const;
 
 private:
   std::size_t _goal;

@@ -20,6 +20,8 @@
 
 #include <queue>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -63,9 +65,13 @@ public:
 
   void expand(const NodePtr& top, SearchQueue& queue)
   {
+    const auto start_time = std::chrono::steady_clock::now();
     const auto current_wp_index = top->waypoint;
+    std::cout << "Expanding top with waypoint: " << current_wp_index << std::endl;
+
     if (!_visited.insert(current_wp_index).second)
     {
+      std::cout << "Inside visited" << std::endl;
       // This means we have already expanded from this waypoint before.
       // Expanding from here again is pointless because expanding from a more
       // costly parent cannot be better than expanding from a less costly one.
@@ -73,9 +79,11 @@ public:
     }
 
     const auto current_cost = top->current_cost;
+    std::cout << "Current cost of top: " << current_cost << std::endl;
     const auto old_it = _old_items.find(current_wp_index);
     if (old_it != _old_items.end())
     {
+      std::cout << "Found cache for top in old_items" << std::endl;
       // If the current waypoint already has an entry in the old items, then we
       // can immediately create a node that brings it the rest of the way to the
       // goal with the best possible cost.
@@ -83,11 +91,13 @@ public:
       const auto remaining_cost = old_it->second;
       if (!remaining_cost.has_value())
       {
+        std::cout << "Remaining cost does not have value" << std::endl;
         // If the old value is a nullopt, then this waypoint has no way to reach
         // the goal, so we should just discard it.
         return;
       }
 
+      std::cout << "Remaining cost of top: " << remaining_cost.value() << std::endl;
       auto new_node = std::make_shared<Node>(
         Node{
           _goal,
@@ -100,6 +110,7 @@ public:
       return;
     }
 
+    std::cout << "Top not in old_items" << std::endl;
     // If the current waypoint does not have an entry in the old items, then we
     // need to keep expanding, step by step.
     const auto& current_wp = _graph->original().waypoints.at(current_wp_index);
@@ -108,9 +119,10 @@ public:
 
     if (current_map == _goal_map)
     {
+      std::cout << "Top waypoint and goal wp are on the same map" << std::endl;
       // We're on the same map as the goal, so we can reach it directly now.
       const auto cost = (_goal_p - current_p).norm()/_max_speed;
-
+      std::cout << "additional cost:  " << cost << std::endl;
       auto new_node = std::make_shared<Node>(
         Node{
           _goal,
@@ -118,11 +130,14 @@ public:
           current_cost + cost,
           top
         });
+      const auto end_time = std::chrono::steady_clock::now();
+      std::cout << "EH::expand() ran for: " << (end_time-start_time).count() / 1e9 << std::endl;
+      std::cout << "Created new node with cost:  " << current_cost + cost << std::endl;
 
       queue.push(std::move(new_node));
       return;
     }
-
+    std::cout << "we shouldn't be here" << std::endl;
     const auto current_floor_it = _graph->floor_change().find(current_map);
     if (current_floor_it == _graph->floor_change().end())
     {
@@ -186,6 +201,9 @@ public:
         queue.push(std::move(new_node));
       }
     }
+
+    std::cout << "we REALLY shouldn't be here" << std::endl;
+
   }
 
   EuclideanExpander(
@@ -229,8 +247,9 @@ EuclideanHeuristic::EuclideanHeuristic(
   _goal_map = &goal_wp.get_map_name();
 }
 
+
 //==============================================================================
-std::optional<double> EuclideanHeuristic::generate(
+std::optional<PlanData> EuclideanHeuristic::translation_solve(
   const std::size_t& key,
   const Storage& old_items,
   Storage& new_items) const
@@ -240,9 +259,74 @@ std::optional<double> EuclideanHeuristic::generate(
   const Eigen::Vector2d start_p = start_wp.get_location();
   const auto minimum_cost = (_goal_p - start_p).norm()/_max_speed;
 
+  // if (start_map == *_goal_map)
+  // {
+  //   const auto it = new_items.insert({key, minimum_cost});
+  //   return it.first->second;
+  // }
+
+  auto start_time = std::chrono::steady_clock::now();
+
+  EuclideanExpander expander{
+    _goal,
+    _goal_p,
+    *_goal_map,
+    _max_speed,
+    old_items,
+    _graph
+  };
+
+  auto end_time = std::chrono::steady_clock::now();
+  std::cout << "EH::Expander creation ran for: " << (end_time-start_time).count() / 1e9 << std::endl;
+
+
+  EuclideanExpander::SearchQueue queue;
+  queue.push(
+    std::make_shared<EuclideanExpander::Node>(
+      EuclideanExpander::Node{
+        key,
+        minimum_cost,
+        0.0,
+        nullptr
+      }));
+
+  start_time = std::chrono::steady_clock::now();
+  const EuclideanExpander::NodePtr solution = a_star_search(expander, queue);
+  end_time = std::chrono::steady_clock::now();
+  std::cout << "EH::a_star_search ran for: " << (end_time-start_time).count() / 1e9 << std::endl;
+
+  if (solution)
+  {
+    auto node = solution;
+    while (node)
+    {
+      std::cout << node->waypoint << "->";
+      node = node->parent;
+    }
+    std::cout << std::endl;
+  }
+
+  return std::nullopt;
+}
+
+//==============================================================================
+std::optional<double> EuclideanHeuristic::generate(
+  const std::size_t& key,
+  const Storage& old_items,
+  Storage& new_items) const
+{
+  const auto start_time = std::chrono::steady_clock::now();
+  auto finish_time = start_time;
+  const auto& start_wp = _graph->original().waypoints.at(key);
+  const auto& start_map = start_wp.get_map_name();
+  const Eigen::Vector2d start_p = start_wp.get_location();
+  const auto minimum_cost = (_goal_p - start_p).norm()/_max_speed;
+
   if (start_map == *_goal_map)
   {
     const auto it = new_items.insert({key, minimum_cost});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return it.first->second;
   }
 
@@ -270,6 +354,8 @@ std::optional<double> EuclideanHeuristic::generate(
   {
     // This means there is no way to move to the goal from the start waypoint
     new_items.insert({key, std::nullopt});
+    finish_time = std::chrono::steady_clock::now();
+    run_time += (finish_time - start_time);
     return std::nullopt;
   }
 
@@ -283,7 +369,8 @@ std::optional<double> EuclideanHeuristic::generate(
     new_items.insert({node->waypoint, final_cost - node->current_cost});
     node = node->parent;
   }
-
+  finish_time = std::chrono::steady_clock::now();
+  run_time += (finish_time - start_time);
   return final_cost;
 }
 

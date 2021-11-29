@@ -38,6 +38,8 @@ class TranslationHeuristic
 {
 public:
 
+  static inline std::chrono::nanoseconds run_time;
+
   TranslationHeuristic(
     std::size_t goal,
     std::shared_ptr<const Supergraph> graph,
