@@ -51,7 +51,7 @@ using WaypointId = std::size_t;
 template<typename NodePtrT>
 struct OptionalCompare
 {
-  bool operator()(const NodePtrT& a, const NodePtrT& b)
+  bool operator()(const NodePtrT& a, const NodePtrT& b) const
   {
 //    if (!a->remaining_cost_estimate.has_value())
 //    {
@@ -99,14 +99,14 @@ private:
 };
 
 //==============================================================================
-template<typename NodeT, typename CacheT>
+template<typename NodeT, typename CacheT, template<typename> class Compare>
 class Expander
 {
 public:
 
   using Node = NodeT;
   using NodePtr = std::shared_ptr<Node>;
-  using Frontier = FrontierTemplate<NodePtr, OptionalCompare<NodePtr>>;
+  using Frontier = FrontierTemplate<NodePtr, Compare<NodePtr>>;
   using Cache = CacheT;
 
   virtual NodePtr expand(
@@ -122,6 +122,8 @@ public:
     const Cache& cache,
     WaypointId new_target,
     Frontier& frontier) = 0;
+
+  virtual bool exhausted(const Frontier& frontier) const = 0;
 };
 
 //==============================================================================
@@ -214,8 +216,18 @@ using TreeManagerMap =
   std::unordered_map<WaypointId, std::unique_ptr<TreeManager<T, C>>>;
 
 //==============================================================================
+struct DefaultForestSettings
+{
+  static constexpr bool grow_bidirectional = true;
+  static constexpr bool cross_polinate = false;
+  static constexpr bool max_timer = false;
+  static constexpr bool print_timers = false;
+  static constexpr bool count_usage = false;
+};
+
+//==============================================================================
 template<typename T>
-class Garden
+class BidirectionalForest
 {
 public:
 
@@ -229,18 +241,20 @@ public:
 
   using Cache = typename ForwardTree::Cache;
 
-  Garden(
+  BidirectionalForest(
     std::shared_ptr<const Supergraph> graph,
     Cache cache);
 
   std::optional<double> get(WaypointId start, WaypointId finish) const;
+
+  ~BidirectionalForest();
 
 private:
 
   using ForwardTreeManagerMap = TreeManagerMap<ForwardTree, ReverseTree>;
   using ReverseTreeManagerMap = TreeManagerMap<ReverseTree, ForwardTree>;
 
-  std::optional<double> _check_for_solution(
+  std::optional<std::optional<double>> _check_for_solution(
     WaypointId start, WaypointId finish) const;
 
   std::optional<double> _search(
@@ -263,6 +277,10 @@ private:
       WaypointId, std::unordered_map<WaypointId, std::optional<double>>>;
   mutable SolutionMap _solutions;
   mutable std::atomic_bool _solutions_mutex = false;
+
+  mutable std::size_t _usage_count = 0;
+  mutable std::size_t _search_count = 0;
+  mutable std::chrono::steady_clock::duration _max{0};
 };
 
 } // namespace rmf_traffic

@@ -27,11 +27,27 @@ namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
-class MinimumTravel
+class MinimumTravel : public DefaultForestSettings
 {
 public:
 
   using HeuristicCachePtr = std::shared_ptr<const ShortestPathHeuristic>;
+
+  template<typename F>
+  static bool exhausted(const F& frontier)
+  {
+    const auto* peek = frontier.peek();
+    if (!peek)
+      return true;
+
+    // We always put expanded elements into the frontier even if they have no
+    // prospect of reach the current target, because they might still matter for
+    // reaching a different target during a different search. However we sort
+    // those elements to all be in the bottom of the frontier queue. If one of
+    // those elements reaches the top of the queue, then we know we have run out
+    // of nodes that are worth exploring for this search.
+    return !(*peek)->remaining_cost_estimate.has_value();
+  }
 
   struct ForwardNode;
   using ForwardNodePtr = std::shared_ptr<ForwardNode>;
@@ -52,7 +68,7 @@ public:
     ForwardNodePtr parent;
   };
 
-  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr>
+  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr, OptionalCompare>
   {
   public:
 
@@ -74,6 +90,8 @@ public:
       const HeuristicCachePtr& cache,
       WaypointId new_target,
       Frontier& frontier) final;
+
+    bool exhausted(const Frontier& frontier) const final;
 
   private:
     std::shared_ptr<const Supergraph> _graph;
@@ -112,7 +130,7 @@ public:
     }
   };
 
-  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr>
+  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr, OptionalCompare>
   {
   public:
 
@@ -134,6 +152,8 @@ public:
       const HeuristicCachePtr& cache,
       WaypointId new_target,
       Frontier& frontier) final;
+
+    bool exhausted(const Frontier& frontier) const final;
 
   private:
     std::shared_ptr<const Supergraph> _graph;
@@ -190,7 +210,7 @@ public:
 };
 
 //==============================================================================
-class MinimalTravelHeuristic : public Garden<MinimumTravel>
+class MinimalTravelHeuristic : public BidirectionalForest<MinimumTravel>
 {
 public:
 

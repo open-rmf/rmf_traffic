@@ -29,15 +29,33 @@ namespace agv {
 namespace planning {
 
 //==============================================================================
+template<typename NodePtrT>
+struct DijkstraCompare
+{
+  bool operator()(const NodePtrT& a, const NodePtrT& b) const
+  {
+    return b->current_cost < a->current_cost;
+  }
+};
+
+//==============================================================================
 /// The ShortestPathHeuristic finds the shortest (in terms of time required)
 /// path between two waypoints, not accounting for acceleration, deceleration,
 /// turning, or orientation constraints.
-class ShortestPath
+class ShortestPath : public DefaultForestSettings
 {
 public:
 
+  static constexpr bool max_timer = true;
+
   using HeuristicCachePtr =
     std::shared_ptr<const CacheManagerMap<EuclideanHeuristicFactory>>;
+
+  template<typename F>
+  static bool exhausted(const F& frontier)
+  {
+    return frontier.empty();
+  }
 
   struct ForwardNode;
   using ForwardNodePtr = std::shared_ptr<ForwardNode>;
@@ -45,11 +63,10 @@ public:
   {
     std::size_t waypoint;
     double current_cost;
-    std::optional<double> remaining_cost_estimate;
     ForwardNodePtr parent;
   };
 
-  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr>
+  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr, DijkstraCompare>
   {
   public:
 
@@ -70,10 +87,11 @@ public:
       WaypointId new_target,
       Frontier& frontier) final;
 
+    bool exhausted(const Frontier& frontier) const final;
+
   private:
     std::shared_ptr<const Supergraph> _graph;
     double _max_speed;
-    std::function<std::optional<double>(WaypointId)> _heuristic;
   };
   using ForwardTree = Tree<ForwardExpander>;
 
@@ -84,7 +102,6 @@ public:
   {
     std::size_t waypoint;
     double current_cost;
-    std::optional<double> remaining_cost_estimate;
     ReverseNodePtr parent;
   };
 
@@ -101,7 +118,7 @@ public:
     }
   };
 
-  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr>
+  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr, DijkstraCompare>
   {
   public:
 
@@ -122,10 +139,11 @@ public:
       WaypointId new_target,
       Frontier& frontier) final;
 
+    bool exhausted(const Frontier& frontier) const final;
+
   private:
     std::shared_ptr<const Supergraph> _graph;
     double _max_speed;
-    std::function<std::optional<double>(WaypointId)> _heuristic;
   };
 
   using ReverseTree = Tree<ReverseExpander>;
@@ -156,7 +174,6 @@ public:
           typename T::Node{
             current_node->waypoint,
             full_cost - current_node->current_cost,
-            0.0, // placeholder which will get overwritten when retarget(~) is called
             parent_node
           });
 
@@ -172,7 +189,7 @@ public:
 };
 
 //==============================================================================
-class ShortestPathHeuristic : public Garden<ShortestPath>
+class ShortestPathHeuristic : public BidirectionalForest<ShortestPath>
 {
 public:
 

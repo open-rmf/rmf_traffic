@@ -106,6 +106,12 @@ void MinimumTravel::ForwardExpander::retarget(
 }
 
 //==============================================================================
+bool MinimumTravel::ForwardExpander::exhausted(const Frontier& frontier) const
+{
+  return MinimumTravel::exhausted(frontier);
+}
+
+//==============================================================================
 MinimumTravel::ReverseExpander::ReverseExpander(
   std::shared_ptr<const Supergraph> graph,
   const HeuristicCachePtr& cache,
@@ -209,9 +215,15 @@ void MinimumTravel::ReverseExpander::retarget(
 }
 
 //==============================================================================
+bool MinimumTravel::ReverseExpander::exhausted(const Frontier& frontier) const
+{
+  return MinimumTravel::exhausted(frontier);
+}
+
+//==============================================================================
 MinimalTravelHeuristic::MinimalTravelHeuristic(
   std::shared_ptr<const Supergraph> graph)
-: Garden<MinimumTravel>(graph, std::make_shared<ShortestPathHeuristic>(graph))
+: BidirectionalForest<MinimumTravel>(graph, std::make_shared<ShortestPathHeuristic>(graph))
 {
   // Do nothing
 }

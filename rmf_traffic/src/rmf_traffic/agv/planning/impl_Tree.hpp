@@ -171,17 +171,7 @@ auto Tree<ExpanderT>::all_visits() const
 template<typename ExpanderT>
 bool Tree<ExpanderT>::exhausted() const
 {
-  const auto* peek = _frontier.peek();
-  if (!peek)
-    return true;
-
-  // We always put expanded elements into the frontier even if they have no
-  // prospect of reach the current target, because they might still matter for
-  // reaching a different target during a different search. However we sort
-  // those elements to all be in the bottom of the frontier queue. If one of
-  // those elements reaches the top of the queue, then we know we have run out
-  // of nodes that are worth exploring for this search.
-  return !(*peek)->remaining_cost_estimate.has_value();
+  return _expander.exhausted(_frontier);
 }
 
 //==============================================================================
@@ -318,11 +308,13 @@ inline std::optional<double> find_overlap(
 
 
 //==============================================================================
+template<typename T>
 class Timer
 {
 public:
-  Timer(std::string purpose)
-  : _purpose(std::move(purpose))
+  Timer(std::string purpose, std::chrono::steady_clock::duration& max)
+  : _purpose(std::move(purpose)),
+    _max(&max)
   {
     _start = std::chrono::steady_clock::now();
   }
@@ -330,12 +322,17 @@ public:
   ~Timer()
   {
     const auto finish = std::chrono::steady_clock::now();
-    std::cout << _purpose << ": " << rmf_traffic::time::to_seconds(finish - _start) << std::endl;
+    const auto duration = finish - _start;
+    if constexpr(T::print_timers)
+      std::cout << _purpose << ": " << rmf_traffic::time::to_seconds(duration) << std::endl;
+
+    *_max = std::max(*_max, duration);
   }
 
 private:
   std::string _purpose;
   std::chrono::steady_clock::time_point _start;
+  std::chrono::steady_clock::duration* _max;
 };
 
 //==============================================================================
@@ -349,7 +346,7 @@ inline std::string waypoint_name(std::size_t index, const std::shared_ptr<const 
 
 //==============================================================================
 template<typename T>
-Garden<T>::Garden(
+BidirectionalForest<T>::BidirectionalForest(
   std::shared_ptr<const Supergraph> graph,
   Cache cache)
 : _graph(std::move(graph)),
@@ -360,18 +357,23 @@ Garden<T>::Garden(
 
 //==============================================================================
 template<typename T>
-std::optional<double> Garden<T>::get(
+std::optional<double> BidirectionalForest<T>::get(
   WaypointId start, WaypointId finish) const
 {
 //  std::cout << " ------ \nGetting heuristic for "  << start << " -> " << finish << std::endl;
 //  Timer timer("Heuristic for " + waypoint_name(start, _graph)
 //              + " -> " + waypoint_name(finish, _graph));
+  if constexpr(T::count_usage)
+      ++_usage_count;
 
   if (start == finish)
     return 0.0;
 
-  if (const auto solution = _check_for_solution(start, finish))
-    return *solution;
+  {
+    const auto solution = _check_for_solution(start, finish);
+    if (solution.has_value())
+      return *solution;
+  }
 
   LockedTree<ForwardTree> forward =
     lock_tree(_forward_mutex, _forward, start, _graph, _heuristic_cache, finish);
@@ -391,14 +393,34 @@ std::optional<double> Garden<T>::get(
 
 //==============================================================================
 template<typename T>
-std::optional<double> Garden<T>::_check_for_solution(
+BidirectionalForest<T>::~BidirectionalForest()
+{
+  if constexpr(T::count_usage)
+  {
+    std::cout << typeid(T).name() << " used: "
+              << _usage_count << " | searched: " << _search_count << std::endl;
+  }
+
+  if constexpr(T::max_timer)
+  {
+    std::cout << typeid(T).name() << " longest search time: "
+              << rmf_traffic::time::to_seconds(_max) << std::endl;
+  }
+}
+
+//==============================================================================
+template<typename T>
+std::optional<std::optional<double>>
+BidirectionalForest<T>::_check_for_solution(
   WaypointId start, WaypointId finish) const
 {
   SpinLock lock(_solutions_mutex);
-  if (const auto s_it = _solutions.find(start); s_it != _solutions.end())
+  const auto s_it = _solutions.find(start);
+  if (s_it != _solutions.end())
   {
-    const auto finish_map = s_it->second;
-    if (const auto f_it = finish_map.find(finish); f_it != finish_map.end())
+    const auto& finish_map = s_it->second;
+    const auto f_it = finish_map.find(finish);
+    if (f_it != finish_map.end())
       return f_it->second;
   }
 
@@ -407,14 +429,20 @@ std::optional<double> Garden<T>::_check_for_solution(
 
 //==============================================================================
 template<typename T>
-std::optional<double> Garden<T>::_search(
+std::optional<double> BidirectionalForest<T>::_search(
   WaypointId start,
   std::optional<LockedTree<ForwardTree>> forward_locked,
   WaypointId finish,
   std::optional<LockedTree<ReverseTree>> reverse_locked) const
 {
 //  std::cout << "Searching for solution to " << start << " -> " << finish << std::endl;
-//  Timer timer("Whole search");
+  std::optional<Timer<T>> timer;
+  if constexpr(T::max_timer || T::print_timers)
+    timer = Timer<T>(std::string(typeid(T).name()) + ": " + std::to_string(start) + " -> " + std::to_string(finish), _max);
+
+  if constexpr(T::count_usage)
+    ++_search_count;
+
   using GetKey = typename T::GetKey;
 
   std::optional<double> result;
@@ -439,7 +467,9 @@ std::optional<double> Garden<T>::_search(
         const auto next_forward = forward.expand();
         if (next_forward)
         {
-//          new_forwards.push_back(next_forward);
+          if (T::cross_polinate)
+            new_forwards.push_back(next_forward);
+
           if (const auto overlap = reverse.visited(GetKey()(next_forward)))
           {
             result = combine_costs(*next_forward, *overlap);
@@ -486,11 +516,14 @@ std::optional<double> Garden<T>::_search(
         }
       }
 
+      if (T::grow_bidirectional)
       {
         const auto next_reverse = reverse.expand();
         if (next_reverse)
         {
-//          new_reverses.push_back(next_reverse);
+          if (T::cross_polinate)
+            new_reverses.push_back(next_reverse);
+
           if (const auto overlap = forward.visited(GetKey()(next_reverse)))
           {
             result = combine_costs(*next_reverse, *overlap);

@@ -34,7 +34,6 @@ void expand_lane(
   std::unordered_map<WaypointId, NodePtrT>& visited,
   const Graph::Implementation& g,
   const double agent_max_speed,
-  const std::function<std::optional<double>(WaypointId)>& heuristic,
   const std::vector<std::size_t>& lanes)
 {
   const auto& wp_0 = g.waypoints[top->waypoint];
@@ -69,7 +68,6 @@ void expand_lane(
         typename NodePtrT::element_type{
           next_waypoint,
           top->current_cost + local_cost,
-          heuristic(next_waypoint),
           top
         }));
   }
@@ -78,15 +76,12 @@ void expand_lane(
 //==============================================================================
 ShortestPath::ForwardExpander::ForwardExpander(
   std::shared_ptr<const Supergraph> graph,
-  const HeuristicCachePtr& cache,
-  const WaypointId target)
+  const HeuristicCachePtr&,
+  const WaypointId)
   : _graph(std::move(graph)),
     _max_speed(_graph->traits().linear().get_nominal_velocity())
 {
-  _heuristic = [cache = cache->get(target)->get()](WaypointId from)
-    {
-      return cache.get(from);
-    };
+  // Do nothing
 }
 
 //==============================================================================
@@ -116,7 +111,7 @@ ShortestPath::ForwardNodePtr ShortestPath::ForwardExpander::expand(
   const auto& g = _graph->original();
   expand_lane<ForwardGetNextWaypoint>(
     top, frontier, visited, g, _max_speed,
-    _heuristic, g.lanes_from[top->waypoint]);
+    g.lanes_from[top->waypoint]);
 
   return top;
 }
@@ -130,41 +125,32 @@ void ShortestPath::ForwardExpander::initialize(
       ForwardNode{
         waypoint,
         0.0,
-        _heuristic(waypoint),
         nullptr
       }));
 }
 
 //==============================================================================
 void ShortestPath::ForwardExpander::retarget(
-  const Cache& cache,
-  WaypointId new_target,
-  Frontier& frontier)
+  const Cache&, WaypointId, Frontier&)
 {
-  _heuristic = [cache = cache->get(new_target)->get()](WaypointId from)
-    {
-      return cache.get(from);
-    };
+  // We do not retarget these trees
+}
 
-  frontier.retarget(
-    [&](const std::shared_ptr<ForwardNode>& element)
-    {
-      element->remaining_cost_estimate = _heuristic(element->waypoint);
-    });
+//==============================================================================
+bool ShortestPath::ForwardExpander::exhausted(const Frontier& frontier) const
+{
+  return ShortestPath::exhausted(frontier);
 }
 
 //==============================================================================
 ShortestPath::ReverseExpander::ReverseExpander(
   std::shared_ptr<const Supergraph> graph,
-  const HeuristicCachePtr& cache,
-  const WaypointId target)
+  const HeuristicCachePtr&,
+  const WaypointId)
 : _graph(std::move(graph)),
   _max_speed(_graph->traits().linear().get_nominal_velocity())
 {
-  _heuristic = [cache, target](WaypointId from)
-    {
-      return cache->get(from)->get().get(target);
-    };
+  // Do nothing
 }
 
 //==============================================================================
@@ -194,7 +180,7 @@ ShortestPath::ReverseNodePtr ShortestPath::ReverseExpander::expand(
   const auto& g = _graph->original();
   expand_lane<ReverseGetNextWaypoint>(
     top, frontier, visited, g, _max_speed,
-    _heuristic, g.lanes_into[top->waypoint]);
+    g.lanes_into[top->waypoint]);
 
   return top;
 }
@@ -209,33 +195,27 @@ void ShortestPath::ReverseExpander::initialize(
       ReverseNode{
         waypoint,
         0.0,
-        _heuristic(waypoint),
         nullptr
       }));
 }
 
 //==============================================================================
 void ShortestPath::ReverseExpander::retarget(
-  const Cache& cache,
-  WaypointId new_target,
-  Frontier& frontier)
+  const Cache&, WaypointId, Frontier&)
 {
-  _heuristic = [cache, new_target](WaypointId from)
-    {
-      return cache->get(from)->get().get(new_target);
-    };
+  // We do not retarget these trees
+}
 
-  frontier.retarget(
-    [&](const std::shared_ptr<ReverseNode>& element)
-    {
-      element->remaining_cost_estimate = _heuristic(element->waypoint);
-    });
+//==============================================================================
+bool ShortestPath::ReverseExpander::exhausted(const Frontier& frontier) const
+{
+  return ShortestPath::exhausted(frontier);
 }
 
 //==============================================================================
 ShortestPathHeuristic::ShortestPathHeuristic(
   std::shared_ptr<const Supergraph> graph)
-: Garden<ShortestPath>(
+: BidirectionalForest<ShortestPath>(
     graph,
     std::make_shared<EuclideanHeuristicCacheMap>(
       std::make_shared<EuclideanHeuristicFactory>(graph)))

@@ -33,6 +33,9 @@ class DifferentialDriveHeuristic : public Generator<DifferentialDriveMap>
 {
 public:
 
+  using ChildHeuristic = ShortestPathHeuristic;
+  using ConstChildHeuristicPtr = std::shared_ptr<const ChildHeuristic>;
+
   DifferentialDriveHeuristic(std::shared_ptr<const Supergraph> graph);
 
   using SolutionNode = DifferentialDriveMapTypes::SolutionNode;
@@ -50,7 +53,7 @@ public:
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  std::shared_ptr<const MinimalTravelHeuristic> _heuristic;
+  ConstChildHeuristicPtr _heuristic;
 };
 
 //==============================================================================

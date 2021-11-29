@@ -48,6 +48,8 @@ public:
   using RouteFactory = DifferentialDriveMapTypes::RouteFactory;
   using RouteFactoryFactory = DifferentialDriveMapTypes::RouteFactoryFactory;
 
+  using ConstChildHeuristicPtr = DifferentialDriveHeuristic::ConstChildHeuristicPtr;
+
   struct SearchNode
   {
     NodeInfo info;
@@ -467,7 +469,7 @@ public:
   DifferentialDriveExpander(
     Entry goal_entry,
     const DifferentialDriveHeuristic::Storage& old_items,
-    ConstMinimalTravelHeuristicPtr heuristic,
+    ConstChildHeuristicPtr heuristic,
     std::shared_ptr<const Supergraph> graph)
   : _goal_entry(std::move(goal_entry)),
     _old_items(old_items),
@@ -495,7 +497,7 @@ private:
   std::optional<double> _goal_yaw;
   Entry _goal_entry;
   const DifferentialDriveHeuristic::Storage& _old_items;
-  ConstMinimalTravelHeuristicPtr _heuristic;
+  ConstChildHeuristicPtr _heuristic;
   std::shared_ptr<const Supergraph> _graph;
   KinematicLimits _limits;
   Interpolate::Options::Implementation _interpolate;
@@ -507,7 +509,7 @@ private:
 DifferentialDriveHeuristic::DifferentialDriveHeuristic(
   std::shared_ptr<const Supergraph> graph)
 : _graph(std::move(graph)),
-  _heuristic(std::make_shared<const MinimalTravelHeuristic>(_graph))
+  _heuristic(std::make_shared<const ChildHeuristic>(_graph))
 {
   // Do nothing
 }
