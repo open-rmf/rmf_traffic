@@ -336,7 +336,10 @@ public:
 
     if (!old_it->second)
     {
-      std::cout << "Old item is nullptr?? " << key << std::endl;
+      // We return true here to say that this node has no way of reaching
+      // the goal from its current state, so the planner should not bother
+      // trying to expand it.
+      return true;
     }
 
     auto solution = old_it->second->child;

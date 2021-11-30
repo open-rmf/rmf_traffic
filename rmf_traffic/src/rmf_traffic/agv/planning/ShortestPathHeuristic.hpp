@@ -46,8 +46,6 @@ class ShortestPath : public DefaultForestSettings
 {
 public:
 
-  static constexpr bool max_timer = true;
-
   using HeuristicCachePtr =
     std::shared_ptr<const CacheManagerMap<EuclideanHeuristicFactory>>;
 

@@ -18,11 +18,11 @@
 #include <src/rmf_traffic/agv/planning/DifferentialDriveHeuristic.hpp>
 
 #include "../../utils_Trajectory.hpp"
+#include "../utils_NegotiationRoom.hpp"
 
 #include <rmf_utils/catch.hpp>
 
 #include <variant>
-
 
 #include <iostream>
 
@@ -462,6 +462,7 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
 
   const double initial_yaw = 10._deg;
 
+  WHEN("0, Any, Start, 2, Forward")
   {
     const Key key{0, Ori::Any, Side::Start, 2, Ori::Forward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -513,52 +514,18 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 
+  WHEN("0, Any, Start, 2, Backward")
   {
+    // We cannot prescribe a specific set of actions for the robot to reach the
+    // goal because there are multiple valid times at which the robot may turn,
+    // and deciding between those choices is arbitrary (i.e. it may be
+    // influenced by the underlying choice of heuristics). So instead we just
+    // check that a solution is found and that the solution has an appropriate
+    // cost.
     const Key key{0, Ori::Any, Side::Start, 2, Ori::Backward};
-    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
-    std::vector<Action> actions;
-
-    // TODO(MXG): Figure out why there's a duplicate single-element route added
-    // by the solution.
-    actions.push_back(
-      Move{
-        {initial_position},
-        {test_map_0, test_map_0}
-      });
-
-    actions.push_back(
-      Wait{
-        bogus_event_duration,
-        {test_map_0, test_map_1}
-      });
-
-    actions.push_back(
-      Move{
-        {{0.0, 0.0, -90._deg}},
-        {test_map_0, test_map_1}
-      });
-
-    // I think this single-element route gets added by the node that triggers
-    // the bogus_event to begin.
-    actions.push_back(
-      Move{
-        {{0.0, 0.0, -90._deg}},
-        {test_map_1}
-      });
-
-    actions.push_back(
-      Wait{
-        bogus_event_duration,
-        {test_map_1, test_map_2}
-      });
-
-    actions.push_back(
-      Move{
-        {{0.0, 1.0, -90._deg}},
-        {test_map_1, test_map_2}
-      });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    REQUIRE(solution);
+    CHECK(solution->info.remaining_cost_estimate == Approx(5.65148));
   }
 }

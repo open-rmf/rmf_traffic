@@ -33,7 +33,11 @@ class DifferentialDriveHeuristic : public Generator<DifferentialDriveMap>
 {
 public:
 
+  // Note(MXG): It is not clear yet whether ShortestPathHeuristic or
+  // MinimalTravelHeuristic is the better approach for most cases. We'll hang
+  // onto both implementations for now so we can continue experimenting.
   using ChildHeuristic = ShortestPathHeuristic;
+//  using ChildHeuristic = MinimalTravelHeuristic;
   using ConstChildHeuristicPtr = std::shared_ptr<const ChildHeuristic>;
 
   DifferentialDriveHeuristic(std::shared_ptr<const Supergraph> graph);
