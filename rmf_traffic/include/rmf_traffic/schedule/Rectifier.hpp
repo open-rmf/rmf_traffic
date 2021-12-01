@@ -69,17 +69,17 @@ public:
     const std::vector<Range>& ranges,
     ItineraryVersion last_known_version);
 
-  /// Get the current ItineraryVersion of the Participant.
-  ItineraryVersion current_version() const;
-
-  /// Get the ID of the Participant
-  ParticipantId get_id() const;
-
   /// Correct the ID of the participant
   void correct_id(ParticipantId new_id);
 
+  /// Get the current ItineraryVersion of the Participant.
+  std::optional<ItineraryVersion> current_version() const;
+
+  /// Get the ID of the Participant
+  std::optional<ParticipantId> get_id() const;
+
   /// Get the description of the Participant
-  const ParticipantDescription& get_description() const;
+  std::optional<ParticipantDescription> get_description() const;
 
   class Implementation;
 private:

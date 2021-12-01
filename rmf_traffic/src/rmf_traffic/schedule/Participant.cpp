@@ -19,7 +19,9 @@
 #include "debug_Participant.hpp"
 #include "internal_Rectifier.hpp"
 
-#include <sstream>
+#include <iostream>
+
+using namespace std::chrono_literals;
 
 namespace rmf_traffic {
 namespace schedule {
@@ -39,9 +41,73 @@ Participant::Implementation::Shared::Shared(
   _version(registration.last_itinerary_version()),
   _last_route_id(registration.last_route_id()),
   _description(std::move(description)),
-  _writer(std::move(writer))
+  _writer(std::move(writer)),
+  _version_mismatch_limiter(1min, 5)
 {
   // Do nothing
+}
+
+//==============================================================================
+RouteId Participant::Implementation::Shared::set(std::vector<Route> itinerary)
+{
+  // TODO(MXG): Consider issuing an exception or warning when a single-point
+  // trajectory is submitted.
+  const auto r_it = std::remove_if(itinerary.begin(), itinerary.end(),
+      [](const auto& r) { return r.trajectory().size() < 2; });
+  itinerary.erase(r_it, itinerary.end());
+
+  const RouteId initial_route_id = _last_route_id;
+  if (itinerary.empty())
+  {
+    // This situation is more efficient to express as a clear() command
+    clear();
+    return initial_route_id;
+  }
+
+  _change_history.clear();
+  _cumulative_delay = std::chrono::seconds(0);
+
+  auto input = make_input(std::move(itinerary));
+
+  _current_itinerary = input;
+
+  const ItineraryVersion itinerary_version = get_next_version();
+  const ParticipantId id = _id;
+  auto change =
+    [self = weak_from_this(), input = std::move(input), itinerary_version, id]()
+    {
+      if (const auto me = self.lock())
+        me->_writer->set(id, input, itinerary_version);
+    };
+
+  _change_history[itinerary_version] = change;
+  change();
+
+  return initial_route_id;
+}
+
+//==============================================================================
+void Participant::Implementation::Shared::clear()
+{
+  if (_current_itinerary.empty())
+  {
+    // There is nothing to clear, so we can skip this change
+    return;
+  }
+
+  _current_itinerary.clear();
+
+  const ItineraryVersion itinerary_version = get_next_version();
+  const ParticipantId id = _id;
+  auto change =
+    [self = weak_from_this(), itinerary_version, id]()
+    {
+      if (const auto me = self.lock())
+        me->_writer->erase(id, itinerary_version);
+    };
+
+  _change_history[itinerary_version] = change;
+  change();
 }
 
 //==============================================================================
@@ -74,15 +140,34 @@ void Participant::Implementation::Shared::retransmit(
 {
   if (rmf_utils::modular(current_version()).less_than(last_known_version))
   {
-    std::stringstream str;
-    str << "[Participant::Implementation::retransmit] Remote database has a "
+    if (_version_mismatch_limiter.reached_limit())
+    {
+      // TODO(MXG): Consider ways for this to be sent to a log instead of just
+      // printed to a terminal. Maybe a static object that allows users to
+      // set a logger?
+      std::cerr
+        << "[Participant::Implementation::retransmit] Remote database has a "
         << "higher version number [" << last_known_version << "] than ["
         << current_version() << "] the version number of the local "
         << "participant [" << _id << ":" << _description.owner() << "/"
-        << _description.name() << "]. This indicates that the remote database "
-        << "is receiving participant updates from a conflicting source.";
+        << _description.name() << "]. This may indicate that the remote "
+        << "database is receiving participant updates from a conflicting "
+        << "source." << std::endl;
+    }
+    else
+    {
+      // Remake the routes to send as a new message with a higher version than
+      // the previous
+      _version = last_known_version+1;
 
-    throw std::runtime_error(str.str());
+      std::vector<Route> routes;
+      for (const auto& r : _current_itinerary)
+        routes.push_back(*r.route);
+
+      set(routes);
+    }
+
+    return;
   }
 
   for (const auto& range : ranges)
@@ -135,6 +220,14 @@ ParticipantId Participant::Implementation::Shared::get_id() const
 void Participant::Implementation::Shared::correct_id(ParticipantId new_id)
 {
   _id = new_id;
+
+  // Resend the routes because the database certainly has not received them if
+  // it disagreed about our participant ID.
+  std::vector<Route> routes;
+  for (const auto& r : _current_itinerary)
+    routes.push_back(*r.route);
+
+  set(routes);
 }
 
 //==============================================================================
@@ -193,46 +286,7 @@ ItineraryVersion Participant::Implementation::Shared::get_next_version()
 //==============================================================================
 RouteId Participant::set(std::vector<Route> itinerary)
 {
-  const auto& p = _pimpl->_shared;
-
-  // TODO(MXG): Consider issuing an exception or warning when a single-point
-  // trajectory is submitted.
-  const auto r_it = std::remove_if(itinerary.begin(), itinerary.end(),
-      [](const auto& r) { return r.trajectory().size() < 2; });
-  itinerary.erase(r_it, itinerary.end());
-
-  const RouteId initial_route_id = p->_last_route_id;
-  if (itinerary.empty())
-  {
-    // This situation is more efficient to express as a clear() command
-    clear();
-    return initial_route_id;
-  }
-
-  p->_change_history.clear();
-  p->_cumulative_delay = std::chrono::seconds(0);
-
-  auto input = p->make_input(std::move(itinerary));
-
-  p->_current_itinerary = input;
-
-  const ItineraryVersion itinerary_version = p->get_next_version();
-  const ParticipantId id = p->_id;
-  auto change =
-    [self = p.get(), input = std::move(input), itinerary_version, id]()
-    {
-      // It should be okay to store the raw pointer of _shared since this
-      // callback should only be accessible by the _shared instance while it's
-      // still alive. Nothing else should be able to touch this callback.
-      // If we find any undefined behavior or seg faults happening near this
-      // code, we should try using a weak_ptr instead of a raw pointer.
-      self->_writer->set(id, input, itinerary_version);
-    };
-
-  p->_change_history[itinerary_version] = change;
-  change();
-
-  return initial_route_id;
+  return _pimpl->_shared->set(std::move(itinerary));
 }
 
 //==============================================================================
@@ -356,26 +410,7 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 //==============================================================================
 void Participant::clear()
 {
-  const auto& p = _pimpl->_shared;
-
-  if (p->_current_itinerary.empty())
-  {
-    // There is nothing to clear, so we can skip this change
-    return;
-  }
-
-  p->_current_itinerary.clear();
-
-  const ItineraryVersion itinerary_version = p->get_next_version();
-  const ParticipantId id = p->_id;
-  auto change =
-    [self = p.get(), itinerary_version, id]()
-    {
-      self->_writer->erase(id, itinerary_version);
-    };
-
-  p->_change_history[itinerary_version] = change;
-  change();
+  _pimpl->_shared->clear();
 }
 
 //==============================================================================
