@@ -76,9 +76,9 @@ public:
     Profile profile);
 
   /// Equality operator
-  bool operator==(const ParticipantDescription & rhs) const;
+  bool operator==(const ParticipantDescription& rhs) const;
   /// Inequality operator
-  bool operator!=(const ParticipantDescription & rhs) const;
+  bool operator!=(const ParticipantDescription& rhs) const;
 
   /// Set the name of the participant.
   ParticipantDescription& name(std::string value);

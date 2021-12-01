@@ -45,7 +45,7 @@ public:
     geometry::ConstFinalConvexShapePtr vicinity = nullptr);
 
   /// Equality operator
-  bool operator==(const Profile & rhs) const;
+  bool operator==(const Profile& rhs) const;
 
   /// Set the footprint of the participant.
   Profile& footprint(geometry::ConstFinalConvexShapePtr shape);

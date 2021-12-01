@@ -33,7 +33,7 @@ Profile::Profile(
 }
 
 //==============================================================================
-bool Profile::operator==(const Profile & rhs) const
+bool Profile::operator==(const Profile& rhs) const
 {
   // TODO(geoff): Something in here segfaults
   if (!_pimpl && !rhs._pimpl)
