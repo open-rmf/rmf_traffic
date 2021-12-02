@@ -52,11 +52,10 @@ ParticipantDescription::ParticipantDescription(
 //==============================================================================
 bool ParticipantDescription::operator==(const ParticipantDescription& rhs) const
 {
-  // TODO(MXG): Create a comparison function for profiles
-  // _pimpl->profile == rhs._pimpl->profile;
   return _pimpl->name == rhs._pimpl->name &&
     _pimpl->owner == rhs._pimpl->owner &&
-    _pimpl->responsiveness == rhs._pimpl->responsiveness;
+    _pimpl->responsiveness == rhs._pimpl->responsiveness &&
+    _pimpl->profile == rhs._pimpl->profile;
 }
 
 //==============================================================================

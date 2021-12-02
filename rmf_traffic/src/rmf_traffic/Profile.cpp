@@ -35,7 +35,7 @@ Profile::Profile(
 //==============================================================================
 bool Profile::operator==(const Profile& rhs) const
 {
-  // TODO(geoff): Something in here segfaults
+  // TODO(MXG): We should write tests for the shape and profile comparisons.
   if (!_pimpl && !rhs._pimpl)
   {
     return true;
@@ -45,41 +45,38 @@ bool Profile::operator==(const Profile& rhs) const
     return false;
   }
 
-  bool r1 = false;
-  if (_pimpl->footprint && rhs._pimpl->footprint)
+  const auto& self_footprint = footprint();
+  const auto& other_footprint = rhs.footprint();
+  if (self_footprint && other_footprint)
   {
     // Both pointers are valid so check what they point to for equality
-    r1 = *_pimpl->footprint == *rhs._pimpl->footprint;
+    if (*self_footprint != *other_footprint)
+      return false;
   }
-  else if (_pimpl->footprint || rhs._pimpl->footprint)
+  else if (self_footprint || other_footprint)
   {
     // Only one pointer is valid, so they can't be equal
-    r1 = false;
-  }
-  else
-  {
-    // Both pointers are invalid, so equal
-    r1 = true;
+    return false;
   }
 
-  bool r2 = false;
-  if (_pimpl->vicinity && rhs._pimpl->vicinity)
+  // Using the getter functions for vicinity is important because the Profile
+  // class has a behavior where it will return the footprint as the vicinity
+  // if a vicinity was never specified.
+  const auto& self_vicinity = vicinity();
+  const auto& other_vicinity = rhs.vicinity();
+  if (self_vicinity && other_vicinity)
   {
     // Both pointers are valid so check what they point to for equality
-    r2 = *_pimpl->footprint == *rhs._pimpl->footprint;
+    if (*self_vicinity != *other_vicinity)
+      return false;
   }
   else if (_pimpl->vicinity || rhs._pimpl->vicinity)
   {
     // Only one pointer is valid, so they can't be equal
-    r2 = false;
-  }
-  else
-  {
-    // Both pointers are invalid, so equal
-    r2 = true;
+    return false;
   }
 
-  return r1 && r2;
+  return true;
 }
 
 //==============================================================================

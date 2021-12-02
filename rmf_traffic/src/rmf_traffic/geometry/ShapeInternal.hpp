@@ -119,7 +119,10 @@ template<typename T>
 std::function<bool(const Shape& other)> make_equality_comparator(
   const T& myself)
 {
-  return [&myself](const Shape& other)
+  // TODO(MXG): This is making an unnecessary copy of the original shape. This
+  // is okay when all we're dealing with is circles, but this would become very
+  // inefficient for larger objects with many parameters/vertices.
+  return [myself](const Shape& other)
     {
       if (const auto* other_derived = dynamic_cast<const T*>(&other))
       {
