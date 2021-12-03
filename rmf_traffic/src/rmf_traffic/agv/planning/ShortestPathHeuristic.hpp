@@ -64,7 +64,8 @@ public:
     ForwardNodePtr parent;
   };
 
-  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr, DijkstraCompare>
+  class ForwardExpander
+    : public Expander<ForwardNode, HeuristicCachePtr, DijkstraCompare>
   {
   public:
 
@@ -116,7 +117,8 @@ public:
     }
   };
 
-  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr, DijkstraCompare>
+  class ReverseExpander
+    : public Expander<ReverseNode, HeuristicCachePtr, DijkstraCompare>
   {
   public:
 

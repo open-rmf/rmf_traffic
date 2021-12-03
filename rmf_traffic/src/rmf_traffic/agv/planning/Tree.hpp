@@ -272,9 +272,8 @@ private:
   mutable ReverseTreeManagerMap _reverse;
   mutable std::atomic_bool _reverse_mutex = false;
 
-  using SolutionMap =
-    std::unordered_map<
-      WaypointId, std::unordered_map<WaypointId, std::optional<double>>>;
+  using GoalCostMap = std::unordered_map<WaypointId, std::optional<double>>;
+  using SolutionMap = std::unordered_map<WaypointId, GoalCostMap>;
   mutable SolutionMap _solutions;
   mutable std::atomic_bool _solutions_mutex = false;
 

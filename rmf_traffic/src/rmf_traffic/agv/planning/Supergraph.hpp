@@ -124,8 +124,8 @@ class TraversalIntoGenerator
 public:
 
   TraversalIntoGenerator(
-  std::shared_ptr<const CacheManager<TraversalFromCache>> traversals_from,
-  const std::shared_ptr<const Supergraph>& graph);
+    std::shared_ptr<const CacheManager<TraversalFromCache>> traversals_from,
+    const std::shared_ptr<const Supergraph>& graph);
 
   ConstTraversalsPtr generate(
     const std::size_t& key,

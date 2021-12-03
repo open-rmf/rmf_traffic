@@ -48,7 +48,8 @@ public:
   using RouteFactory = DifferentialDriveMapTypes::RouteFactory;
   using RouteFactoryFactory = DifferentialDriveMapTypes::RouteFactoryFactory;
 
-  using ConstChildHeuristicPtr = DifferentialDriveHeuristic::ConstChildHeuristicPtr;
+  using ConstChildHeuristicPtr =
+    DifferentialDriveHeuristic::ConstChildHeuristicPtr;
 
   struct SearchNode
   {

@@ -78,8 +78,8 @@ ShortestPath::ForwardExpander::ForwardExpander(
   std::shared_ptr<const Supergraph> graph,
   const HeuristicCachePtr&,
   const WaypointId)
-  : _graph(std::move(graph)),
-    _max_speed(_graph->traits().linear().get_nominal_velocity())
+: _graph(std::move(graph)),
+  _max_speed(_graph->traits().linear().get_nominal_velocity())
 {
   // Do nothing
 }

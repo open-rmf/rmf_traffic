@@ -68,7 +68,8 @@ public:
     ForwardNodePtr parent;
   };
 
-  class ForwardExpander : public Expander<ForwardNode, HeuristicCachePtr, OptionalCompare>
+  class ForwardExpander
+    : public Expander<ForwardNode, HeuristicCachePtr, OptionalCompare>
   {
   public:
 
@@ -130,7 +131,8 @@ public:
     }
   };
 
-  class ReverseExpander : public Expander<ReverseNode, HeuristicCachePtr, OptionalCompare>
+  class ReverseExpander
+    : public Expander<ReverseNode, HeuristicCachePtr, OptionalCompare>
   {
   public:
 
@@ -185,18 +187,19 @@ public:
       else
       {
         auto new_node = std::make_shared<typename T::Node>(
-              typename T::Node{
-                current_node->lane,
-                full_cost - current_node->current_cost + current_node->lane_cost,
-                0.0, // placeholder which will get overwritten when retarget(~) is called
-                current_node->lane_cost,
-                // We switch the waypoint and the complement_waypoint here
-                // because we are reversing the type of node
-                current_node->complement_waypoint,
-                current_node->waypoint,
-                current_node->orientation,
-                parent_node
-              });
+          typename T::Node{
+            current_node->lane,
+            full_cost - current_node->current_cost + current_node->lane_cost,
+            // this placeholder will get overwritten when retarget(~) is called
+            0.0,
+            current_node->lane_cost,
+            // We switch the waypoint and the complement_waypoint here
+            // because we are reversing the type of node
+            current_node->complement_waypoint,
+            current_node->waypoint,
+            current_node->orientation,
+            parent_node
+          });
 
         parent_node = new_node;
         new_nodes.emplace_back(std::move(new_node));

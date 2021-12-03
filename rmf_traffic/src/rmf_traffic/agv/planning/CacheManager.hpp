@@ -248,7 +248,10 @@ auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 
   std::shared_lock<std::shared_mutex> read_lock(
     _upstream->storage_mutex, std::defer_lock);
-  while (!read_lock.try_lock());
+  while (!read_lock.try_lock())
+  {
+    // Just spin
+  }
 
   const auto& all_items = _upstream->storage;
   const auto it = all_items.find(key);
@@ -264,7 +267,10 @@ auto Cache<GeneratorArg>::get(const Key& key) const -> Value
   SpinLock lock_out_readers(_upstream->read_blocker);
   std::unique_lock<std::shared_mutex> write_lock(
     _upstream->storage_mutex, std::defer_lock);
-  while (!write_lock.try_lock());
+  while (!write_lock.try_lock())
+  {
+    // Just spin
+  }
 
   auto& storage = _upstream->storage;
   for (auto&& item : new_items)

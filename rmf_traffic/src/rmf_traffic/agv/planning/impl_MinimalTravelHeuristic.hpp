@@ -29,9 +29,9 @@ namespace planning {
 namespace {
 //==============================================================================
 template<
-  std::size_t Traversal::*get_next_lane,
-  std::size_t Traversal::*get_next_waypoint,
-  std::size_t Traversal::*get_complement_waypoint,
+  std::size_t Traversal::* get_next_lane,
+  std::size_t Traversal::* get_next_waypoint,
+  std::size_t Traversal::* get_complement_waypoint,
   typename NodePtrT, typename C>
 void expand_traversals(
   const NodePtrT& top,
@@ -85,11 +85,12 @@ void expand_traversals(
       if (minimum_angle.has_value())
       {
         const auto& traits = graph->traits();
-        rotational_cost = time::to_seconds(internal::estimate_rotation_time(
-          traits.rotational().get_nominal_velocity(),
-          traits.rotational().get_nominal_acceleration(),
-          0.0, *minimum_angle,
-          graph->options().rotation_thresh));
+        rotational_cost = time::to_seconds(
+          internal::estimate_rotation_time(
+            traits.rotational().get_nominal_velocity(),
+            traits.rotational().get_nominal_acceleration(),
+            0.0, *minimum_angle,
+            graph->options().rotation_thresh));
       }
     }
 
@@ -111,9 +112,9 @@ void expand_traversals(
 
 //==============================================================================
 template<
-  std::size_t Traversal::*get_next_lane,
-  std::size_t Traversal::*get_next_waypoint,
-  std::size_t Traversal::*get_complement_waypoint,
+  std::size_t Traversal::* get_next_lane,
+  std::size_t Traversal::* get_next_waypoint,
+  std::size_t Traversal::* get_complement_waypoint,
   typename NodePtrT, typename C>
 void initialize_traversals(
   FrontierTemplate<NodePtrT, C>& frontier,

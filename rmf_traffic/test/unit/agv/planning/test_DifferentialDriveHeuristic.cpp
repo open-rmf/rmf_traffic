@@ -62,7 +62,10 @@ bool compare_routes(
   CHECK(expected.trajectory().size() == actual.trajectory().size());
 
   bool all_correct = expected.map() == actual.map();
-  for (std::size_t i = 0; i < std::min(expected.trajectory().size(), actual.trajectory().size()); ++i)
+  const std::size_t end_size =
+    std::min(expected.trajectory().size(), actual.trajectory().size());
+
+  for (std::size_t i = 0; i < end_size; ++i)
   {
     const auto& wp_a = expected.trajectory().at(i);
     const auto& wp_b = actual.trajectory().at(i);
@@ -73,7 +76,8 @@ bool compare_routes(
     CHECK(time_matches);
     if (!time_matches)
     {
-      std::cout << "time: " << rmf_traffic::time::to_seconds(wp_a.time().time_since_epoch())
+      std::cout << "time: "
+                << rmf_traffic::time::to_seconds(wp_a.time().time_since_epoch())
                 << " - "
                 << rmf_traffic::time::to_seconds(wp_b.time().time_since_epoch())
                 << " = " << time_diff << std::endl;
@@ -85,7 +89,8 @@ bool compare_routes(
     CHECK(positions_match);
     if (!positions_match)
     {
-      std::cout << "position: |(" << p_a.transpose() << ") - (" << p_b.transpose()
+      std::cout << "position: |("
+                << p_a.transpose() << ") - (" << p_b.transpose()
                 << ")| = " << (p_a - p_b).norm() << std::endl;
     }
 
@@ -96,7 +101,8 @@ bool compare_routes(
     CHECK(velocities_match);
     if (!velocities_match)
     {
-      std::cout << "velocity: |(" << v_a.transpose() << ") - (" << v_b.transpose()
+      std::cout << "velocity: |("
+                << v_a.transpose() << ") - (" << v_b.transpose()
                 << ")| = " << (v_a - v_b).norm() << std::endl;
     }
 

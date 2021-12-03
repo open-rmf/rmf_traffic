@@ -55,15 +55,15 @@ MinimumTravel::ForwardNodePtr MinimumTravel::ForwardExpander::expand(
   const auto& top_lane = _graph->original().lanes.at(top->lane);
   const auto waypoint = top_lane.exit().waypoint_index();
   expand_traversals<
-    &Traversal::finish_lane_index,
-    &Traversal::finish_waypoint_index,
-    &Traversal::initial_waypoint_index>(
-      top,
-      frontier,
-      visited,
-      _graph,
-      _heuristic,
-      *_graph->traversals_from(waypoint));
+    & Traversal::finish_lane_index,
+    & Traversal::finish_waypoint_index,
+    & Traversal::initial_waypoint_index>(
+    top,
+    frontier,
+    visited,
+    _graph,
+    _heuristic,
+    *_graph->traversals_from(waypoint));
 
   if (!top->remaining_cost_estimate.has_value())
     return nullptr;
@@ -78,10 +78,10 @@ void MinimumTravel::ForwardExpander::initialize(
 {
   const auto& traversals = *_graph->traversals_from(waypoint_index);
   initialize_traversals<
-    &Traversal::finish_lane_index,
-    &Traversal::finish_waypoint_index,
-    &Traversal::initial_waypoint_index>(
-      frontier, _heuristic, traversals);
+    & Traversal::finish_lane_index,
+    & Traversal::finish_waypoint_index,
+    & Traversal::initial_waypoint_index>(
+    frontier, _heuristic, traversals);
 }
 
 //==============================================================================
@@ -157,15 +157,15 @@ MinimumTravel::ReverseNodePtr MinimumTravel::ReverseExpander::expand(
   const auto& top_lane = _graph->original().lanes.at(top->lane);
   const auto waypoint = top_lane.entry().waypoint_index();
   expand_traversals<
-    &Traversal::initial_lane_index,
-    &Traversal::initial_waypoint_index,
-    &Traversal::finish_waypoint_index>(
-      top,
-      frontier,
-      visited,
-      _graph,
-      _heuristic,
-      *_graph->traversals_into(waypoint));
+    & Traversal::initial_lane_index,
+    & Traversal::initial_waypoint_index,
+    & Traversal::finish_waypoint_index>(
+    top,
+    frontier,
+    visited,
+    _graph,
+    _heuristic,
+    *_graph->traversals_into(waypoint));
 
   if (!top->remaining_cost_estimate.has_value())
     return nullptr;
@@ -187,10 +187,10 @@ void MinimumTravel::ReverseExpander::initialize(std::size_t waypoint_index,
 //  }
 
   initialize_traversals<
-    &Traversal::initial_lane_index,
-    &Traversal::initial_waypoint_index,
-    &Traversal::finish_waypoint_index>(
-      frontier, _heuristic, traversals);
+    & Traversal::initial_lane_index,
+    & Traversal::initial_waypoint_index,
+    & Traversal::finish_waypoint_index>(
+    frontier, _heuristic, traversals);
 }
 
 //==============================================================================
@@ -223,7 +223,8 @@ bool MinimumTravel::ReverseExpander::exhausted(const Frontier& frontier) const
 //==============================================================================
 MinimalTravelHeuristic::MinimalTravelHeuristic(
   std::shared_ptr<const Supergraph> graph)
-: BidirectionalForest<MinimumTravel>(graph, std::make_shared<ShortestPathHeuristic>(graph))
+: BidirectionalForest<MinimumTravel>(
+    graph, std::make_shared<ShortestPathHeuristic>(graph))
 {
   // Do nothing
 }

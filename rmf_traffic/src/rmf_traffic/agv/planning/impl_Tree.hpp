@@ -200,7 +200,11 @@ LockedTree<T> TreeManager<T, C>::get_tree(
 {
   SpinLock lock(_tree_mutex);
   if (!_tree.has_value())
-    _tree = Tree(root_waypoint, typename Tree::Expander(graph, heuristic, target_waypoint));
+  {
+    _tree = Tree(
+      root_waypoint,
+      typename Tree::Expander(graph, heuristic, target_waypoint));
+  }
 
   _process_waiting_list();
   return LockedTree<T>{&(*_tree), std::move(lock)};
@@ -323,8 +327,11 @@ public:
   {
     const auto finish = std::chrono::steady_clock::now();
     const auto duration = finish - _start;
-    if constexpr(T::print_timers)
-      std::cout << _purpose << ": " << rmf_traffic::time::to_seconds(duration) << std::endl;
+    if constexpr (T::print_timers)
+    {
+      std::cout << _purpose << ": "
+                << rmf_traffic::time::to_seconds(duration) << std::endl;
+    }
 
     *_max = std::max(*_max, duration);
   }
@@ -336,7 +343,9 @@ private:
 };
 
 //==============================================================================
-inline std::string waypoint_name(std::size_t index, const std::shared_ptr<const Supergraph>& graph)
+inline std::string waypoint_name(
+  std::size_t index,
+  const std::shared_ptr<const Supergraph>& graph)
 {
   if (const auto* check = graph->original().waypoints[index].name())
     return std::to_string(index) + " [" + *check + "]";
@@ -363,8 +372,8 @@ std::optional<double> BidirectionalForest<T>::get(
 //  std::cout << " ------ \nGetting heuristic for "  << start << " -> " << finish << std::endl;
 //  Timer timer("Heuristic for " + waypoint_name(start, _graph)
 //              + " -> " + waypoint_name(finish, _graph));
-  if constexpr(T::count_usage)
-      ++_usage_count;
+  if constexpr (T::count_usage)
+    ++_usage_count;
 
   if (start == finish)
     return 0.0;
@@ -375,11 +384,11 @@ std::optional<double> BidirectionalForest<T>::get(
       return *solution;
   }
 
-  LockedTree<ForwardTree> forward =
-    lock_tree(_forward_mutex, _forward, start, _graph, _heuristic_cache, finish);
+  LockedTree<ForwardTree> forward = lock_tree(
+    _forward_mutex, _forward, start, _graph, _heuristic_cache, finish);
 
-  LockedTree<ReverseTree> reverse =
-    lock_tree(_reverse_mutex, _reverse, finish, _graph, _heuristic_cache, start);
+  LockedTree<ReverseTree> reverse = lock_tree(
+    _reverse_mutex, _reverse, finish, _graph, _heuristic_cache, start);
 
   if (const auto overlap = find_overlap<T>(*forward.tree, *reverse.tree))
   {
@@ -395,13 +404,13 @@ std::optional<double> BidirectionalForest<T>::get(
 template<typename T>
 BidirectionalForest<T>::~BidirectionalForest()
 {
-  if constexpr(T::count_usage)
+  if constexpr (T::count_usage)
   {
     std::cout << typeid(T).name() << " used: "
               << _usage_count << " | searched: " << _search_count << std::endl;
   }
 
-  if constexpr(T::max_timer)
+  if constexpr (T::max_timer)
   {
     std::cout << typeid(T).name() << " longest search time: "
               << rmf_traffic::time::to_seconds(_max) << std::endl;
@@ -437,10 +446,14 @@ std::optional<double> BidirectionalForest<T>::_search(
 {
 //  std::cout << "Searching for solution to " << start << " -> " << finish << std::endl;
   std::optional<Timer<T>> timer;
-  if constexpr(T::max_timer || T::print_timers)
-    timer = Timer<T>(std::string(typeid(T).name()) + ": " + std::to_string(start) + " -> " + std::to_string(finish), _max);
+  if constexpr (T::max_timer || T::print_timers)
+  {
+    timer = Timer<T>(
+      std::string(typeid(T).name()) + ": " + std::to_string(start)
+      + " -> " + std::to_string(finish), _max);
+  }
 
-  if constexpr(T::count_usage)
+  if constexpr (T::count_usage)
     ++_search_count;
 
   using GetKey = typename T::GetKey;
