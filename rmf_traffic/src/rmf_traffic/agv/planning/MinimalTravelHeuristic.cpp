@@ -18,8 +18,6 @@
 #include "MinimalTravelHeuristic.hpp"
 #include "../internal_Interpolate.hpp"
 
-#include <iostream>
-
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -130,20 +128,6 @@ MinimumTravel::ReverseNodePtr MinimumTravel::ReverseExpander::expand(
   Frontier& frontier,
   std::unordered_map<LaneId, ReverseNodePtr>& visited) const
 {
-//  const auto& lane = _graph->original().lanes[top->lane];
-//  std::cout << "Selecting " << lane.entry().waypoint_index() << " -> "
-//            << lane.exit().waypoint_index() << " (" << top->cost << ":" << top->lane_cost << ") for expansion";
-//  if (top->parent)
-//  {
-//    const auto& parent_lane = _graph->original().lanes[top->parent->lane];
-//    std::cout << " | parent: " << parent_lane.entry().waypoint_index() << " -> "
-//              << parent_lane.exit().waypoint_index() << std::endl;
-//  }
-//  else
-//  {
-//    std::cout << " | no parent" << std::endl;
-//  }
-
   const auto insertion = visited.insert({top->lane, top});
   const auto was_inserted = insertion.second;
   if (!was_inserted)
@@ -178,14 +162,6 @@ void MinimumTravel::ReverseExpander::initialize(std::size_t waypoint_index,
   Frontier& frontier) const
 {
   const auto& traversals = *_graph->traversals_into(waypoint_index);
-//  std::cout << "Initial reverse traversals:" << std::endl;
-//  for (const auto& t : traversals)
-//  {
-//    std::cout << _graph->original().lanes[t.initial_lane_index].entry().waypoint_index()
-//        << " -> " << _graph->original().lanes[t.finish_lane_index].exit().waypoint_index()
-//        << "(" << t.best_time << ")" << std::endl;
-//  }
-
   initialize_traversals<
     & Traversal::initial_lane_index,
     & Traversal::initial_waypoint_index,
