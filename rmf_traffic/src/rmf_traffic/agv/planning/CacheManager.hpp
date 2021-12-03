@@ -26,9 +26,6 @@
 #include <shared_mutex>
 #include <atomic>
 
-
-#include <iostream>
-
 namespace rmf_traffic {
 namespace agv {
 namespace planning {

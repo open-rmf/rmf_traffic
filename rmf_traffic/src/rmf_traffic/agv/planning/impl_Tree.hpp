@@ -20,6 +20,8 @@
 
 #include "Tree.hpp"
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {

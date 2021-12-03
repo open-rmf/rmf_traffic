@@ -28,8 +28,6 @@
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
-#include <iostream>
-
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
