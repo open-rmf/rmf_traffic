@@ -39,34 +39,6 @@ auto FrontierTemplate<E, C>::pop() -> Element
   auto element = std::move(_storage.front());
   std::pop_heap(_storage.begin(), _storage.end(), _comparator);
   _storage.pop_back();
-//  if (!std::is_heap(_storage.begin(), _storage.end(), _comparator))
-//  {
-//    const auto r_e = element->remaining_cost_estimate.value_or(std::numeric_limits<double>::infinity());
-//    std::cout << "Removing element " << element->waypoint << " | " << element->current_cost + r_e
-//              << " = " << element->current_cost << " + " << r_e << std::endl;
-
-//    std::cout << "Remaining:\n";
-//    std::optional<std::size_t> smaller_wp;
-//    for (const auto& n : _storage)
-//    {
-//      const auto r_n = n->remaining_cost_estimate.value_or(std::numeric_limits<double>::infinity());
-//      std::cout << " -- " << n->waypoint << " | " << n->current_cost + r_n
-//                << " = " << n->current_cost << " + " << r_n << std::endl;
-
-//      if (n->current_cost + r_n < element->current_cost + r_e)
-//        smaller_wp = n->waypoint;
-//    }
-
-//    if (smaller_wp.has_value())
-//      std::cout << *smaller_wp << " IS SMALLER!" << std::endl;
-//    else
-//      std::cout << "Popped the smallest" << std::endl;
-
-//    throw std::runtime_error("pop: NOT A HEAP");
-//  }
-//  else
-//    std::cout << "pop: is heap" << std::endl;
-
   return element;
 }
 
@@ -76,10 +48,6 @@ void FrontierTemplate<E, C>::push(Element new_element)
 {
   _storage.push_back(std::move(new_element));
   std::push_heap(_storage.begin(), _storage.end(), _comparator);
-//  if (!std::is_heap(_storage.begin(), _storage.end(), _comparator))
-//    throw std::runtime_error("push: NOT A HEAP");
-//  else
-//    std::cout << "push: is heap" << std::endl;
 }
 
 //==============================================================================
@@ -107,10 +75,6 @@ void FrontierTemplate<E, C>::retarget(std::function<void(Element&)> transform)
     transform(element);
 
   std::make_heap(_storage.begin(), _storage.end(), _comparator);
-//  if (!std::is_heap(_storage.begin(), _storage.end(), _comparator))
-//    throw std::runtime_error("retarget: NOT A HEAP");
-//  else
-//    std::cout << "retarget: is heap" << std::endl;
 }
 
 //==============================================================================
@@ -285,10 +249,6 @@ std::optional<double> lowest_cost_overlap(
     if (!lowest_cost.has_value() || check < *lowest_cost)
     {
       lowest_cost = check;
-//      std::cout << "New lowest overlap at " << visit->lane
-//                << ": (" << visit->cost << ", " << visit->lane_cost << ") ("
-//                << m_it->second->cost << ", " << m_it->second->lane_cost
-//                << ") -> " << check << std::endl;
     }
   }
 
@@ -369,9 +329,6 @@ template<typename T>
 std::optional<double> BidirectionalForest<T>::get(
   WaypointId start, WaypointId finish) const
 {
-//  std::cout << " ------ \nGetting heuristic for "  << start << " -> " << finish << std::endl;
-//  Timer timer("Heuristic for " + waypoint_name(start, _graph)
-//              + " -> " + waypoint_name(finish, _graph));
   if constexpr (T::count_usage)
     ++_usage_count;
 
@@ -444,7 +401,6 @@ std::optional<double> BidirectionalForest<T>::_search(
   WaypointId finish,
   std::optional<LockedTree<ReverseTree>> reverse_locked) const
 {
-//  std::cout << "Searching for solution to " << start << " -> " << finish << std::endl;
   std::optional<Timer<T>> timer;
   if constexpr (T::max_timer || T::print_timers)
   {
@@ -463,16 +419,10 @@ std::optional<double> BidirectionalForest<T>::_search(
   std::vector<ReverseNodePtr> new_reverses;
   {
     auto& forward = *forward_locked->tree;
-    {
-//      Timer("retarget forward");
-      forward.retarget(_heuristic_cache, finish);
-    }
+    forward.retarget(_heuristic_cache, finish);
 
     auto& reverse = *reverse_locked->tree;
-    {
-//      Timer("retarget reverse");
-      reverse.retarget(_heuristic_cache, start);
-    }
+    reverse.retarget(_heuristic_cache, start);
 
     while (!(forward.exhausted() && reverse.exhausted()))
     {
@@ -486,44 +436,6 @@ std::optional<double> BidirectionalForest<T>::_search(
           if (const auto overlap = reverse.visited(GetKey()(next_forward)))
           {
             result = combine_costs(*next_forward, *overlap);
-
-//            const auto wp = _graph->original().lanes[next_forward->lane].exit().waypoint_index();
-//            std::cout << start << " -> " << finish
-//                      << " | Forward met at " << wp << " | " << next_forward->lane
-//                      << ": (" << next_forward->current_cost << ", "
-//                      << next_forward->lane_cost << ") ("
-//                      << overlap->current_cost << ", " << overlap->lane_cost
-//                      << ") -> " << *result << std::endl;
-
-//            if (start == 4054 && finish == 1542)
-//            {
-//              auto f = next_forward;
-//              std::cout << "Forward: ";
-//              while (f)
-//              {
-//                const auto f_lane = _graph->original().lanes[f->lane];
-//                const auto f_wp_0 = f->complement_waypoint;
-//                const auto f_wp_1 = f->waypoint;
-//                std::cout << f_wp_1 << " <- " << f_wp_0 << " (c " << f->current_cost << " : l " << f->lane_cost
-//                          << " : r " << f->remaining_cost_estimate.value() << ") | ";
-//                f = f->parent;
-//              }
-//              std::cout << "Begin" << std::endl;
-
-//              std::cout << "Reverse: ";
-//              auto r = overlap;
-//              while (r)
-//              {
-//                const auto r_lane = _graph->original().lanes[r->lane];
-//                const auto r_wp_0 = r->waypoint;
-//                const auto r_wp_1 = r->complement_waypoint;
-//                std::cout << r_wp_0 << " -> " << r_wp_1 << " (c " << r->current_cost << " : l " << r->lane_cost
-//                          << " : r " << r->remaining_cost_estimate.value() << ") | ";
-//                r = r->parent;
-//              }
-//              std::cout << "Finish" << std::endl;
-//            }
-
             break;
           }
         }
@@ -540,63 +452,12 @@ std::optional<double> BidirectionalForest<T>::_search(
           if (const auto overlap = forward.visited(GetKey()(next_reverse)))
           {
             result = combine_costs(*next_reverse, *overlap);
-
-//            const auto f_wp = _graph->original().lanes[next_reverse->lane].exit().waypoint_index();
-//            std::cout << start << " -> " << finish
-//                      << " | Reverse met at " << f_wp << " | " << next_reverse->lane
-//                      << ": (" << next_reverse->current_cost << ", "
-//                      << next_reverse->lane_cost << ") ("
-//                      << overlap->current_cost << ", " << overlap->lane_cost
-//                      << ") -> " << *result << std::endl;
-
-//            if (start == 4054 && finish == 1542)
-//            {
-//              auto f = overlap;
-//              std::cout << "Forward: ";
-//              while (f)
-//              {
-//                const auto f_lane = _graph->original().lanes[f->lane];
-//                const auto f_wp_0 = f->complement_waypoint;
-//                const auto f_wp_1 = f->waypoint;
-//                std::cout << f_wp_1 << " <- " << f_wp_0 << " (c " << f->current_cost << " : l " << f->lane_cost
-//                          << " : r " << f->remaining_cost_estimate.value() << ") | ";
-//                f = f->parent;
-//              }
-//              std::cout << "Begin" << std::endl;
-
-//              std::cout << "Reverse: ";
-//              auto r = next_reverse;
-//              while (r)
-//              {
-//                const auto r_lane = _graph->original().lanes[r->lane];
-//                const auto r_wp_0 = r->waypoint;
-//                const auto r_wp_1 = r->complement_waypoint;
-//                std::cout << r_wp_0 << " -> " << r_wp_1 << " (c " << r->current_cost << " : l " << r->lane_cost
-//                          << " : r " << r->remaining_cost_estimate.value() << ") | ";
-//                r = r->parent;
-//              }
-//              std::cout << "Finish" << std::endl;
-//            }
-
             break;
           }
         }
       }
     }
-
-//    std::cout << "Forward visits:";
-//    for (const auto& visit : forward.all_visits())
-//      std::cout << " " << visit.second->lane;
-//    std::cout << "\n\nReverse visits:";
-//    for (const auto& visit : reverse.all_visits())
-//      std::cout << " " << visit.second->lane;
-//    std::cout << "\n" << std::endl;
   }
-
-//  if (!result.has_value())
-//  {
-//    std::cout << "FAILED TO FIND SOLUTION FOR " << start << " -> " << finish << std::endl;
-//  }
 
   // Release the locks since we are done with these trees
   forward_locked = std::nullopt;

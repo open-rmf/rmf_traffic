@@ -21,6 +21,9 @@
 
 #include <rmf_utils/catch.hpp>
 
+// TODO(MXG): When time permits, we need to resurrect these tests against the
+// new API for the shortest path heuristic.
+
 // TODO(MXG): It would be good to add tests to see that the cache is behaving
 // as intended, caching and using the values in the way that it should. This
 // could be done by adding a proprocessor token into the cache manager header

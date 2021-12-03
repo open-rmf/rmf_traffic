@@ -31,39 +31,22 @@ namespace planning {
 using LaneId = std::size_t;
 using WaypointId = std::size_t;
 
-////==============================================================================
-//template<typename NodePtrT>
-//struct DijkstraCompare
-//{
-//  bool operator()(const NodePtrT& a, const NodePtrT& b)
-//  {
-//    // Note(MXG): The priority queue puts the greater value first, so we
-//    // reverse the arguments in this comparison.
-//    return b->cost < a->cost;
-//  }
-//};
+//==============================================================================
+template<typename NodePtrT>
+struct DijkstraCompare
+{
+  bool operator()(const NodePtrT& a, const NodePtrT& b) const
+  {
+    return b->current_cost < a->current_cost;
+  }
+};
 
-////==============================================================================
-//template<typename NodePtrT>
-//using DijkstraQueue = std::priority_queue<
-//  NodePtrT, std::vector<NodePtrT>, DijkstraCompare<NodePtrT>>;
-
+//==============================================================================
 template<typename NodePtrT>
 struct OptionalCompare
 {
   bool operator()(const NodePtrT& a, const NodePtrT& b) const
   {
-//    if (!a->remaining_cost_estimate.has_value())
-//    {
-//      if (!b->remaining_cost_estimate.has_value())
-//        return b->current_cost < a->current_cost;
-
-//      return false;
-//    }
-
-//    if (!b->remaining_cost_estimate.has_value())
-//      return false;
-
     constexpr auto inf = std::numeric_limits<double>::infinity();
     return b->remaining_cost_estimate.value_or(inf) + b->current_cost
       < a->remaining_cost_estimate.value_or(inf) + a->current_cost;

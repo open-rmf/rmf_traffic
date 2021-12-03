@@ -540,13 +540,6 @@ auto DifferentialDriveHeuristic::generate(
   auto start_heuristic =
     _heuristic->get(start_waypoint_index, goal_waypoint_index);
 
-//  std::cout << "Heuristic " << start_waypoint_index << " -> " << goal_waypoint_index
-//            << ": ";
-//  if (start_heuristic.has_value())
-//    std::cout << *start_heuristic << std::endl;
-//  else
-//    std::cout << "null" << std::endl;
-
   if (!start_heuristic.has_value())
   {
     // If the heuristic of this starting waypoint is a nullopt, then it is

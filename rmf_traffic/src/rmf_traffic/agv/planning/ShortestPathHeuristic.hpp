@@ -29,16 +29,6 @@ namespace agv {
 namespace planning {
 
 //==============================================================================
-template<typename NodePtrT>
-struct DijkstraCompare
-{
-  bool operator()(const NodePtrT& a, const NodePtrT& b) const
-  {
-    return b->current_cost < a->current_cost;
-  }
-};
-
-//==============================================================================
 /// The ShortestPathHeuristic finds the shortest (in terms of time required)
 /// path between two waypoints, not accounting for acceleration, deceleration,
 /// turning, or orientation constraints.
