@@ -33,9 +33,13 @@ set(using_new_fcl true)
 set(FCL_LIBRARIES fcl)
 
 find_package(rmf_utils REQUIRED)
-find_package(eigen3_cmake_module QUIET)
 find_package(Eigen3 REQUIRED)
 find_package(Threads)
+
+find_package(eigen3_cmake_module QUIET)
+if (eigen3_cmake_module_FOUND)
+  set(RMF_TRAFFIC_DEPENDS_EIGEN3_CMAKE_MODULE "find_dependency(eigen3_cmake_module)")
+endif()
 
 # ===== Traffic control library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_traffic/*.cpp")

@@ -4,7 +4,7 @@ get_filename_component(rmf_traffic_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(eigen3_cmake_module)
+@RMF_TRAFFIC_DEPENDS_EIGEN3_CMAKE_MODULE@
 find_dependency(Eigen3)
 find_dependency(rmf_utils)
 
