@@ -410,9 +410,8 @@ inline void CHECK_PLAN(
   }
 }
 
-__attribute__((no_sanitize("thread")))
 void set_interrupt_flag(
-  const std::shared_ptr<bool>& interrupt_flag, bool value)
+  const std::shared_ptr<std::atomic_bool>& interrupt_flag, bool value)
 {
   *interrupt_flag = value;
 }
@@ -494,7 +493,7 @@ SCENARIO("Test Options", "[options]")
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
 
-  auto interrupt_flag = std::make_shared<bool>(false);
+  auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   Duration hold_time = std::chrono::seconds(6);
 
   Planner::Options default_options(nullptr, hold_time, interrupt_flag);
@@ -623,7 +622,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
         auto options = rmf_traffic::agv::Planner::Options{
           nullptr,
           rmf_traffic::agv::Planner::Options::DefaultMinHoldingTime,
-          std::shared_ptr<bool>(nullptr),
+          std::shared_ptr<std::atomic_bool>(nullptr),
           0 // Maximum cost estimate must be 0
         };
         rmf_traffic::agv::Planner planner{
@@ -1416,7 +1415,7 @@ SCENARIO("DP1 Graph")
   };
 
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
-  const auto interrupt_flag = std::make_shared<bool>(false);
+  const auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, profile),
     std::chrono::seconds(5),
@@ -1924,7 +1923,9 @@ SCENARIO("DP1 Graph")
 
       THEN("Plan can resume and find a solution")
       {
-        const auto new_interrupt_flag = std::make_shared<bool>(false);
+        const auto new_interrupt_flag =
+          std::make_shared<std::atomic_bool>(false);
+
         result->resume(new_interrupt_flag);
         CHECK(*result);
       }
@@ -2234,7 +2235,7 @@ SCENARIO("Test planner with various start conditions")
   rmf_traffic::schedule::ItineraryVersion iv_o = 0;
   rmf_traffic::RouteId ri_o = 0;
 
-  const auto interrupt_flag = std::make_shared<bool>(false);
+  const auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   Duration hold_time = std::chrono::seconds(6);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, profile),
@@ -2588,7 +2589,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     create_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
-  const auto interrupt_flag = std::make_shared<bool>(false);
+  const auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
@@ -2708,7 +2709,7 @@ SCENARIO("Multilevel Planning")
     create_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
-  const auto interrupt_flag = std::make_shared<bool>(false);
+  const auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
@@ -2962,7 +2963,7 @@ SCENARIO("Adjacent entry and exit events", "[debug]")
     create_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
-  const auto interrupt_flag = std::make_shared<bool>(false);
+  const auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
@@ -3448,5 +3449,112 @@ SCENARIO("Test planning with lane closures")
     REQUIRE(expected_lanes.size() == result->get_waypoints().size());
     for (std::size_t i = 0; i < result->get_waypoints().size(); ++i)
       CHECK(result->get_waypoints()[i].approach_lanes() == expected_lanes[i]);
+  }
+}
+
+SCENARIO("Test speed limits")
+{
+  const rmf_traffic::agv::VehicleTraits traits{
+    {1.0, 0.4},
+    {1.0, 0.5},
+    create_test_profile(UnitCircle)};
+
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, {0.0, 0.0});
+  graph.add_waypoint(test_map_name, {100.0, 0.0});
+  graph.add_waypoint(test_map_name, {50.0, 20.0});
+
+  /*
+   *        ////-2-\\\\
+   *     ////         \\\\
+   *  ////               \\\\
+   * 0-----------------------1
+   *
+   */
+
+  graph.add_lane(0, 1); // 0
+  graph.add_lane(0, 2); // 1
+  graph.add_lane(2, 1); // 2
+
+  const rmf_traffic::Time time = std::chrono::steady_clock::now();
+
+  WHEN("Lanes have no speed limit")
+  {
+    rmf_traffic::agv::Planner planner{
+      rmf_traffic::agv::Planner::Configuration{
+        graph, traits
+      },
+      rmf_traffic::agv::Planner::Options(nullptr)
+    };
+
+    const auto result = planner.plan({time, 0, 0.0}, 1);
+    REQUIRE(result.success());
+    REQUIRE(result->get_waypoints().size() == 2);
+
+    // When there are no speed limits, only one lane should be used
+    REQUIRE(result->get_waypoints().back().approach_lanes().size() == 1);
+    // And that lane is index 0
+    CHECK(result->get_waypoints().back().approach_lanes().back() == 0);
+  }
+
+  WHEN("All lanes have equal speed limits")
+  {
+    graph.get_lane(0).properties().speed_limit(0.1);
+    graph.get_lane(1).properties().speed_limit(0.1);
+    graph.get_lane(2).properties().speed_limit(0.1);
+
+    rmf_traffic::agv::Planner planner{
+      rmf_traffic::agv::Planner::Configuration{
+        graph, traits
+      },
+      rmf_traffic::agv::Planner::Options(nullptr)
+    };
+
+    const auto result = planner.plan({time, 0, 0.0}, 1);
+    REQUIRE(result.success());
+    REQUIRE(result->get_waypoints().size() == 2);
+
+    // When there are no speed limits, only one lane should be used
+    REQUIRE(result->get_waypoints().back().approach_lanes().size() == 1);
+    // And that lane is index 0
+    CHECK(result->get_waypoints().back().approach_lanes().back() == 0);
+  }
+
+  WHEN("The direct lane has a low speed limit")
+  {
+    graph.get_lane(0).properties().speed_limit(0.1);
+
+    rmf_traffic::agv::Planner planner{
+      rmf_traffic::agv::Planner::Configuration{
+        graph, traits
+      },
+      rmf_traffic::agv::Planner::Options(nullptr)
+    };
+
+    const auto result = planner.plan({time, 0, 0.0}, 1);
+    REQUIRE(result.success());
+
+    std::unordered_set<std::size_t> used_waypoints;
+    for (const auto& wp : result->get_waypoints())
+    {
+      if (wp.graph_index().has_value())
+        used_waypoints.insert(*wp.graph_index());
+    }
+
+    // The plan should pass through waypoint 2
+    CHECK(used_waypoints.count(2));
+
+    std::unordered_set<std::size_t> used_lanes;
+    for (const auto& wp : result->get_waypoints())
+    {
+      for (const auto& lane : wp.approach_lanes())
+        used_lanes.insert(lane);
+    }
+
+    // The plan should pass through lanes 1 and 2, while avoiding lane 0.
+    CHECK(used_lanes.count(1));
+    CHECK(used_lanes.count(2));
+    CHECK_FALSE(used_lanes.count(0));
   }
 }

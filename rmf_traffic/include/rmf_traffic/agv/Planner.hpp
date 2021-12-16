@@ -28,6 +28,8 @@
 
 #include <rmf_utils/optional.hpp>
 
+#include <atomic>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -150,7 +152,7 @@ public:
     Options(
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time = DefaultMinHoldingTime,
-      std::shared_ptr<const bool> interrupt_flag = nullptr,
+      std::shared_ptr<const std::atomic_bool> interrupt_flag = nullptr,
       rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
       rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
 
@@ -216,11 +218,11 @@ public:
     ///
     /// \warning Using this function will replace anything that was given to
     /// interrupter.
-    Options& interrupt_flag(std::shared_ptr<const bool> flag);
+    Options& interrupt_flag(std::shared_ptr<const std::atomic_bool> flag);
 
     /// Get the interrupt flag that will stop this planner if it has run for too
     /// long.
-    const std::shared_ptr<const bool>& interrupt_flag() const;
+    const std::shared_ptr<const std::atomic_bool>& interrupt_flag() const;
 
     /// Set the maximum cost estimate that the planner should allow. If the cost
     /// estimate of the best possible plan that the planner could produce ever
@@ -628,7 +630,7 @@ public:
   ///   A new interrupt flag to listen to while planning.
   ///
   /// \return true if a plan has been found, false otherwise.
-  bool resume(std::shared_ptr<const bool> interrupt_flag);
+  bool resume(std::shared_ptr<const std::atomic_bool> interrupt_flag);
 
   /// Get a mutable reference to the options that will be used by this planning
   /// task.

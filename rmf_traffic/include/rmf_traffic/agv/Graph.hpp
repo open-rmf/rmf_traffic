@@ -437,6 +437,30 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
+
+    /// The Lane Properties class contains properties that apply across the full
+    /// extent of the lane.
+    class Properties
+    {
+    public:
+
+      /// Construct a default set of properties
+      /// * speed_limit: nullopt
+      Properties();
+
+      /// Get the speed limit along this lane. If a std::nullopt is returned,
+      /// then there is no specified speed limit for the lane.
+      std::optional<double> speed_limit() const;
+
+      /// Set the speed limit along this lane. Providing a std::nullopt
+      /// indicates that there is no speed limit for the lane.
+      Properties& speed_limit(std::optional<double> value);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
     /// Get the entry node of this Lane. The lane represents an edge in the
     /// graph that goes away from this node.
     Node& entry();
@@ -450,6 +474,12 @@ public:
 
     /// const-qualified exit()
     const Node& exit() const;
+
+    /// Get the properties of this Lane
+    Properties& properties();
+
+    /// const-qualified properties()
+    const Properties& properties() const;
 
     /// Get the index of this Lane within the Graph.
     std::size_t index() const;
@@ -511,7 +541,8 @@ public:
   /// graph to know how the robot is allowed to traverse between waypoints.
   Lane& add_lane(
     const Lane::Node& entry,
-    const Lane::Node& exit);
+    const Lane::Node& exit,
+    Lane::Properties properties = Lane::Properties());
 
   /// Get the lane at the specified index
   Lane& get_lane(std::size_t index);

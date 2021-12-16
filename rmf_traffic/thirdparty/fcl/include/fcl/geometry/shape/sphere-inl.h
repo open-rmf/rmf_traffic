@@ -57,11 +57,17 @@ Sphere<S>::Sphere(S radius) : ShapeBase<S>(), radius(radius)
 template <typename S>
 void Sphere<S>::computeLocalAABB()
 {
+  if (_last_local_aabb_radius == radius)
+    return;
+
+  SpinLock lock(_mutex_compute_local_aabb);
+
   this->aabb_local.max_.setConstant(radius);
   this->aabb_local.min_.setConstant(-radius);
 
   this->aabb_center = this->aabb_local.center();
   this->aabb_radius = radius;
+  _last_local_aabb_radius = radius;
 }
 
 //==============================================================================
