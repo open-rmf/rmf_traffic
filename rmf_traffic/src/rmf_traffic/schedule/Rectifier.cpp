@@ -43,6 +43,45 @@ void Rectifier::retransmit(
 }
 
 //==============================================================================
+void Rectifier::correct_id(ParticipantId new_id)
+{
+  if (const auto shared = _pimpl->participant.lock())
+    shared->correct_id(new_id);
+}
+
+//==============================================================================
+std::optional<ItineraryVersion> Rectifier::current_version() const
+{
+  if (const auto shared = _pimpl->participant.lock())
+    return shared->current_version();
+
+  return std::nullopt;
+}
+
+//==============================================================================
+std::optional<ParticipantId> Rectifier::get_id() const
+{
+  // TODO(geoff): There should be a check here for if it couldn't be locked.
+  // What is the correct action in that situation?
+  if (const auto shared = _pimpl->participant.lock())
+    return shared->get_id();
+
+  return std::nullopt;
+}
+
+//==============================================================================
+std::optional<rmf_traffic::schedule::ParticipantDescription>
+Rectifier::get_description() const
+{
+  // TODO(geoff): There should be a check here for if it couldn't be locked.
+  // What is the correct action in that situation?
+  if (const auto shared = _pimpl->participant.lock())
+    return shared->get_description();
+
+  return std::nullopt;
+}
+
+//==============================================================================
 Rectifier::Rectifier()
 {
   // Do nothing

@@ -33,6 +33,53 @@ Profile::Profile(
 }
 
 //==============================================================================
+bool Profile::operator==(const Profile& rhs) const
+{
+  // TODO(MXG): We should write tests for the shape and profile comparisons.
+  if (!_pimpl && !rhs._pimpl)
+  {
+    return true;
+  }
+  else if (!_pimpl || !rhs._pimpl)
+  {
+    return false;
+  }
+
+  const auto& self_footprint = footprint();
+  const auto& other_footprint = rhs.footprint();
+  if (self_footprint && other_footprint)
+  {
+    // Both pointers are valid so check what they point to for equality
+    if (*self_footprint != *other_footprint)
+      return false;
+  }
+  else if (self_footprint || other_footprint)
+  {
+    // Only one pointer is valid, so they can't be equal
+    return false;
+  }
+
+  // Using the getter functions for vicinity is important because the Profile
+  // class has a behavior where it will return the footprint as the vicinity
+  // if a vicinity was never specified.
+  const auto& self_vicinity = vicinity();
+  const auto& other_vicinity = rhs.vicinity();
+  if (self_vicinity && other_vicinity)
+  {
+    // Both pointers are valid so check what they point to for equality
+    if (*self_vicinity != *other_vicinity)
+      return false;
+  }
+  else if (_pimpl->vicinity || rhs._pimpl->vicinity)
+  {
+    // Only one pointer is valid, so they can't be equal
+    return false;
+  }
+
+  return true;
+}
+
+//==============================================================================
 Profile& Profile::footprint(geometry::ConstFinalConvexShapePtr shape)
 {
   _pimpl->footprint = std::move(shape);
