@@ -156,6 +156,31 @@ const std::string* Graph::Waypoint::name() const
 }
 
 //==============================================================================
+std::string Graph::Waypoint::name_or_index(
+  const std::string& name_format,
+  const std::string& index_format) const
+{
+  if (_pimpl->name)
+  {
+    const auto it = name_format.find_first_of("%s");
+    if (it == std::string::npos)
+      return name_format;
+
+    return name_format.substr(0, it)
+      + _pimpl->name.value()
+      + name_format.substr(it+2);
+  }
+
+  const auto it = index_format.find_first_of("%d");
+  if (it == std::string::npos)
+    return index_format;
+
+  return index_format.substr(0, it)
+    + std::to_string(_pimpl->index)
+    + index_format.substr(it+2);
+}
+
+//==============================================================================
 Graph::Waypoint::Waypoint()
 {
   // Do nothing

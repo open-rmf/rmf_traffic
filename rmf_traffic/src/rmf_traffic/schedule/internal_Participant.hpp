@@ -21,6 +21,7 @@
 #include <rmf_traffic/schedule/Participant.hpp>
 
 #include <rmf_utils/Modular.hpp>
+#include <rmf_utils/RateLimiter.hpp>
 
 #include <map>
 
@@ -37,7 +38,7 @@ public:
     std::shared_ptr<Writer> writer,
     std::shared_ptr<RectificationRequesterFactory> rectifier_factory);
 
-  class Shared
+  class Shared : public std::enable_shared_from_this<Shared>
   {
   public:
 
@@ -46,11 +47,21 @@ public:
       ParticipantDescription description,
       std::shared_ptr<Writer> writer);
 
+    RouteId set(std::vector<Route> itinerary);
+
+    void clear();
+
     void retransmit(
       const std::vector<Rectifier::Range>& from,
       ItineraryVersion last_known);
 
     ItineraryVersion current_version() const;
+
+    ParticipantId get_id() const;
+
+    void correct_id(ParticipantId new_id);
+
+    const ParticipantDescription& get_description() const;
 
     ~Shared();
 
@@ -60,7 +71,7 @@ public:
     Writer::Input make_input(std::vector<Route> itinerary);
     ItineraryVersion get_next_version();
 
-    const ParticipantId _id;
+    ParticipantId _id;
     ItineraryVersion _version;
     RouteId _last_route_id;
     const ParticipantDescription _description;
@@ -74,6 +85,8 @@ public:
 
     ChangeHistory _change_history;
     rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
+
+    rmf_utils::RateLimiter _version_mismatch_limiter;
   };
 
   // Note: It would be better if this constructor were private, but we need to
