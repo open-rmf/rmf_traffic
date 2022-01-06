@@ -97,6 +97,27 @@ public:
     /// The name of a waypoint can only be set using add_key() or set_key().
     const std::string* name() const;
 
+    /// If this waypoint has a name, the name will be returned. Otherwise it
+    /// will return the waypoint index, formatted into a string based on
+    /// the index_format argument.
+    ///
+    /// \param[in] name_format
+    ///   If this waypoint has an assigned name, the first instance of "%s"
+    ///   within name_format will be replaced with the name of the waypoint. If
+    ///   there is no %s in the name_format string, then this function will
+    ///   simply return the name_format string as-is when the waypoint has a
+    ///   name.
+    ///
+    /// \param[in] index_format
+    ///   If this waypoint does not have an assigned name, the first instance of
+    ///   "%d" within the index_format string will be replaced with the
+    ///   stringified decimal index value of the waypoint. If there is no "%d"
+    ///   in the index_format string, then this function will simply return the
+    ///   index_format string as-is when the waypoint does not have a name.
+    std::string name_or_index(
+      const std::string& name_format = "%s",
+      const std::string& index_format = "#%d") const;
+
     class Implementation;
   private:
     Waypoint();
