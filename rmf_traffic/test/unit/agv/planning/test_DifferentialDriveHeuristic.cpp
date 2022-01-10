@@ -18,11 +18,11 @@
 #include <src/rmf_traffic/agv/planning/DifferentialDriveHeuristic.hpp>
 
 #include "../../utils_Trajectory.hpp"
+#include "../utils_NegotiationRoom.hpp"
 
 #include <rmf_utils/catch.hpp>
 
 #include <variant>
-
 
 #include <iostream>
 
@@ -54,34 +54,57 @@ using SolutionNodePtr =
 
 //==============================================================================
 bool compare_routes(
-  const rmf_traffic::Route& a,
-  const rmf_traffic::Route& b)
+  const rmf_traffic::Route& expected,
+  const rmf_traffic::Route& actual)
 {
-  CHECK(a.map() == b.map());
-  REQUIRE(a.trajectory().size() == b.trajectory().size());
+  CHECK(expected.map() == actual.map());
+  CHECK(expected.trajectory().size() == actual.trajectory().size());
+  CHECK(expected.trajectory().size() == actual.trajectory().size());
 
-  bool all_correct = a.map() == b.map();
-  for (std::size_t i = 0; i < a.trajectory().size(); ++i)
+  bool all_correct = expected.map() == actual.map();
+  const std::size_t end_size =
+    std::min(expected.trajectory().size(), actual.trajectory().size());
+
+  for (std::size_t i = 0; i < end_size; ++i)
   {
-    const auto& wp_a = a.trajectory().at(i);
-    const auto& wp_b = b.trajectory().at(i);
+    const auto& wp_a = expected.trajectory().at(i);
+    const auto& wp_b = actual.trajectory().at(i);
 
     const double time_diff =
       rmf_traffic::time::to_seconds(wp_a.time() - wp_b.time());
     const bool time_matches = time_diff == Approx(0.0).margin(1e-8);
     CHECK(time_matches);
+    if (!time_matches)
+    {
+      std::cout << "time: "
+                << rmf_traffic::time::to_seconds(wp_a.time().time_since_epoch())
+                << " - "
+                << rmf_traffic::time::to_seconds(wp_b.time().time_since_epoch())
+                << " = " << time_diff << std::endl;
+    }
 
     const Eigen::Vector3d p_a = wp_a.position();
     const Eigen::Vector3d p_b = wp_b.position();
     const bool positions_match = (p_a - p_b).norm() == Approx(0.0).margin(1e-8);
     CHECK(positions_match);
+    if (!positions_match)
+    {
+      std::cout << "position: |("
+                << p_a.transpose() << ") - (" << p_b.transpose()
+                << ")| = " << (p_a - p_b).norm() << std::endl;
+    }
 
     const Eigen::Vector3d v_a = wp_a.velocity();
     const Eigen::Vector3d v_b = wp_b.velocity();
     const bool velocities_match =
       (v_a - v_b).norm() == Approx(0.0).margin(1e-8);
-
     CHECK(velocities_match);
+    if (!velocities_match)
+    {
+      std::cout << "velocity: |("
+                << v_a.transpose() << ") - (" << v_b.transpose()
+                << ")| = " << (v_a - v_b).norm() << std::endl;
+    }
 
     all_correct &= time_matches && positions_match && velocities_match;
   }
@@ -267,6 +290,7 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
 
   const double initial_yaw = 0._deg;
 
+  WHEN("116, B, S, 59, B")
   {
     const Key key{116, Ori::Backward, Side::Start, 59, Ori::Backward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -303,9 +327,12 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    const bool plan_matches =
+      compare_plan(traits, initial_position, actions, solution);
+    CHECK(plan_matches);
   }
 
+  WHEN("116, F, S, 119, B")
   {
     const Key key{116, Ori::Forward, Side::Start, 119, Ori::Backward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -336,9 +363,12 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    const bool plan_matches =
+      compare_plan(traits, initial_position, actions, solution);
+    CHECK(plan_matches);
   }
 
+  WHEN("1, B, S, 119, B")
   {
     const Key key{1, Ori::Backward, Side::Start, 119, Ori::Forward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -375,7 +405,9 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    const bool plan_matches =
+      compare_plan(traits, initial_position, actions, solution);
+    CHECK(plan_matches);
   }
 }
 
@@ -436,6 +468,7 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
 
   const double initial_yaw = 10._deg;
 
+  WHEN("0, Any, Start, 2, Forward")
   {
     const Key key{0, Ori::Any, Side::Start, 2, Ori::Forward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
@@ -487,52 +520,18 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 
+  WHEN("0, Any, Start, 2, Backward")
   {
+    // We cannot prescribe a specific set of actions for the robot to reach the
+    // goal because there are multiple valid times at which the robot may turn,
+    // and deciding between those choices is arbitrary (i.e. it may be
+    // influenced by the underlying choice of heuristics). So instead we just
+    // check that a solution is found and that the solution has an appropriate
+    // cost.
     const Key key{0, Ori::Any, Side::Start, 2, Ori::Backward};
-    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
-    std::vector<Action> actions;
-
-    // TODO(MXG): Figure out why there's a duplicate single-element route added
-    // by the solution.
-    actions.push_back(
-      Move{
-        {initial_position},
-        {test_map_0, test_map_0}
-      });
-
-    actions.push_back(
-      Wait{
-        bogus_event_duration,
-        {test_map_0, test_map_1}
-      });
-
-    actions.push_back(
-      Move{
-        {{0.0, 0.0, -90._deg}},
-        {test_map_0, test_map_1}
-      });
-
-    // I think this single-element route gets added by the node that triggers
-    // the bogus_event to begin.
-    actions.push_back(
-      Move{
-        {{0.0, 0.0, -90._deg}},
-        {test_map_1}
-      });
-
-    actions.push_back(
-      Wait{
-        bogus_event_duration,
-        {test_map_1, test_map_2}
-      });
-
-    actions.push_back(
-      Move{
-        {{0.0, 1.0, -90._deg}},
-        {test_map_1, test_map_2}
-      });
 
     const auto solution = diff_drive_cache->get().get(key);
-    CHECK(compare_plan(traits, initial_position, actions, solution));
+    REQUIRE(solution);
+    CHECK(solution->info.remaining_cost_estimate == Approx(5.65148));
   }
 }

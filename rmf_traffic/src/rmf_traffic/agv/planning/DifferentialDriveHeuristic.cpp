@@ -46,6 +46,9 @@ public:
   using RouteFactory = DifferentialDriveMapTypes::RouteFactory;
   using RouteFactoryFactory = DifferentialDriveMapTypes::RouteFactoryFactory;
 
+  using ConstChildHeuristicPtr =
+    DifferentialDriveHeuristic::ConstChildHeuristicPtr;
+
   struct SearchNode
   {
     NodeInfo info;
@@ -103,18 +106,7 @@ public:
 
   bool is_finished(const SearchNodePtr& top) const
   {
-    const auto& info = top->info;
-    if (info.waypoint == _goal_waypoint)
-    {
-      if (!_goal_yaw.has_value() || !top->info.yaw.has_value())
-        return true;
-
-      const double angle_diff = rmf_utils::wrap_to_pi(*info.yaw - *_goal_yaw);
-      if (std::abs(angle_diff) <= _interpolate.rotation_thresh)
-        return true;
-    }
-
-    return false;
+    return top->info.entry == _goal_entry;
   }
 
   void expand(const SearchNodePtr& top, SearchQueue& queue)
@@ -135,9 +127,6 @@ public:
     const auto current_wp_index = info.waypoint;
     if (current_wp_index == _goal_waypoint)
     {
-      // If there is no goal yaw, then is_finished should have caught this node
-      assert(_goal_yaw.has_value());
-
       queue.push(rotate_to_goal(top));
       return;
     }
@@ -156,7 +145,15 @@ public:
 
       const auto initial_lane_index = traversal.initial_lane_index;
       const auto next_lane_index = traversal.finish_lane_index;
-      const auto remaining_cost_estimate = _heuristic.get(next_waypoint_index);
+      const auto remaining_cost_estimate =
+        _heuristic->get(next_waypoint_index, _goal_waypoint);
+
+//      std::cout << "Heuristic " << next_waypoint_index << " -> " << _goal_waypoint << ": ";
+//      if (remaining_cost_estimate.has_value())
+//        std::cout << *remaining_cost_estimate << std::endl;
+//      else
+//        std::cout << "null" << std::endl;
+
       if (!remaining_cost_estimate.has_value())
       {
         // If the heuristic for this waypoint is a nullopt, then there is no way
@@ -263,20 +260,43 @@ public:
 
   SearchNodePtr rotate_to_goal(const SearchNodePtr& top)
   {
-    const std::size_t waypoint_index = top->info.waypoint;
-    const std::string& map_name =
-      _graph->original().waypoints[waypoint_index].get_map_name();
+    if (_goal_yaw.has_value())
+    {
+      const std::size_t waypoint_index = top->info.waypoint;
+      const std::string& map_name =
+        _graph->original().waypoints[waypoint_index].get_map_name();
 
-    const Eigen::Vector2d p = top->info.position;
-    const double target_yaw = _goal_yaw.value();
+      const Eigen::Vector2d p = top->info.position;
+      const double target_yaw = _goal_yaw.value();
 
-    // We assume we will get back a valid factory, because if no rotation is
-    // needed, then the planner should have accepted this node earlier.
-    auto factory_info = make_rotate_factory(
-      p, top->info.yaw, target_yaw, _limits,
-      _interpolate.rotation_thresh, map_name).value();
+      // We assume we will get back a valid factory, because if no rotation is
+      // needed, then the planner should have accepted this node earlier.
+      auto factory_info = make_rotate_factory(
+        p, top->info.yaw, target_yaw, _limits,
+        _interpolate.rotation_thresh, map_name);
 
-    const double rotation_cost = factory_info.minimum_cost;
+      if (factory_info.has_value())
+      {
+        const double rotation_cost = factory_info->minimum_cost;
+
+        return std::make_shared<SearchNode>(
+          SearchNode{
+            NodeInfo{
+              _goal_entry,
+              top->info.waypoint,
+              {},
+              p,
+              target_yaw,
+              0.0,
+              rotation_cost,
+              nullptr
+            },
+            top->current_cost + rotation_cost,
+            std::move(factory_info->factory),
+            top
+          });
+      }
+    }
 
     return std::make_shared<SearchNode>(
       SearchNode{
@@ -284,15 +304,15 @@ public:
           _goal_entry,
           top->info.waypoint,
           {},
-          p,
-          target_yaw,
+          top->info.position,
+          top->info.yaw,
           0.0,
-          rotation_cost,
+          top->info.cost_from_parent,
           nullptr
         },
-        top->current_cost + rotation_cost,
-        std::move(factory_info.factory),
-        top
+        top->current_cost,
+        top->route_factory,
+        top->parent
       });
   }
 
@@ -312,6 +332,14 @@ public:
     const auto old_it = _old_items.find(key);
     if (old_it == _old_items.end())
       return false;
+
+    if (!old_it->second)
+    {
+      // We return true here to say that this node has no way of reaching
+      // the goal from its current state, so the planner should not bother
+      // trying to expand it.
+      return true;
+    }
 
     auto solution = old_it->second->child;
     auto node = top;
@@ -443,7 +471,7 @@ public:
   DifferentialDriveExpander(
     Entry goal_entry,
     const DifferentialDriveHeuristic::Storage& old_items,
-    Cache<TranslationHeuristic> heuristic,
+    ConstChildHeuristicPtr heuristic,
     std::shared_ptr<const Supergraph> graph)
   : _goal_entry(std::move(goal_entry)),
     _old_items(old_items),
@@ -471,7 +499,7 @@ private:
   std::optional<double> _goal_yaw;
   Entry _goal_entry;
   const DifferentialDriveHeuristic::Storage& _old_items;
-  Cache<TranslationHeuristic> _heuristic;
+  ConstChildHeuristicPtr _heuristic;
   std::shared_ptr<const Supergraph> _graph;
   KinematicLimits _limits;
   Interpolate::Options::Implementation _interpolate;
@@ -483,7 +511,7 @@ private:
 DifferentialDriveHeuristic::DifferentialDriveHeuristic(
   std::shared_ptr<const Supergraph> graph)
 : _graph(std::move(graph)),
-  _heuristic_map(std::make_shared<TranslationHeuristicFactory>(_graph))
+  _heuristic(std::make_shared<const ChildHeuristic>(_graph))
 {
   // Do nothing
 }
@@ -507,9 +535,9 @@ auto DifferentialDriveHeuristic::generate(
   const auto& goal_lane = original.lanes[goal_lane_index];
   const std::size_t goal_waypoint_index = goal_lane.exit().waypoint_index();
 
-  auto heuristic = _heuristic_map.get(goal_waypoint_index)->get();
+  auto start_heuristic =
+    _heuristic->get(start_waypoint_index, goal_waypoint_index);
 
-  auto start_heuristic = heuristic.get(start_waypoint_index);
   if (!start_heuristic.has_value())
   {
     // If the heuristic of this starting waypoint is a nullopt, then it is
@@ -560,7 +588,7 @@ auto DifferentialDriveHeuristic::generate(
       Side::Finish
     },
     old_items,
-    std::move(heuristic),
+    std::move(_heuristic),
     _graph
   };
 
@@ -578,7 +606,6 @@ auto DifferentialDriveHeuristic::generate(
   auto goal_node = search;
   SolutionNodePtr output = nullptr;
   SolutionNodePtr solution = nullptr;
-
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
   std::cout << "Stashing solutions for " << key << std::endl;
@@ -607,7 +634,6 @@ auto DifferentialDriveHeuristic::generate(
       break;
 
     auto node = goal_node;
-    auto previous_node = node;
 
     solution = nullptr;
     double remaining_cost = 0.0;
@@ -661,7 +687,6 @@ auto DifferentialDriveHeuristic::generate(
         new_items.insert({new_key, solution});
       }
 
-      previous_node = node;
       node = node->parent;
     }
 
