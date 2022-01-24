@@ -25,6 +25,9 @@
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -36,6 +39,8 @@ Supergraph::FloorChangeMap find_floor_changes(
 {
   Supergraph::FloorChangeMap all_floor_changes;
 
+  // TODO(MXG): Calculate this in the regular Graph structure while lanes get
+  // added to it.
   for (std::size_t i = 0; i < original.waypoints.size(); ++i)
   {
     const auto& initial_map_name = original.waypoints[i].get_map_name();
@@ -66,6 +71,7 @@ struct TraversalNode
 {
   std::size_t initial_lane_index;
   std::size_t finish_lane_index;
+  std::size_t initial_waypoint_index;
   std::size_t finish_waypoint_index;
 
   Eigen::Vector2d initial_p;
@@ -104,7 +110,7 @@ bool valid_traversal(const TraversalNode& node)
 //==============================================================================
 void node_to_traversals(
   const TraversalNode& node,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<Traversal>& output)
 {
 
@@ -112,6 +118,7 @@ void node_to_traversals(
   Traversal traversal;
   traversal.initial_lane_index = node.initial_lane_index;
   traversal.finish_lane_index = node.finish_lane_index;
+  traversal.initial_waypoint_index = node.initial_waypoint_index;
   traversal.finish_waypoint_index = node.finish_waypoint_index;
   traversal.best_time = 0.0;
   traversal.maps = std::vector<std::string>(
@@ -228,7 +235,7 @@ void perform_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
   const LaneClosure& closures,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
@@ -259,6 +266,7 @@ void perform_traversal(
 
   TraversalNode node;
   node.finish_lane_index = lane_index;
+  node.initial_waypoint_index = wp_index_0;
   node.finish_waypoint_index = wp_index_1;
   node.lowest_speed_limit = lane.properties().speed_limit();
 
@@ -272,6 +280,7 @@ void perform_traversal(
     }
 
     node.initial_lane_index = parent->initial_lane_index;
+    node.initial_waypoint_index = parent->initial_waypoint_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
     node.traversed_lanes = parent->traversed_lanes;
@@ -396,7 +405,7 @@ void expand_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
   const LaneClosure& closures,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
@@ -410,7 +419,7 @@ void initiate_traversal(
   const std::size_t lane_index,
   const Graph::Implementation& graph,
   const LaneClosure& closures,
-  const TraversalGenerator::Kinematics& kin,
+  const TraversalFromGenerator::Kinematics& kin,
   std::vector<TraversalNode>& queue,
   std::vector<Traversal>& output,
   std::unordered_set<std::size_t>& visited)
@@ -479,7 +488,7 @@ DifferentialDriveConstraint::get_orientations(
 }
 
 //==============================================================================
-TraversalGenerator::Kinematics::Kinematics(
+TraversalFromGenerator::Kinematics::Kinematics(
   const VehicleTraits& traits,
   const Interpolate::Options::Implementation& interpolate_)
 : limits(VehicleTraits::Implementation::get_limits(traits)),
@@ -493,7 +502,7 @@ TraversalGenerator::Kinematics::Kinematics(
 }
 
 //==============================================================================
-TraversalGenerator::TraversalGenerator(
+TraversalFromGenerator::TraversalFromGenerator(
   const std::shared_ptr<const Supergraph>& graph)
 : _graph(graph),
   _kinematics(graph->traits(), graph->options())
@@ -502,7 +511,7 @@ TraversalGenerator::TraversalGenerator(
 }
 
 //==============================================================================
-ConstTraversalsPtr TraversalGenerator::generate(
+ConstTraversalsPtr TraversalFromGenerator::generate(
   const std::size_t& key,
   const Storage&, // old items are irrelevant
   Storage& new_items) const
@@ -557,6 +566,64 @@ ConstTraversalsPtr TraversalGenerator::generate(
 }
 
 //==============================================================================
+TraversalIntoGenerator::TraversalIntoGenerator(
+  std::shared_ptr<const CacheManager<TraversalFromCache>> traversals_from,
+  const std::shared_ptr<const Supergraph>& graph)
+: _traversals_from(std::move(traversals_from)),
+  _graph(graph)
+{
+  // Do nothing
+}
+
+//==============================================================================
+ConstTraversalsPtr TraversalIntoGenerator::generate(
+  const std::size_t& key,
+  const Storage&, // old items are irrelevant
+  Storage& new_items) const
+{
+  const auto supergraph = _graph.lock();
+  if (!supergraph)
+    return nullptr;
+
+  const auto& graph = supergraph->original();
+  const auto traversals_into = std::make_shared<Traversals>();
+  std::unordered_set<std::size_t> visited;
+  std::vector<std::size_t> frontier;
+  frontier.push_back(key);
+  while (!frontier.empty())
+  {
+    const auto next = frontier.back();
+    frontier.pop_back();
+    if (!visited.insert(next).second)
+      continue;
+
+    const auto& lanes_into = graph.lanes_into[next];
+    for (const auto& lane_index : lanes_into)
+    {
+      const auto& waypoint_from =
+        graph.lanes[lane_index].entry().waypoint_index();
+
+      const auto& traversals_from = _traversals_from->get().get(waypoint_from);
+      bool keep_exploring = false;
+      for (const auto& traversal : *traversals_from)
+      {
+        if (traversal.finish_waypoint_index == key)
+        {
+          keep_exploring = true;
+          traversals_into->push_back(traversal);
+        }
+      }
+
+      if (keep_exploring)
+        frontier.push_back(waypoint_from);
+    }
+  }
+
+  new_items.insert({key, traversals_into});
+  return traversals_into;
+}
+
+//==============================================================================
 std::shared_ptr<const Supergraph> Supergraph::make(
   Graph::Implementation original,
   VehicleTraits traits,
@@ -568,9 +635,14 @@ std::shared_ptr<const Supergraph> Supergraph::make(
       std::move(original), std::move(traits),
       std::move(lane_closures), interpolate));
 
-  supergraph->_traversals =
-    CacheManager<TraversalCache>::make(
-    std::make_shared<TraversalGenerator>(supergraph));
+  supergraph->_traversals_from =
+    CacheManager<TraversalFromCache>::make(
+    std::make_shared<TraversalFromGenerator>(supergraph));
+
+  supergraph->_traversals_into =
+    CacheManager<TraversalIntoCache>::make(
+    std::make_shared<TraversalIntoGenerator>(
+      supergraph->_traversals_from, supergraph));
 
   supergraph->_entries_into_waypoint_cache =
     CacheManager<EntriesCache>::make(
@@ -619,7 +691,14 @@ auto Supergraph::floor_change() const -> const FloorChangeMap&
 ConstTraversalsPtr Supergraph::traversals_from(
   const std::size_t waypoint_index) const
 {
-  return _traversals->get().get(waypoint_index);
+  return _traversals_from->get().get(waypoint_index);
+}
+
+//==============================================================================
+ConstTraversalsPtr Supergraph::traversals_into(
+  const std::size_t waypoint_index) const
+{
+  return _traversals_into->get().get(waypoint_index);
 }
 
 //==============================================================================
@@ -732,7 +811,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
   using KeyHash = DifferentialDriveMapTypes::KeyHash;
   DifferentialDriveKeySet keys(31, KeyHash{_original.lanes.size()});
 
-  const auto relevant_entries = entries_into(goal_waypoint_index)
+  const auto relevant_goal_entries = entries_into(goal_waypoint_index)
     ->relevant_entries(goal_orientation);
 
   const auto relevant_traversals = traversals_from(start_waypoint_index);
@@ -747,7 +826,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
       if (!alt.has_value())
         continue;
 
-      for (const auto& entry : relevant_entries)
+      for (const auto& entry : relevant_goal_entries)
       {
         keys.insert(
           {

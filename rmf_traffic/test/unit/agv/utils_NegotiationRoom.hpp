@@ -34,10 +34,6 @@
 inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 {
   std::cout << "(start) --> ";
-  std::cout << "(" << 0.0 << "; "
-            << route.trajectory().front().position().transpose()
-            << ") --> ";
-
   return *route.trajectory().start_time();
 }
 
@@ -46,8 +42,11 @@ inline void print_route(
   const rmf_traffic::Route& route,
   const rmf_traffic::Time start_time)
 {
+  if (route.trajectory().empty())
+    std::cout << "EMPTY TRAJECTORY" << std::endl;
+
   const auto end = route.trajectory().end();
-  for (auto it = ++route.trajectory().begin(); it != end; ++it)
+  for (auto it = route.trajectory().begin(); it != end; ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -65,9 +64,13 @@ inline void print_itinerary(
 {
   auto start_time = print_start(*itinerary.front());
   for (const auto& r : itinerary)
+  {
+    std::cout << "[" << r->map() << "]: ";
     print_route(*r, start_time);
+    std::cout << "(next)\n";
+  }
 
-  std::cout << "(end)\n" << std::endl;
+  std::cout << " --> (end)\n" << std::endl;
 }
 
 //==============================================================================
@@ -75,9 +78,13 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 {
   auto start_time = print_start(itinerary.front());
   for (const auto& r : itinerary)
+  {
+    std::cout << "[" << r.map() << "]: ";
     print_route(r, start_time);
+    std::cout << "(next)\n";
+  }
 
-  std::cout << "(end)\n" << std::endl;
+  std::cout << " --> (end)\n" << std::endl;
 }
 
 //==============================================================================

@@ -1201,7 +1201,10 @@ public:
     {
       const auto solution_root = _heuristic.cache().get(key);
       if (!solution_root)
+      {
+        // There is no solution for this key
         continue;
+      }
 
       auto search_node = top;
 
