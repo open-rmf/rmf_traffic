@@ -264,7 +264,9 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
       {
         S tmp = -Tc / (2 * Tb);
         if(tmp < 1 && tmp > tf_t)
+        {
           T_potential.push_back(tmp);
+        }
       }
     }
     else
@@ -273,9 +275,13 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
       S tmp1 = (-Tb + tmp_delta) / (3 * Ta);
       S tmp2 = (-Tb - tmp_delta) / (3 * Ta);
       if(tmp1 < 1 && tmp1 > tf_t)
+      {
         T_potential.push_back(tmp1);
+      }
       if(tmp2 < 1 && tmp2 > tf_t)
+      {
         T_potential.push_back(tmp2);
+      }
     }
   }
 
@@ -283,13 +289,12 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
   for(unsigned int i = 1; i < T_potential.size(); ++i)
   {
     S T_bound_tmp = Ta * T_potential[i] * T_potential[i] * T_potential[i] + Tb * T_potential[i] * T_potential[i] + Tc * T_potential[i];
-    if(T_bound_tmp > T_bound) T_bound = T_bound_tmp;
+    if(T_bound_tmp > T_bound)
+    {
+      T_bound = T_bound_tmp;
+    }
   }
 
-
-  S cur_delta = Ta * tf_t * tf_t * tf_t + Tb * tf_t * tf_t + Tc * tf_t;
-
-  T_bound -= cur_delta;
   T_bound /= 6.0;
 
   return T_bound;
