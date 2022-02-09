@@ -171,9 +171,6 @@ struct TBVMotionBoundVisitorVisitImpl<S, RSS<S>, SplineMotion<S>>
 
     S R_bound = 2 * (cn_max + cmax + cxn_max + 3 * visitor.bv.r) * ratio;
 
-
-    // std::cout << R_bound << " " << T_bound << std::endl;
-
     return R_bound + T_bound;
   }
 };

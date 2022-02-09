@@ -263,7 +263,6 @@ bool conservativeAdvancement(const Shape1& o1,
 
     if(node.delta_t <= node.t_err)
     {
-      // std::cout << node.delta_t << " " << node.t_err << std::endl;
       break;
     }
 
