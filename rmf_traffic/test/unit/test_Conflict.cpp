@@ -531,7 +531,7 @@ SCENARIO("DetectConflict unit tests")
   }
 }
 
-SCENARIO("Conservative Advancement Regression Tests", "[conservative_advancement]")
+SCENARIO("Conservative Advancement Regression Tests")
 {
   const rmf_traffic::Profile profile{
     rmf_traffic::geometry::make_final_convex<rmf_traffic::geometry::Circle>(0.1)
@@ -551,7 +551,8 @@ SCENARIO("Conservative Advancement Regression Tests", "[conservative_advancement
       t2.insert(start, {1, 0, 0}, {0, 0, 0});
       t2.insert(finish, {0.5, 0, 0}, {-1, 0, 0});
 
-      CHECK(rmf_traffic::DetectConflict::between(profile, t1, profile, t2).has_value());
+      CHECK(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2).has_value());
     }
   }
 }
