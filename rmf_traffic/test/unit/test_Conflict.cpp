@@ -20,7 +20,6 @@
 #include "src/rmf_traffic/DetectConflictInternal.hpp"
 
 #include <rmf_utils/catch.hpp>
-#include <iostream>
 
 using namespace std::chrono_literals;
 
@@ -532,7 +531,7 @@ SCENARIO("DetectConflict unit tests")
   }
 }
 
-SCENARIO("Conservative Advancement Regression Tests")
+SCENARIO("Conservative Advancement Regression Tests", "[conservative_advancement]")
 {
   const rmf_traffic::Profile profile{
     rmf_traffic::geometry::make_final_convex<rmf_traffic::geometry::Circle>(0.1)
@@ -540,17 +539,20 @@ SCENARIO("Conservative Advancement Regression Tests")
 
   GIVEN("Trajectories with final velocities")
   {
-    const auto start = rmf_traffic::Time(rmf_traffic::Duration(0));
-    const auto finish = rmf_traffic::Time(rmf_traffic::time::from_seconds(5.0));
-    rmf_traffic::Trajectory t1;
-    t1.insert(start, {0, 0, 0}, {0, 0, 0});
-    t1.insert(finish, {1, 0, 0}, {1, 0, 0});
+    for (double T = 1.0; T <= 10.0; T += 0.1)
+    {
+      const auto start = rmf_traffic::Time(rmf_traffic::Duration(0));
+      const auto finish = rmf_traffic::Time(rmf_traffic::time::from_seconds(T));
+      rmf_traffic::Trajectory t1;
+      t1.insert(start, {0, 0, 0}, {0, 0, 0});
+      t1.insert(finish, {1, 0, 0}, {1, 0, 0});
 
-    rmf_traffic::Trajectory t2;
-    t2.insert(start, {1, 0, 0}, {0, 0, 0});
-    t2.insert(finish, {0.5, 0, 0}, {-1, 0, 0});
+      rmf_traffic::Trajectory t2;
+      t2.insert(start, {1, 0, 0}, {0, 0, 0});
+      t2.insert(finish, {0.5, 0, 0}, {-1, 0, 0});
 
-    CHECK(rmf_traffic::DetectConflict::between(profile, t1, profile, t2).has_value());
+      CHECK(rmf_traffic::DetectConflict::between(profile, t1, profile, t2).has_value());
+    }
   }
 }
 

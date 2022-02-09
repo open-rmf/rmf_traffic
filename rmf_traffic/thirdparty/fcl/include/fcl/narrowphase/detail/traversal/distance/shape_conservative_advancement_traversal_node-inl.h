@@ -95,7 +95,6 @@ leafTesting(int, int) const
   else
   {
     cur_delta_t = distance / bound;
-    cur_delta_t /= 2.0;
   }
 
   if(cur_delta_t < delta_t)

@@ -285,7 +285,8 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
     }
   }
 
-  S T_bound = Ta * T_potential[0] * T_potential[0] * T_potential[0] + Tb * T_potential[0] * T_potential[0] + Tc * T_potential[0];
+  S T_curr = Ta * T_potential[0] * T_potential[0] * T_potential[0] + Tb * T_potential[0] * T_potential[0] + Tc * T_potential[0];
+  S T_bound = T_curr;
   for(unsigned int i = 1; i < T_potential.size(); ++i)
   {
     S T_bound_tmp = Ta * T_potential[i] * T_potential[i] * T_potential[i] + Tb * T_potential[i] * T_potential[i] + Tc * T_potential[i];
@@ -295,6 +296,8 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
     }
   }
 
+  T_bound -= T_curr;
+  T_bound /= (1.0 - tf_t);
   T_bound /= 6.0;
 
   return T_bound;
