@@ -55,6 +55,9 @@ struct FCL_EXPORT CollisionRequest
   /// float or double).
   typedef typename Eigen::NumTraits<S>::Real Real;
 
+  /// @brief The maximum number of iterations to perform before returning a result
+  std::size_t num_max_iterations;
+
   /// @brief The maximum number of contacts that can be returned.
   size_t num_max_contacts;
 
@@ -94,7 +97,8 @@ struct FCL_EXPORT CollisionRequest
   Real gjk_tolerance{1e-6};
 
   /// @brief Default constructor
-  CollisionRequest(size_t num_max_contacts_ = 1,
+  CollisionRequest(size_t num_max_iterations = 10,
+                   size_t num_max_contacts_ = 1,
                    bool enable_contact_ = false,
                    size_t num_max_cost_sources_ = 1,
                    bool enable_cost_ = false,
