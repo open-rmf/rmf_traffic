@@ -365,6 +365,7 @@ FclContinuousCollisionRequest make_fcl_request()
 
   request.ccd_solver_type = fcl::CCDC_CONSERVATIVE_ADVANCEMENT;
   request.gjk_solver_type = fcl::GST_LIBCCD;
+  request.num_max_iterations = 15;
 
   return request;
 }
