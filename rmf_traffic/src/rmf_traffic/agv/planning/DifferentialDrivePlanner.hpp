@@ -56,6 +56,10 @@ public:
 
   std::optional<PlanData> debug_step(Debugger& debugger) const final;
 
+  std::optional<std::vector<PlanData>> multi_plan(
+    std::vector<agv::Planner::Prototype::Intention> intentions,
+    agv::Planner::Options options) const final;
+
   std::optional<double> compute_heuristic(const Planner::Start& start) const;
 
 private:

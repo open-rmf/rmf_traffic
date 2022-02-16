@@ -580,6 +580,30 @@ Planner::Result Planner::Result::Implementation::setup(
 }
 
 //==============================================================================
+class Planner::Prototype::Implementation
+{
+public:
+  Planner::Implementation* planner;
+};
+
+//==============================================================================
+std::optional<std::vector<Plan>> Planner::Prototype::multi_plan(
+  std::vector<Intention> intentions) const
+{
+  auto outcome = _pimpl->planner->interface->multi_plan(
+    std::move(intentions), _pimpl->planner->default_options);
+
+  if (!outcome.has_value())
+    return std::nullopt;
+
+  std::vector<Plan> plans;
+  for (const auto& p : *outcome)
+    plans.push_back(Plan::Implementation::make(p).value());
+
+  return plans;
+}
+
+//==============================================================================
 auto Planner::Result::Implementation::get(const Result& r)
 -> const Implementation&
 {

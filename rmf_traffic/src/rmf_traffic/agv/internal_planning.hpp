@@ -101,6 +101,10 @@ public:
 
   virtual const Planner::Configuration& get_configuration() const = 0;
 
+  virtual std::optional<std::vector<PlanData>> multi_plan(
+    std::vector<agv::Planner::Prototype::Intention> intentions,
+    agv::Planner::Options options) const = 0;
+
   class Debugger
   {
   public:

@@ -505,6 +505,15 @@ public:
     DifferentialDriveCompare<SearchNodePtr>
     >;
 
+  struct MultiNode
+  {
+    std::vector<SearchNodePtr> participants;
+    double current_cost;
+    double remaining_cost_estimate;
+  };
+
+  using MultiNodePtr = std::shared_ptr<MultiNode>;
+
   class InternalState : public State::Internal
   {
   public:
@@ -2139,8 +2148,8 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(State& state) const
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-    _supergraph,
-    goal.waypoint(),
+      _supergraph,
+      goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     state.conditions.goal,
@@ -2185,6 +2194,97 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
   };
 
   return expander.rollout(span, nodes, max_rollouts);
+}
+
+//==============================================================================
+class MultiAgentSearchValidator : public rmf_traffic::agv::RouteValidator
+{
+public:
+
+  MultiAgentSearchValidator(std::size_t for_participant)
+  : _for_participant(for_participant)
+  {
+    // Do nothing
+  }
+
+  std::optional<Conflict> find_conflict(const Route& route) const
+  {
+    if (!node)
+      return std::nullopt;
+  }
+
+  ScheduledDifferentialDriveExpander::MultiNodePtr node;
+private:
+  std::size_t _for_participant;
+};
+
+//==============================================================================
+struct MultiAgentSearchExpander
+{
+  ScheduledDifferentialDriveExpander expander;
+  std::shared_ptr<MultiAgentSearchValidator> validator;
+
+  MultiAgentSearchExpander(
+    ScheduledDifferentialDriveExpander expander_,
+    std::size_t for_participant)
+  : expander(std::move(expander_)),
+    validator(std::make_shared<MultiAgentSearchValidator>(for_participant))
+  {
+    // Do nothing
+  }
+};
+
+//==============================================================================
+std::optional<std::vector<PlanData>> DifferentialDrivePlanner::multi_plan(
+  std::vector<agv::Planner::Prototype::Intention> intentions,
+  agv::Planner::Options options) const
+{
+  using InternalState = ScheduledDifferentialDriveExpander::InternalState;
+  using SingleAgentNodePtr = ScheduledDifferentialDriveExpander::SearchNodePtr;
+
+  std::vector<State> states;
+  states.reserve(intentions.size());
+  for (const auto& intention : intentions)
+  {
+    states.push_back(
+          State{
+            Conditions{
+              {intention.start},
+              intention.goal,
+              options
+            },
+            Issues{},
+            std::nullopt,
+            rmf_utils::make_derived_impl<State::Internal, InternalState>()
+          });
+  }
+
+  std::vector<SingleAgentNodePtr> starts;
+  std::vector<MultiAgentSearchExpander> expanders;
+  for (std::size_t i=0; i < intentions.size(); ++i)
+  {
+    auto& state = states[i];
+    const auto& goal = state.conditions.goal;
+
+    auto ops = options;
+    auto validator = std::make_shared<MultiAgentSearchValidator>(i);
+    ops.validator()
+    ScheduledDifferentialDriveExpander expander{
+      states[i].internal.get(),
+      states[i].issues,
+      _supergraph,
+      DifferentialDriveHeuristicAdapter{
+        _cache->get(),
+        _supergraph,
+        goal.waypoint(),
+        rmf_utils::pointer_to_opt(goal.orientation())
+      },
+      goal,
+      options
+    };
+
+    expanders.push_back(expander);
+  }
 }
 
 //==============================================================================

@@ -522,6 +522,28 @@ public:
     Goal goal,
     Options options) const;
 
+  /// API for unstable prototype features
+  class Prototype
+  {
+  public:
+
+    struct Intention
+    {
+      Start start;
+      Goal goal;
+    };
+
+    std::optional<std::vector<Plan>> multi_plan(
+      std::vector<Intention> intentions) const;
+
+    class Implementation;
+  private:
+    Prototype();
+    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+  };
+
+  const Prototype& proto() const;
+
   class Implementation;
   class Debug;
 private:
