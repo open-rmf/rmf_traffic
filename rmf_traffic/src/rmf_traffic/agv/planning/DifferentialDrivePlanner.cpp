@@ -21,9 +21,12 @@
 
 #include "a_star.hpp"
 
+#include <rmf_traffic/DetectConflict.hpp>
+
 #include <rmf_utils/math.hpp>
 #include <set>
 
+//#define RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #include <iostream>
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
@@ -505,14 +508,27 @@ public:
     DifferentialDriveCompare<SearchNodePtr>
     >;
 
+  struct MultiNode;
+  using MultiNodePtr = std::shared_ptr<MultiNode>;
+
   struct MultiNode
   {
-    std::vector<SearchNodePtr> participants;
     double current_cost;
     double remaining_cost_estimate;
-  };
+    std::vector<SearchNodePtr> agents;
 
-  using MultiNodePtr = std::shared_ptr<MultiNode>;
+    MultiNode(std::vector<SearchNodePtr> agents_)
+    : agents(std::move(agents_))
+    {
+      current_cost = 0.0;
+      remaining_cost_estimate = 0.0;
+      for (const auto& a : agents)
+      {
+        current_cost += a->current_cost;
+        remaining_cost_estimate += a->remaining_cost_estimate;
+      }
+    }
+  };
 
   class InternalState : public State::Internal
   {
@@ -784,7 +800,10 @@ public:
   {
     const std::size_t wp_index = top->waypoint.value();
     if (_supergraph->original().waypoints[wp_index].is_passthrough_point())
+    {
+      std::cout << "Cannot hold on passthrough point" << std::endl;
       return nullptr;
+    }
 
     const std::string& map_name =
       _supergraph->original().waypoints[wp_index].get_map_name();
@@ -804,7 +823,10 @@ public:
     Route route{map_name, std::move(trajectory)};
 
     if (!is_valid(top, route))
+    {
+      std::cout << "Hold is not valid" << std::endl;
       return nullptr;
+    }
 
     return std::make_shared<SearchNode>(
       SearchNode{
@@ -829,8 +851,11 @@ public:
   {
     if (const auto node = expand_hold(top, _holding_time, 1.0))
     {
+      std::cout << "Hold is valid" << std::endl;
       if (_should_expand_to(node))
         queue.push(node);
+      else
+        std::cout << "SHOULD NOT EXPAND HERE??" << std::endl;
     }
   }
 
@@ -928,12 +953,12 @@ public:
     {
       const auto& alt = traversal.alternatives[i];
 
-#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
-      std::cout << "Expanding from " << top->waypoint.value()
-                << " -> " << traversal.finish_waypoint_index << " | "
-                << Orientation(i) << " {" << traversal.entry_event << "}"
-                << std::endl;
-#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+//#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+//      std::cout << "Expanding from " << top->waypoint.value()
+//                << " -> " << traversal.finish_waypoint_index << " | "
+//                << Orientation(i) << " {" << traversal.entry_event << "}"
+//                << std::endl;
+//#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       if (!alt.has_value())
       {
@@ -1322,24 +1347,28 @@ public:
     if (is_at_goal(top))
     {
       // If there is no goal time, then is_finished should have caught this node
-      assert(_goal_time.has_value());
+//      if (_goal_time.has_value() && top->time < *_goal_time)
+//      {
+//        const Duration remaining_time = _goal_time.value() - top->time;
 
-      const Duration remaining_time = _goal_time.value() - top->time;
-
-      const auto finishing_node = expand_hold(top, remaining_time, 0.0);
-      if (finishing_node)
-      {
-        // If we can reach the finish time by just sitting here, then that will
-        // surely be the optimal solution. We will simply push this new node
-        // into the queue and return.
-        queue.push(finishing_node);
-        return;
-      }
+//        const auto finishing_node = expand_hold(top, remaining_time, 0.0);
+//        if (finishing_node)
+//        {
+//          // If we can reach the finish time by just sitting here, then that will
+//          // surely be the optimal solution. We will simply push this new node
+//          // into the queue and return.
+//          queue.push(finishing_node);
+//          return;
+//        }
+//      }
 
       // If we cannot hold all the way until the finishing time, then we will
       // do a zero-cost brief hold so that we spend as much time waiting on the
       // goal as allowed.
-      if (const auto brief_hold = expand_hold(top, _holding_time, 0.0))
+//      if (const auto brief_hold = expand_hold(top, _holding_time, 0.0))
+//        queue.push(brief_hold);
+
+      if (const auto brief_hold = expand_hold(top, _holding_time, 1.0))
         queue.push(brief_hold);
     }
     else if (current_wp_index == _goal_waypoint)
@@ -1355,6 +1384,7 @@ public:
     }
     else if (_validator)
     {
+      std::cout << "Expanding hold at " << top->waypoint.value() << std::endl;
       // There will never be a reason to hold if there is no validator.
       expand_hold(top, queue);
     }
@@ -1961,7 +1991,7 @@ public:
     };
   }
 
-private:
+//private:
   InternalState* _internal;
   Issues* _issues;
   std::shared_ptr<const Supergraph> _supergraph;
@@ -2032,6 +2062,8 @@ private:
 
   bool _should_expand_from(const SearchNodePtr& node) const
   {
+    return true;
+
     if (!node->entry.has_value())
       return true;
 
@@ -2056,6 +2088,8 @@ private:
 
   bool _should_expand_to(const SearchNodePtr& node) const
   {
+    return true;
+
     if (!node->entry.has_value())
       return true;
 
@@ -2196,25 +2230,105 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
   return expander.rollout(span, nodes, max_rollouts);
 }
 
+namespace {
+inline void print_route(const rmf_traffic::Route& route)
+{
+  if (route.trajectory().empty())
+    std::cout << "EMPTY TRAJECTORY" << std::endl;
+
+  const auto end = route.trajectory().end();
+  for (auto it = route.trajectory().begin(); it != end; ++it)
+  {
+    const auto& wp = *it;
+//    if (wp.velocity().norm() > 1e-3)
+//      continue;
+
+    const auto rel_time = wp.time().time_since_epoch();
+    std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
+              << wp.position().transpose() << " | "
+              << wp.velocity().transpose() << ") --> ";
+  }
+}
+}
+
 //==============================================================================
 class MultiAgentSearchValidator : public rmf_traffic::agv::RouteValidator
 {
 public:
 
-  MultiAgentSearchValidator(std::size_t for_participant)
-  : _for_participant(for_participant)
+  MultiAgentSearchValidator(
+    rmf_traffic::Profile profile,
+    std::size_t for_participant)
+  : _profile(std::move(profile)),
+    _for_participant(for_participant)
   {
     // Do nothing
   }
 
-  std::optional<Conflict> find_conflict(const Route& route) const
+  std::optional<Conflict> find_conflict(const Route& route) const final
   {
-    if (!node)
+    if (route.trajectory().size() < 2)
       return std::nullopt;
+
+    assert(hook);
+    if (!*hook)
+      return std::nullopt;
+
+    const auto& agents = (*hook)->agents;
+    for (std::size_t i = 0; i < agents.size(); ++i)
+    {
+      if (i == _for_participant)
+        continue;
+
+      auto compare = agents[i];
+      while (compare)
+      {
+        const auto& route_from_parent = compare->route_from_parent;
+        compare = compare->parent;
+//        bool has_time_overlap = false;
+        for (const auto& r : route_from_parent)
+        {
+          if (r.trajectory().size() < 2)
+            continue;
+
+          if (r.map() != route.map())
+            continue;
+
+          if (*r.trajectory().finish_time() < *route.trajectory().start_time())
+            continue;
+
+//          has_time_overlap = true;
+          if (const auto conflict = rmf_traffic::DetectConflict::between(
+            _profile, route.trajectory(),
+            _profile, r.trajectory()))
+          {
+//            std::cout << "Conflict between:\n 1. ";
+//            print_route(route);
+//            std::cout << "\n 2. ";
+//            print_route(r);
+//            std::cout << std::endl;
+            return Conflict{i, conflict.value()};
+          }
+        }
+
+//        if (!has_time_overlap)
+//          break;
+      }
+    }
+
+    return std::nullopt;
   }
 
-  ScheduledDifferentialDriveExpander::MultiNodePtr node;
+  std::unique_ptr<RouteValidator> clone() const final
+  {
+    return std::make_unique<MultiAgentSearchValidator>(*this);
+  }
+
+  using NodeHook = std::shared_ptr<ScheduledDifferentialDriveExpander::MultiNodePtr>;
+  NodeHook hook = std::make_shared<ScheduledDifferentialDriveExpander::MultiNodePtr>(nullptr);
 private:
+  // As a shortcut, we assume all the participants have the same profile
+  rmf_traffic::Profile _profile;
   std::size_t _for_participant;
 };
 
@@ -2222,16 +2336,108 @@ private:
 struct MultiAgentSearchExpander
 {
   ScheduledDifferentialDriveExpander expander;
-  std::shared_ptr<MultiAgentSearchValidator> validator;
+  MultiAgentSearchValidator::NodeHook validation_hook;
+};
 
-  MultiAgentSearchExpander(
-    ScheduledDifferentialDriveExpander expander_,
-    std::size_t for_participant)
-  : expander(std::move(expander_)),
-    validator(std::make_shared<MultiAgentSearchValidator>(for_participant))
+//==============================================================================
+struct MultiVisitorTracker
+{
+  using MultiNodePtr = ScheduledDifferentialDriveExpander::MultiNodePtr;
+  bool close(
+    std::vector<MultiAgentSearchExpander>& expanders,
+    const MultiNodePtr& node)
   {
-    // Do nothing
+    return _match_or_close(expanders, node, true);
   }
+
+  bool match(
+    std::vector<MultiAgentSearchExpander>& expanders,
+    const MultiNodePtr& node) const
+  {
+    return const_cast<MultiVisitorTracker*>(this)
+        ->_match_or_close(expanders, node, false);
+  }
+
+  MultiVisitorTracker()
+  {
+    _root = std::make_shared<MultiVisitorNode>();
+  }
+
+private:
+
+  bool _match_or_close(
+    std::vector<MultiAgentSearchExpander>& expanders,
+    const MultiNodePtr& node,
+    bool close)
+  {
+    std::shared_ptr<MultiVisitorNode> check = _root;
+    for (const auto& n : node->agents)
+    {
+      auto& next = check->child[n->waypoint.value()];
+      if (!next)
+        next = std::make_shared<MultiVisitorNode>();
+
+      check = next;
+    }
+
+    rmf_traffic::Time lowest_t = node->agents[0]->time;
+    for (std::size_t i=1; i < node->agents.size(); ++i)
+    {
+      const auto t = node->agents[i]->time;
+      if (t < lowest_t)
+        lowest_t = t;
+    }
+
+    for (auto& ex : expanders)
+      *ex.validation_hook = node;
+
+    auto check_it = check->timeline.lower_bound(lowest_t);
+    for (; check_it != check->timeline.end(); ++check_it)
+    {
+      const auto& check_node = check_it->second;
+      bool duplicate_visit = true;
+      for (std::size_t i=0; i < expanders.size(); ++i)
+      {
+        const auto& a = node->agents[i];
+        const auto& check_a = check_node->agents[i];
+        std::cout << "comparing time of " << i
+                  << ": " << rmf_traffic::time::to_seconds(check_a->time.time_since_epoch())
+                  << " vs " << rmf_traffic::time::to_seconds(a->time.time_since_epoch())
+                  << std::endl;
+        if (check_a->time < a->time)
+        {
+          duplicate_visit = false;
+          break;
+        }
+
+        auto& ex = expanders[i];
+        if (!ex.expander.expand_hold(a, check_a->time - a->time, 0.0))
+        {
+          duplicate_visit = false;
+          break;
+        }
+      }
+
+      if (duplicate_visit)
+        return !close;
+    }
+
+    // There is no duplicate, so let's insert it if we're supposed to close the
+    // node
+    if (!close)
+      return false;
+
+    check->timeline.insert({lowest_t, node});
+
+    return close;
+  }
+
+  struct MultiVisitorNode
+  {
+    std::unordered_map<std::size_t, std::shared_ptr<MultiVisitorNode>> child;
+    std::multimap<rmf_traffic::Time, MultiNodePtr> timeline;
+  };
+  std::shared_ptr<MultiVisitorNode> _root;
 };
 
 //==============================================================================
@@ -2241,6 +2447,8 @@ std::optional<std::vector<PlanData>> DifferentialDrivePlanner::multi_plan(
 {
   using InternalState = ScheduledDifferentialDriveExpander::InternalState;
   using SingleAgentNodePtr = ScheduledDifferentialDriveExpander::SearchNodePtr;
+  using MultiNode = ScheduledDifferentialDriveExpander::MultiNode;
+  using MultiNodePtr = ScheduledDifferentialDriveExpander::MultiNodePtr;
 
   std::vector<State> states;
   states.reserve(intentions.size());
@@ -2261,14 +2469,18 @@ std::optional<std::vector<PlanData>> DifferentialDrivePlanner::multi_plan(
 
   std::vector<SingleAgentNodePtr> starts;
   std::vector<MultiAgentSearchExpander> expanders;
-  for (std::size_t i=0; i < intentions.size(); ++i)
+  for (std::size_t i = 0; i < intentions.size(); ++i)
   {
     auto& state = states[i];
     const auto& goal = state.conditions.goal;
 
     auto ops = options;
-    auto validator = std::make_shared<MultiAgentSearchValidator>(i);
-    ops.validator()
+    auto validator = rmf_utils::make_clone<MultiAgentSearchValidator>(
+      _config.vehicle_traits().profile(), i);
+    auto hook = validator->hook;
+    ops.validator(std::move(validator));
+    state.conditions.options = std::move(ops);
+
     ScheduledDifferentialDriveExpander expander{
       states[i].internal.get(),
       states[i].issues,
@@ -2280,11 +2492,185 @@ std::optional<std::vector<PlanData>> DifferentialDrivePlanner::multi_plan(
         rmf_utils::pointer_to_opt(goal.orientation())
       },
       goal,
-      options
+      state.conditions.options
     };
 
-    expanders.push_back(expander);
+    starts.push_back(expander.make_start_node(state.conditions.starts.front()));
+    expanders.push_back({expander, hook});
   }
+
+  const auto one_of = [](std::size_t value, std::vector<std::size_t> options) -> bool
+    {
+      for (const auto& opt : options)
+      {
+        if (value == opt)
+          return true;
+      }
+
+      return false;
+    };
+
+  const auto near = [](const SingleAgentNodePtr& n, std::size_t wp, double time) -> bool
+    {
+      if (n->waypoint != wp)
+        return false;
+
+      const auto t = rmf_traffic::time::to_seconds(n->time.time_since_epoch());
+      if (time + 0.5 < t)
+        return false;
+
+      return true;
+    };
+
+  const auto special_state = [&](MultiNodePtr node) -> bool
+    {
+//      return one_of(node->agents[1]->waypoint.value(), {2})
+//          && one_of(node->agents[2]->waypoint.value(), {7, 8})
+//          && one_of(node->agents[0]->waypoint.value(), {4,5,6});
+
+      bool result = near(node->agents[0], 2, 2.0)
+          && near(node->agents[1], 3, 2.0)
+          && (near(node->agents[2], 7, 2.0) || near(node->agents[2], 8, 2.0));
+      if (result)
+        std::cout << " SPECIAL ";
+      return result;
+    };
+
+  using Queue = std::priority_queue<MultiNodePtr, std::vector<MultiNodePtr>, SimpleCompare<MultiNodePtr>>;
+  auto result = [&]() -> MultiNodePtr
+    {
+      MultiVisitorTracker closed_set;
+      Queue queue;
+      queue.push(std::make_shared<MultiNode>(std::move(starts)));
+      while (!queue.empty())
+      {
+        std::cout << "\n--------\n";
+        auto copy = queue;
+        std::size_t count = 0;
+        while (!copy.empty())
+        {
+          auto c = copy.top();
+          copy.pop();
+//          std::cout << count++ << " {";
+//          for (const auto& a : c->agents)
+//            std::cout << a->waypoint.value() << ",";
+//          std::cout << "}:<";
+//          for (const auto& a : c->agents)
+//            std::cout << rmf_traffic::time::to_seconds(a->time.time_since_epoch())
+//                      << ",";
+//          std::cout << "> " << c->current_cost << "+" << c->remaining_cost_estimate
+//                   << "=" << c->current_cost + c->remaining_cost_estimate
+//                   << " | ";
+
+//          if ((c->agents[1]->waypoint.value() == 3 || c->agents[1]->waypoint.value() == 7)
+//              && (c->agents[2]->waypoint.value() == 7 || c->agents[2]->waypoint.value() == 8))
+          if (special_state(c))
+          {
+            std::cout << count << " {";
+            for (const auto& a : c->agents)
+              std::cout << a->waypoint.value() << ",";
+            std::cout << "}:<";
+            for (const auto& a : c->agents)
+              std::cout << rmf_traffic::time::to_seconds(a->time.time_since_epoch())
+                        << ",";
+            std::cout << "> " << c->current_cost << "+" << c->remaining_cost_estimate
+                     << "=" << c->current_cost + c->remaining_cost_estimate
+                     << " | ";
+          }
+          ++count;
+        }
+
+        MultiNodePtr top = queue.top();
+        queue.pop();
+        for (std::size_t i = 0; i < top->agents.size(); ++i)
+        {
+          const auto& agent = top->agents[i];
+          std::cout << "\n - " << i << " (" << agent->waypoint.value() << "; "
+                    << rmf_traffic::time::to_seconds(agent->time.time_since_epoch())
+                    << ", yaw " << agent->yaw*180.0/M_PI << ")";
+        }
+        std::cout <<"\n" << top->current_cost << "+" << top->remaining_cost_estimate
+                  << "=" << top->current_cost + top->remaining_cost_estimate << std::endl;
+
+        if (!closed_set.close(expanders, top))
+        {
+          std::cout << "Duplicate!" << std::endl;
+          continue;
+        }
+
+        std::size_t selection = 0;
+        rmf_traffic::Time highest_t = top->agents.front()->time;
+        assert(expanders.size() == top->agents.size());
+        for (std::size_t i = 1; i < expanders.size(); ++i)
+        {
+          const auto& agent = top->agents[i];
+          if (agent->time < top->agents[selection]->time)
+          {
+            selection = i;
+          }
+
+          highest_t = std::max(highest_t, agent->time);
+        }
+
+        bool all_finished = true;
+        for (std::size_t i = 0; i < expanders.size(); ++i)
+        {
+          expanders[i].expander._goal_time = highest_t;
+          if (!expanders[i].expander.is_finished(top->agents[i]))
+          {
+            all_finished = false;
+            break;
+          }
+        }
+
+        if (all_finished)
+          return top;
+
+        ScheduledDifferentialDriveExpander::SearchQueue partial_queue;
+        auto& ex = expanders[selection];
+        std::cout << "Expanding " << selection << std::endl;
+        *ex.validation_hook = top;
+        ex.expander.expand(top->agents[selection], partial_queue);
+
+        const auto agents = top->agents;
+        while (!partial_queue.empty())
+        {
+          const auto new_partial = partial_queue.top();
+          partial_queue.pop();
+          std::cout << "Expanded to " << selection << " (" << new_partial->waypoint.value()
+                    << "; "
+                    << rmf_traffic::time::to_seconds(new_partial->time.time_since_epoch())
+                    << ", yaw " << new_partial->yaw*180.0/M_PI << ")"
+                    << std::endl;
+
+          auto new_states = agents;
+          new_states[selection] = new_partial;
+
+          auto new_node = std::make_shared<MultiNode>(std::move(new_states));
+          if (!closed_set.match(expanders, new_node))
+            queue.push(std::move(new_node));
+          else
+            std::cout << "Skipping duplicate" << std::endl;
+        }
+      }
+
+      return nullptr;
+    }();
+
+  if (!result)
+    return std::nullopt;
+
+  std::vector<PlanData> plan;
+  plan.reserve(expanders.size());
+  assert(result->agents.size() == expanders.size());
+  for (std::size_t i = 0; i < expanders.size(); ++i)
+  {
+    auto& ex = expanders[i];
+    *ex.validation_hook = result;
+    plan.push_back(ex.expander.make_plan(result->agents[i]));
+  }
+
+  return plan;
 }
 
 //==============================================================================

@@ -583,8 +583,22 @@ Planner::Result Planner::Result::Implementation::setup(
 class Planner::Prototype::Implementation
 {
 public:
-  Planner::Implementation* planner;
+  const Planner::Implementation* planner;
+
+  static Prototype make(const Planner::Implementation* planner)
+  {
+    Prototype output;
+    output._pimpl =
+      rmf_utils::make_unique_impl<Implementation>(Implementation{planner});
+    return output;
+  }
 };
+
+//==============================================================================
+Planner::Prototype::Prototype()
+{
+  // Do nothing
+}
 
 //==============================================================================
 std::optional<std::vector<Plan>> Planner::Prototype::multi_plan(
@@ -601,6 +615,12 @@ std::optional<std::vector<Plan>> Planner::Prototype::multi_plan(
     plans.push_back(Plan::Implementation::make(p).value());
 
   return plans;
+}
+
+//==============================================================================
+auto Planner::proto() const -> Prototype
+{
+  return Prototype::Implementation::make(_pimpl.get());
 }
 
 //==============================================================================

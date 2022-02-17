@@ -542,7 +542,7 @@ public:
     rmf_utils::unique_impl_ptr<Implementation> _pimpl;
   };
 
-  const Prototype& proto() const;
+  Prototype proto() const;
 
   class Implementation;
   class Debug;
