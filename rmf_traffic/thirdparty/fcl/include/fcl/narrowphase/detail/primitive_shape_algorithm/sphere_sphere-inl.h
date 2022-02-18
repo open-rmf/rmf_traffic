@@ -69,6 +69,7 @@ bool sphereSphereIntersect(const Sphere<S>& s1, const Transform3<S>& tf1,
 {
   Vector3<S> diff = tf2.translation() - tf1.translation();
   S len = diff.norm();
+
   if(len > s1.radius + s2.radius)
     return false;
 
@@ -96,7 +97,14 @@ bool sphereSphereDistance(const Sphere<S>& s1, const Transform3<S>& tf1,
   Vector3<S> o2 = tf2.translation();
   Vector3<S> diff = o1 - o2;
   S len = diff.norm();
-  if(len > s1.radius + s2.radius)
+
+#ifdef FCL_DEBUG_CA
+  std::cout << "len: " << len << " = |(" << o1.transpose()
+            << ") - (" << o2.transpose() << ")| vs "
+            << s1.radius + s2.radius << " = " << s1.radius << " + " << s2.radius << std::endl;
+#endif
+
+  if(len > s1.radius + s2.radius + 1e-8)
   {
     if(dist) *dist = len - (s1.radius + s2.radius);
     if(p1) *p1 = (o1 - diff * (s1.radius / len));

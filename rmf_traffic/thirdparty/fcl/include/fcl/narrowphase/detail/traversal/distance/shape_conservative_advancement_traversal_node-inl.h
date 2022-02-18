@@ -94,6 +94,9 @@ leafTesting(int, int) const
   }
   else
   {
+#ifdef FCL_DEBUG_CA
+    std::cout << "cur_delta_t = " << distance << " / " << bound << std::endl;
+#endif
     cur_delta_t = distance / bound;
   }
 
