@@ -1,8 +1,11 @@
 ## Changelog for package rmf_traffic
 
-Upcoming
+1.5.0 (2022-02-14)
 ------------------
 * Support lane speed limits: [#44](https://github.com/open-rmf/rmf_traffic/pull/44)
+* Fix potential race conditions: [#46](https://github.com/open-rmf/rmf_traffic/pull/46)
+* Add features to facilitate robust failover: [#54](https://github.com/open-rmf/rmf_traffic/pull/54)
+* Significantly improved performance for very large scale nav graphs: [#53](https://github.com/open-rmf/rmf_traffic/pull/53)
 
 1.4.1 (2021-10-27)
 ------------------
