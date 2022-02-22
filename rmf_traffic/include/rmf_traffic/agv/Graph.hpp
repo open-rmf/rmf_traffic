@@ -27,6 +27,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <optional>
 
 namespace rmf_traffic {
 namespace agv {
