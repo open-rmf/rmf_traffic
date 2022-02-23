@@ -274,7 +274,9 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
         S tmp = -Tc / (2 * Tb);
         if(tmp < 1 && tmp > tf_t)
         {
+#ifdef FCL_DEBUG_CA
           std::cout << T_potential.size() << " at line " << __LINE__+1 << std::endl;
+#endif
           T_potential.push_back(tmp);
         }
       }
