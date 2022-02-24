@@ -260,6 +260,9 @@ bool conservativeAdvancement(const Shape1& o1,
     node.delta_t = 1;
     node.min_distance = std::numeric_limits<S>::max();
 
+#ifdef FCL_DEBUG_CA
+    std::cout << "initial toc: " << node.toc << std::endl;
+#endif
     distanceRecurse(&node, 0, 0, nullptr);
 
     if(node.delta_t <= node.t_err)
@@ -268,6 +271,9 @@ bool conservativeAdvancement(const Shape1& o1,
     }
 
     node.toc += node.delta_t;
+#ifdef FCL_DEBUG_CA
+    std::cout << "next toc: " << node.toc << std::endl;
+#endif
     if(node.toc > 1)
     {
       node.toc = 1;
