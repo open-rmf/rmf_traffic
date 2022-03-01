@@ -31,12 +31,18 @@ public:
   rmf_utils::optional<schedule::Version> parent_version;
 
   std::vector<schedule::ParticipantId>* report_blockers;
+  std::shared_ptr<ApprovalMap> approval_map;
+  std::shared_ptr<BlockerSet> blockers;
 
   Implementation(
     schedule::Negotiation::TablePtr table_,
-    std::vector<schedule::ParticipantId>* report_blockers_)
+    std::vector<schedule::ParticipantId>* report_blockers_,
+    std::shared_ptr<ApprovalMap> approval_map_,
+    std::shared_ptr<BlockerSet> blockers_)
   : table(std::move(table_)),
-    report_blockers(report_blockers_)
+    report_blockers(report_blockers_),
+    approval_map(std::move(approval_map_)),
+    blockers(std::move(blockers_))
   {
     table_version = table->version();
 
@@ -54,15 +60,31 @@ SimpleResponder::SimpleResponder(
   const Negotiation::TablePtr& table,
   std::vector<schedule::ParticipantId>* report_blockers)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation(table, report_blockers)))
+      Implementation(table, report_blockers, nullptr, nullptr)))
 {
   // Do nothing
 }
 
 //==============================================================================
-void SimpleResponder::submit(std::vector<Route> itinerary,
-  std::function<UpdateVersion()> /*approval_callback*/) const
+SimpleResponder::SimpleResponder(
+  const Negotiation::TablePtr& table,
+  std::shared_ptr<ApprovalMap> approval_map,
+  std::shared_ptr<BlockerSet> blockers)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation(
+        table, nullptr, std::move(approval_map), std::move(blockers))))
 {
+  // Do nothing
+}
+
+//==============================================================================
+void SimpleResponder::submit(
+  std::vector<Route> itinerary,
+  std::function<UpdateVersion()> approval_callback) const
+{
+  if (_pimpl->approval_map)
+    (*_pimpl->approval_map)[_pimpl->table] = std::move(approval_callback);
+
   _pimpl->table->submit(std::move(itinerary), _pimpl->table_version+1);
 }
 
@@ -86,6 +108,12 @@ void SimpleResponder::forfeit(const std::vector<ParticipantId>& blockers) const
 {
   if (_pimpl->report_blockers)
     *_pimpl->report_blockers = blockers;
+
+  if (_pimpl->blockers)
+  {
+    for (const auto p : blockers)
+      _pimpl->blockers->insert(p);
+  }
 
   _pimpl->table->forfeit(_pimpl->table_version);
 }

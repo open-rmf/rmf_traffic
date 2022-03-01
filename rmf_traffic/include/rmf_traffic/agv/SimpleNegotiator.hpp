@@ -159,6 +159,25 @@ public:
     Planner::Configuration planner_configuration,
     Options options = Options());
 
+  /// Constructor
+  ///
+  /// \param[in] starts
+  ///   A set of starts that can be used.
+  ///
+  /// \param[in] goal
+  ///   The desired goal for the plan.
+  ///
+  /// \param[in] planner
+  ///   The planner to use
+  ///
+  /// \param[in] options
+  ///   Additional options that will be used by the negotiator
+  SimpleNegotiator(
+    std::vector<Planner::Start> starts,
+    Planner::Goal goal,
+    std::shared_ptr<const Planner> planner,
+    Options options = Options());
+
   // TODO(MXG): Offer a constructor that accepts a Planner instance to benefit
   // from the cached heuristics.
 
@@ -166,9 +185,6 @@ public:
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const ResponderPtr& responder) final;
-
-  // TODO(MXG): How should we implement fallback behaviors when a different
-  // negotiator rejects our proposal?
 
   class Implementation;
   class Debug;
