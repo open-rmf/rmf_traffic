@@ -6,3 +6,10 @@ find_package(rmf_traffic REQUIRED)
 
 add_executable(three_robots src/three_robots.cpp)
 target_link_libraries(three_robots PUBLIC rmf_traffic::rmf_traffic)
+
+install(
+  TARGETS three_robots
+  RUNTIME DESTINATION lib/${PROJECT_NAME}}
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
