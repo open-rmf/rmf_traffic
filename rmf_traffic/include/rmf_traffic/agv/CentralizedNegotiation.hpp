@@ -174,15 +174,15 @@ public:
 
   /// Require the negotiation to consider all combinations so that it finds the
   /// (near-)optimal solution. Off by default.
-  CentralizedNegotiation& optimal(bool on=true);
+  CentralizedNegotiation& optimal(bool on = true);
 
   /// Toggle on/off whether to log the progress of the negotiation and save it
   /// in the Result. Off by default.
-  CentralizedNegotiation& log(bool on=true);
+  CentralizedNegotiation& log(bool on = true);
 
   /// Toggle on/off whether to print the progress of the negotiation while it is
   /// running. Off by default.
-  CentralizedNegotiation& print(bool on=true);
+  CentralizedNegotiation& print(bool on = true);
 
   /// Solve a centralized negotiation for the given agents.
   Result solve(const std::vector<Agent>& agents) const;

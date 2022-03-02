@@ -1624,8 +1624,8 @@ SCENARIO("A single lane with a alternate one way path")
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(C->A)]")
     {
       const auto options = rmf_traffic::agv::SimpleNegotiator::Options()
-          .maximum_cost_leeway(1.5)
-          .minimum_cost_threshold(60);
+        .maximum_cost_leeway(1.5)
+        .minimum_cost_threshold(60);
 
       const auto time = std::chrono::steady_clock::now();
 
@@ -1665,8 +1665,8 @@ SCENARIO("A single lane with a alternate one way path")
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(D->A)]")
     {
       const auto options = rmf_traffic::agv::SimpleNegotiator::Options()
-          .maximum_cost_leeway(1.5)
-          .minimum_cost_threshold(40);
+        .maximum_cost_leeway(1.5)
+        .minimum_cost_threshold(40);
 
       const auto time = std::chrono::steady_clock::now();
 

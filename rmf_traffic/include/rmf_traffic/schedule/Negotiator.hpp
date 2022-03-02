@@ -109,8 +109,8 @@ public:
 
   using ApprovalMap =
     std::unordered_map<
-      Negotiation::ConstTablePtr,
-      std::function<UpdateVersion()>
+    Negotiation::ConstTablePtr,
+    std::function<UpdateVersion()>
     >;
 
   using BlockerSet = std::unordered_set<schedule::ParticipantId>;

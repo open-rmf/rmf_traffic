@@ -45,11 +45,11 @@ CentralizedNegotiation::Agent::Agent(
   std::shared_ptr<const Planner> planner,
   std::optional<SimpleNegotiator::Options> options)
 : _pimpl(
-  rmf_utils::make_impl<Implementation>(
-    Implementation{
-      id, {std::move(start)}, std::move(goal),
-      std::move(planner), std::move(options)
-    }))
+    rmf_utils::make_impl<Implementation>(
+      Implementation{
+        id, {std::move(start)}, std::move(goal),
+        std::move(planner), std::move(options)
+      }))
 {
   // Do nothing
 }
@@ -62,11 +62,11 @@ CentralizedNegotiation::Agent::Agent(
   std::shared_ptr<const Planner> planner,
   std::optional<SimpleNegotiator::Options> options)
 : _pimpl(
-  rmf_utils::make_impl<Implementation>(
-    Implementation{
-      id, std::move(starts), std::move(goal),
-      std::move(planner), std::move(options)
-    }))
+    rmf_utils::make_impl<Implementation>(
+      Implementation{
+        id, std::move(starts), std::move(goal),
+        std::move(planner), std::move(options)
+      }))
 {
   // Do nothing
 }
@@ -197,7 +197,7 @@ public:
 CentralizedNegotiation::CentralizedNegotiation(
   std::shared_ptr<const schedule::Viewer> viewer)
 : _pimpl(
-  rmf_utils::make_impl<Implementation>(Implementation{std::move(viewer)}))
+    rmf_utils::make_impl<Implementation>(Implementation{std::move(viewer)}))
 {
   // Do nothing
 }
@@ -260,7 +260,7 @@ std::string display_itinerary(const schedule::Itinerary& itinerary)
 
       const auto t = wp.time().time_since_epoch();
       ss << "t: " << rmf_traffic::time::to_seconds(t);
-      ss << ", (" << wp.position().block<2,1>(0,0).transpose()
+      ss << ", (" << wp.position().block<2, 1>(0, 0).transpose()
          << "), yaw: " << wp.position()[2];
     }
   }
@@ -303,9 +303,11 @@ auto CentralizedNegotiation::solve(const std::vector<Agent>& agents) const
 
     if (!inserted)
     {
+      // *INDENT-OFF*
       throw std::runtime_error(
         "[CentralizedNegotiation::solve] Duplicate participant ["
         + std::to_string(a.id()) + "] in list of agents");
+      // *INDENT-ON*
     }
 
     participants.push_back(a.id());
@@ -314,9 +316,11 @@ auto CentralizedNegotiation::solve(const std::vector<Agent>& agents) const
   auto negotiation = schedule::Negotiation::make(_pimpl->viewer, participants);
   if (!negotiation.has_value())
   {
+    // *INDENT-OFF*
     throw std::runtime_error(
       "[CentralizedNegotiation::solve] Unable to begin negotiation because "
       "one or more participants are not registered in the schedule.");
+    // *INDENT-ON*
   }
 
   for (const auto& p : negotiation->participants())
@@ -366,13 +370,13 @@ auto CentralizedNegotiation::solve(const std::vector<Agent>& agents) const
     };
 
   const auto selected_table = [](const schedule::Negotiation::TablePtr& table)
-      -> std::string
+    -> std::string
     {
       std::string msg = "Selected table [";
       for (const auto& p : table->sequence())
       {
         msg += " " + std::to_string(p.participant)
-            + ":" + std::to_string(p.version);
+          + ":" + std::to_string(p.version);
       }
       msg += " ]";
       return msg;
