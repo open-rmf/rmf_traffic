@@ -227,7 +227,7 @@ void evaluate(
   }
 
   {
-    std::cout << "\n -----\nOptimal result:\n";
+    std::cout << "\n -----\nBest result:\n";
     const auto begin = std::chrono::steady_clock::now();
     auto result = CentralizedNegotiation(scenario.database)
       .optimal().solve(agents);
