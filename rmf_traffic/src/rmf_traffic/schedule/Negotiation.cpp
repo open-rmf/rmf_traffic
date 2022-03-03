@@ -220,10 +220,10 @@ public:
     ConstRoutePtr initial = nullptr;
     for (const auto& r : itinerary)
     {
-      const auto& check = r->trajectory().front().time();
+      const auto& check = r.trajectory().front().time();
       if (!initial || check < initial->trajectory().front().time())
       {
-        initial = r;
+        initial = std::make_shared<Route>(r);
       }
     }
 
@@ -247,10 +247,10 @@ public:
     ConstRoutePtr final = nullptr;
     for (const auto& r : itinerary)
     {
-      const auto& check = r->trajectory().back().time();
+      const auto& check = r.trajectory().back().time();
       if (!final || final->trajectory().front().time() < check)
       {
-        final = r;
+        final = std::make_shared<Route>(r);
       }
     }
 
@@ -460,8 +460,9 @@ public:
 
         auto entry = std::make_shared<BaseRouteEntry>(
           BaseRouteEntry{
-            route,
+            std::make_shared<Route>(route),
             participant,
+            p.plan,
             i,
             description
           });
@@ -567,6 +568,7 @@ public:
   }
 
   bool submit(
+    PlanId plan_id,
     std::vector<Route> new_itinerary,
     const Version new_version)
   {
@@ -592,18 +594,17 @@ public:
       formerly_successful = true;
     }
 
-    itinerary = convert_itinerary(new_itinerary);
     rejected = false;
     forfeited = false;
 
     if (had_itinerary)
     {
-      proposal.back() = {participant, *itinerary};
+      proposal.back() = {participant, plan_id, std::move(new_itinerary)};
       clear_descendants();
     }
     else
     {
-      proposal.push_back({participant, *itinerary});
+      proposal.push_back({participant, plan_id, std::move(new_itinerary)});
     }
 
     make_descendants();
@@ -637,8 +638,13 @@ public:
       {
         auto entry = std::make_shared<BaseRouteEntry>(
           BaseRouteEntry{
-            route,
+            std::make_shared<Route>(route),
             participant,
+            // TODO(MXG): This is a placeholder for a PathId value because the
+            // schedule viewer requires it, but alternatives don't actually have
+            // plan IDs. When we migrated to a distributed CBS system, we should
+            // try to eliminate the use of placeholder values.
+            0,
             id,
             description
           });
@@ -1369,10 +1375,11 @@ std::vector<ParticipantId> Negotiation::Table::unversioned_sequence() const
 
 //==============================================================================
 bool Negotiation::Table::submit(
+  PlanId plan_id,
   std::vector<Route> itinerary,
   const Version version)
 {
-  return _pimpl->submit(std::move(itinerary), version);
+  return _pimpl->submit(plan_id, std::move(itinerary), version);
 }
 
 //==============================================================================
@@ -1572,12 +1579,12 @@ rmf_utils::optional<Time> get_finish_time(const Itinerary& itinerary)
   rmf_utils::optional<Time> finish_time;
   for (const auto& route : itinerary)
   {
-    const auto* t = route->trajectory().finish_time();
+    const auto* t = route.trajectory().finish_time();
     if (!t)
       continue;
 
     if (!finish_time)
-      finish_time = *route->trajectory().finish_time();
+      finish_time = *route.trajectory().finish_time();
     else
     {
       if (*t < *finish_time)

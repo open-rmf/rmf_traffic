@@ -39,16 +39,19 @@ Participant::Implementation::Shared::Shared(
   std::shared_ptr<Writer> writer)
 : _id(registration.id()),
   _version(registration.last_itinerary_version()),
-  _last_route_id(registration.last_route_id()),
   _description(std::move(description)),
   _writer(std::move(writer)),
-  _version_mismatch_limiter(1min, 5)
+  _current_plan_id(registration.last_plan_id()),
+  _version_mismatch_limiter(1min, 5),
+  _assign_plan_id(
+    std::make_shared<AssignIDPtr::element_type>(_current_plan_id+1))
 {
   // Do nothing
 }
 
 //==============================================================================
-RouteId Participant::Implementation::Shared::set(std::vector<Route> itinerary)
+void Participant::Implementation::Shared::set(
+  PlanId plan, std::vector<Route> itinerary)
 {
   // TODO(MXG): Consider issuing an exception or warning when a single-point
   // trajectory is submitted.
@@ -56,34 +59,34 @@ RouteId Participant::Implementation::Shared::set(std::vector<Route> itinerary)
       [](const auto& r) { return r.trajectory().size() < 2; });
   itinerary.erase(r_it, itinerary.end());
 
-  const RouteId initial_route_id = _last_route_id;
   if (itinerary.empty())
   {
     // This situation is more efficient to express as a clear() command
     clear();
-    return initial_route_id;
+    return;
   }
 
   _change_history.clear();
   _cumulative_delay = std::chrono::seconds(0);
-
-  auto input = make_input(std::move(itinerary));
-
-  _current_itinerary = input;
+  _current_itinerary = std::move(itinerary);
 
   const ItineraryVersion itinerary_version = get_next_version();
   const ParticipantId id = _id;
   auto change =
-    [self = weak_from_this(), input = std::move(input), itinerary_version, id]()
+    [
+      self = weak_from_this(),
+      itinerary = _current_itinerary,
+      itinerary_version,
+      id,
+      plan
+    ]()
     {
       if (const auto me = self.lock())
-        me->_writer->set(id, input, itinerary_version);
+        me->_writer->set(id, plan, itinerary, itinerary_version);
     };
 
   _change_history[itinerary_version] = change;
   change();
-
-  return initial_route_id;
 }
 
 //==============================================================================
@@ -103,7 +106,7 @@ void Participant::Implementation::Shared::clear()
     [self = weak_from_this(), itinerary_version, id]()
     {
       if (const auto me = self.lock())
-        me->_writer->erase(id, itinerary_version);
+        me->_writer->clear(id, itinerary_version);
     };
 
   _change_history[itinerary_version] = change;
@@ -159,12 +162,7 @@ void Participant::Implementation::Shared::retransmit(
       // Remake the routes to send as a new message with a higher version than
       // the previous
       _version = last_known_version+1;
-
-      std::vector<Route> routes;
-      for (const auto& r : _current_itinerary)
-        routes.push_back(*r.route);
-
-      set(routes);
+      set(_current_plan_id, _current_itinerary);
     }
 
     return;
@@ -223,11 +221,7 @@ void Participant::Implementation::Shared::correct_id(ParticipantId new_id)
 
   // Resend the routes because the database certainly has not received them if
   // it disagreed about our participant ID.
-  std::vector<Route> routes;
-  for (const auto& r : _current_itinerary)
-    routes.push_back(*r.route);
-
-  set(routes);
+  set(_current_plan_id, _current_itinerary);
 }
 
 //==============================================================================
@@ -256,68 +250,39 @@ Participant::Implementation::Shared::~Shared()
 }
 
 //==============================================================================
-Writer::Input Participant::Implementation::Shared::make_input(
-  std::vector<Route> itinerary)
-{
-  Writer::Input input;
-  input.reserve(itinerary.size());
-
-  for (std::size_t i = 0; i < itinerary.size(); ++i)
-  {
-    if (itinerary[i].trajectory().size() < 2)
-      continue;
-
-    input.emplace_back(
-      Writer::Item{
-        ++_last_route_id,
-        std::make_shared<Route>(std::move(itinerary[i]))
-      });
-  }
-
-  return input;
-}
-
-//==============================================================================
 ItineraryVersion Participant::Implementation::Shared::get_next_version()
 {
   return ++_version;
 }
 
 //==============================================================================
-RouteId Participant::set(std::vector<Route> itinerary)
+void Participant::set(PlanId plan, std::vector<Route> itinerary)
 {
-  return _pimpl->_shared->set(std::move(itinerary));
+  return _pimpl->_shared->set(plan, std::move(itinerary));
 }
 
 //==============================================================================
-RouteId Participant::extend(const std::vector<Route>& additional_routes)
+void Participant::extend(const std::vector<Route>& additional_routes)
 {
   const auto& p = _pimpl->_shared;
 
-  const RouteId initial_route_id = p->_last_route_id;
-  if (additional_routes.empty())
-    return initial_route_id;
+  p->_current_itinerary.reserve(
+    p->_current_itinerary.size() + additional_routes.size());
 
-  auto input = p->make_input(std::move(additional_routes));
-
-  p->_current_itinerary.reserve(p->_current_itinerary.size() + input.size());
-
-  for (const auto& item : input)
+  for (const auto& item : additional_routes)
     p->_current_itinerary.push_back(item);
 
   const ItineraryVersion itinerary_version = p->get_next_version();
   const ParticipantId id = p->_id;
   auto change =
-    [self = p.get(), input = std::move(input), itinerary_version, id]()
+    [self = p.get(), additional_routes, itinerary_version, id]()
     {
       // See note in Participant::set::[lambda<change>]
-      self->_writer->extend(id, input, itinerary_version);
+      self->_writer->extend(id, additional_routes, itinerary_version);
     };
 
   p->_change_history[itinerary_version] = change;
   change();
-
-  return initial_route_id;
 }
 
 //==============================================================================
@@ -326,17 +291,12 @@ void Participant::delay(Duration delay)
   const auto& p = _pimpl->_shared;
 
   bool no_delays = true;
-  for (auto& item : p->_current_itinerary)
+  for (auto& route : p->_current_itinerary)
   {
-    if (item.route->trajectory().size() > 0)
+    if (route.trajectory().size() > 0)
     {
       no_delays = false;
-
-      auto new_trajectory = item.route->trajectory();
-      new_trajectory.front().adjust_times(delay);
-
-      item.route = std::make_shared<Route>(
-        item.route->map(), std::move(new_trajectory));
+      route.trajectory().front().adjust_times(delay);
     }
   }
 
@@ -368,59 +328,13 @@ rmf_traffic::Duration Participant::delay() const
 }
 
 //==============================================================================
-void Participant::erase(const std::unordered_set<RouteId>& input_routes)
-{
-  const auto& p = _pimpl->_shared;
-
-  const auto remove_it = std::remove_if(
-    p->_current_itinerary.begin(),
-    p->_current_itinerary.end(),
-    [&](const Writer::Item& item)
-    {
-      return input_routes.count(item.id) > 0;
-    });
-
-  if (remove_it == p->_current_itinerary.end())
-  {
-    // None of the requested IDs are in the current itinerary, so there is
-    // nothing to remove
-    return;
-  }
-
-  std::vector<RouteId> routes;
-  routes.reserve(input_routes.size());
-  for (auto it = remove_it; it != p->_current_itinerary.end(); ++it)
-    routes.push_back(it->id);
-
-  p->_current_itinerary.erase(remove_it, p->_current_itinerary.end());
-
-  const ItineraryVersion itinerary_version = p->get_next_version();
-  const ParticipantId id = p->_id;
-  auto change =
-    [self = p.get(), routes = std::move(routes), itinerary_version, id]()
-    {
-      // See note in Participant::set::[lambda<change>]
-      self->_writer->erase(id, routes, itinerary_version);
-    };
-
-  p->_change_history[itinerary_version] = change;
-  change();
-}
-
-//==============================================================================
 void Participant::clear()
 {
   _pimpl->_shared->clear();
 }
 
 //==============================================================================
-RouteId Participant::last_route_id() const
-{
-  return _pimpl->_shared->_last_route_id;
-}
-
-//==============================================================================
-const Writer::Input& Participant::itinerary() const
+const Itinerary& Participant::itinerary() const
 {
   return _pimpl->_shared->_current_itinerary;
 }
@@ -441,6 +355,18 @@ const ParticipantDescription& Participant::description() const
 ParticipantId Participant::id() const
 {
   return _pimpl->_shared->_id;
+}
+
+//==============================================================================
+auto Participant::assign_plan_id() const -> const AssignIDPtr&
+{
+  return _pimpl->_shared->_assign_plan_id;
+}
+
+//==============================================================================
+PlanId Participant::current_plan_id() const
+{
+  return _pimpl->_shared->_current_plan_id;
 }
 
 //==============================================================================

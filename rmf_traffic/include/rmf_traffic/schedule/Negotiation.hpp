@@ -114,6 +114,7 @@ public:
   struct Submission
   {
     ParticipantId participant;
+    PlanId plan;
     Itinerary itinerary;
   };
 
@@ -272,6 +273,11 @@ public:
     /// participants in the negotiation (or none if an empty vector is given for
     /// the to_accommodate argument).
     ///
+    /// \param[in] plan_id
+    ///   A unique identifier for this plan. If this plan is selected by the
+    ///   negotiation, then this ID will be submitted to the traffic schedule
+    ///   as the PlanId for this participant.
+    ///
     /// \param[in] itinerary
     ///   The itinerary that is being submitted by this participant.
     ///
@@ -282,6 +288,7 @@ public:
     /// \return True if the submission was accepted. False if the version was
     /// out of date and nothing changed in the negotiation.
     bool submit(
+      PlanId plan_id,
       std::vector<Route> itinerary,
       Version version);
 

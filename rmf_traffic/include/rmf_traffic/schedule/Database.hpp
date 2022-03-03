@@ -54,13 +54,14 @@ public:
   // Documentation inherited from Writer
   void set(
     ParticipantId participant,
-    const Input& itinerary,
+    PlanId plan,
+    const Itinerary& itinerary,
     ItineraryVersion version) final;
 
   // Documentation inherited from Writer
   void extend(
     ParticipantId participant,
-    const Input& routes,
+    const Itinerary& routes,
     ItineraryVersion version) final;
 
   // Documentation inherited from Writer
@@ -70,14 +71,8 @@ public:
     ItineraryVersion version) final;
 
   // Documentation inherited from Writer
-  void erase(
+  void clear(
     ParticipantId participant,
-    ItineraryVersion version) final;
-
-  // Documentation inherited from Writer
-  void erase(
-    ParticipantId participant,
-    const std::vector<RouteId>& routes,
     ItineraryVersion version) final;
 
   // Documentation inherited from Writer
@@ -212,7 +207,7 @@ public:
   /// Get the last Route ID used by this participant.
   //
   // TODO(MXG): This function needs unit testing
-  RouteId last_route_id(ParticipantId participant) const;
+  RouteId latest_plan_id(ParticipantId participant) const;
 
   class Implementation;
   class Debug;

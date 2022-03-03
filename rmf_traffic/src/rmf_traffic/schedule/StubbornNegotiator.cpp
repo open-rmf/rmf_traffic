@@ -76,21 +76,6 @@ public:
 };
 
 //==============================================================================
-namespace {
-Itinerary move_to_itinerary(std::vector<rmf_traffic::Route>&& candidate)
-{
-  Itinerary output;
-  output.reserve(candidate.size());
-  for (auto&& r : std::move(candidate))
-  {
-    output.push_back(std::make_shared<rmf_traffic::Route>(std::move(r)));
-  }
-
-  return output;
-}
-} // anonymous namespace
-
-//==============================================================================
 std::optional<std::vector<Route>>
 StubbornNegotiator::Implementation::test_candidate(
   rmf_traffic::Duration offset,
@@ -114,7 +99,7 @@ StubbornNegotiator::Implementation::test_candidate(
   {
     if (validator.find_conflict(r))
     {
-      alternatives.push_back(move_to_itinerary(std::move(candidate)));
+      alternatives.push_back(candidate);
       return std::nullopt;
     }
   }
@@ -164,11 +149,7 @@ void StubbornNegotiator::respond(
 {
   using namespace std::chrono_literals;
 
-  std::vector<rmf_traffic::Route> original;
-  const auto& itinerary = _pimpl->participant->itinerary();
-  for (const auto& item : itinerary)
-    original.push_back(*item.route);
-
+  const auto& original = _pimpl->participant->itinerary();
   auto generator =
     rmf_traffic::agv::NegotiatingRouteValidator::Generator(
     table_viewer, _pimpl->participant->description().profile())

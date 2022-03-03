@@ -48,6 +48,9 @@ public:
     /// The negotiator will call this function when it has an itinerary to
     /// submit in response to a negotiation.
     ///
+    /// \param[in] plan_id
+    ///   A unique ID that refers to the plan that is being submitted.
+    ///
     /// \param[in] itinerary
     ///   The itinerary that is being proposed
     ///
@@ -58,6 +61,7 @@ public:
     ///   negotiation (or a nullopt if no update will be performed). Pass in a
     ///   nullptr if an approval callback is not necessary.
     virtual void submit(
+      PlanId plan_id,
       std::vector<Route> itinerary,
       ApprovalCallback approval_callback = nullptr) const = 0;
 
@@ -131,6 +135,7 @@ public:
   // Documentation inherited
   // NOTE: approval_callback does not get used
   void submit(
+    PlanId plan_id,
     std::vector<Route> itinerary,
     std::function<UpdateVersion()> approval_callback = nullptr) const final;
 

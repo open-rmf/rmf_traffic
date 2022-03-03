@@ -33,16 +33,10 @@ class Writer
 {
 public:
 
-  struct Item
-  {
-    RouteId id;
-    ConstRoutePtr route;
-  };
-
-  using Input = std::vector<Item>;
   using ParticipantId = rmf_traffic::schedule::ParticipantId;
   using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
   using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
+  using PlanId = rmf_traffic::PlanId;
   using Duration = rmf_traffic::Duration;
   using RouteId = rmf_traffic::RouteId;
 
@@ -60,7 +54,8 @@ public:
   ///
   virtual void set(
     ParticipantId participant,
-    const Input& itinerary,
+    PlanId plan,
+    const Itinerary& itinerary,
     ItineraryVersion version) = 0;
 
   /// Add a set of routes to the itinerary of this participant.
@@ -76,7 +71,7 @@ public:
   ///
   virtual void extend(
     ParticipantId participant,
-    const Input& routes,
+    const Itinerary& routes,
     ItineraryVersion version) = 0;
 
   /// Add a delay to the itinerary from the specified Time.
@@ -107,24 +102,8 @@ public:
   /// \param[in] version
   ///   The version for this itinerary change
   ///
-  virtual void erase(
+  virtual void clear(
     ParticipantId participant,
-    ItineraryVersion version) = 0;
-
-  /// Erase a route from an itinerary.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant whose routes are being erased.
-  ///
-  /// \param[in] routes
-  ///   The indices of the routes that should be erased.
-  ///
-  /// \param[in] version
-  ///   The version for this itinerary change
-  ///
-  virtual void erase(
-    ParticipantId participant,
-    const std::vector<RouteId>& routes,
     ItineraryVersion version) = 0;
 
   /// Information resulting from registering a participant
@@ -140,12 +119,12 @@ public:
     /// \param[in] version
     ///   The last itinerary version for the registered participant
     ///
-    /// \param[in] route_id
-    ///   The last route_id for the registered participant
+    /// \param[in] plan_id
+    ///   The last plan_id for the registered participant
     Registration(
       ParticipantId id,
       ItineraryVersion version,
-      RouteId route_id);
+      PlanId plan_id);
 
     /// The ID of the registered participant
     ParticipantId id() const;
@@ -165,7 +144,7 @@ public:
     ///
     /// Similar to last_itinerary_version, this value might vary for systems
     /// that enforce participant uniqueness.
-    RouteId last_route_id() const;
+    RouteId last_plan_id() const;
 
     class Implementation;
   private:

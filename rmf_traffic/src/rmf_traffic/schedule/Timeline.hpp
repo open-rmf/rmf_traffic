@@ -28,6 +28,8 @@
 namespace rmf_traffic {
 namespace schedule {
 
+using StorageId = uint64_t;
+
 namespace {
 
 // TODO(MXG): Consider allowing these values to be configured
@@ -422,7 +424,9 @@ struct BaseRouteEntry
 {
   ConstRoutePtr route;
   ParticipantId participant;
+  PlanId plan_id;
   RouteId route_id;
+
   std::shared_ptr<const ParticipantDescription> description;
 };
 

@@ -33,26 +33,6 @@
 namespace rmf_traffic {
 namespace schedule {
 
-namespace {
-
-//==============================================================================
-Writer::Input deep_copy_input(Writer::Input input)
-{
-  Writer::Input copy;
-  for (const auto& item : input)
-  {
-    auto copy_item = Writer::Item{
-      item.id,
-      std::make_shared<Route>(*item.route)};
-
-    copy.emplace_back(std::move(copy_item));
-  }
-
-  return copy;
-}
-
-} // anonymous namespace
-
 //==============================================================================
 class Database::Implementation
 {
@@ -89,6 +69,7 @@ public:
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
     // templates to automatically mix these custom fields with the required
     // fields of the base Entry
+    StorageId storage_id;
     Version schedule_version;
     TransitionPtr transition;
     std::weak_ptr<RouteEntry> successor;
@@ -96,7 +77,9 @@ public:
     RouteEntry(
       ConstRoutePtr route_,
       ParticipantId participant_,
+      PlanId plan_id_,
       RouteId route_id_,
+      StorageId storage_id_,
       std::shared_ptr<const ParticipantDescription> desc_,
       Version schedule_version_,
       TransitionPtr transition_,
@@ -104,9 +87,11 @@ public:
     : BaseRouteEntry{
         std::move(route_),
         participant_,
+        plan_id_,
         route_id_,
         std::move(desc_),
     },
+      storage_id(storage_id_),
       schedule_version(schedule_version_),
       transition(std::move(transition_)),
       successor(std::move(successor_))
@@ -127,7 +112,8 @@ public:
     std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
     Version last_updated;
-    RouteId last_route_id = std::numeric_limits<RouteId>::max();
+    StorageId next_storage_id = 0;
+    PlanId latest_plan_id = std::numeric_limits<RouteId>::max();
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
@@ -196,77 +182,34 @@ public:
   /// getting unregistered
   rmf_traffic::Time current_time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
-  /// This function verifies that the route IDs specified in the input are not
-  /// already being used. If that ever happens, it is indicative of a bug or a
-  /// malformed input into the database.
-  ///
-  /// This returns a vector of pointers to RouteEntryPtr objects. The entries in
-  /// that vector can be used to efficiently populate the route information,
-  /// saving us the cost of a second map lookup later on.
-  std::vector<RouteStorage*> check_route_ids(
-    ParticipantState& state,
-    const Input& input)
-  {
-    // NOTE(MXG): We store references to the values of the route entries,
-    // because iterators to a std::unordered_map can be invalidated by
-    // insertions, but pointers and references to the values inside the
-    // container to do not get invalidated by inserstion. Source:
-    // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
-    std::vector<RouteStorage*> entries;
-    entries.reserve(input.size());
-
-    ParticipantStorage& storage = state.storage;
-
-    // Verify that the new route IDs do not overlap any that are still in the
-    // database
-    for (const Item& item : input)
-    {
-      const auto insertion = storage.insert({item.id, RouteStorage()});
-
-      // If the result of this insertion attempt was anything besides a nullptr,
-      // then that means this route ID was already taken, so we should reject
-      // this itinerary change.
-      if (insertion.first->second.entry)
-      {
-        // *INDENT-OFF*
-        throw std::runtime_error(
-          "[Database::set] New route ID [" + std::to_string(item.id)
-          + "] collides with one already in the database");
-        // *INDENT-ON*
-      }
-
-      entries.push_back(&insertion.first->second);
-    }
-
-    return entries;
-  }
-
-  /// This function is used to insert items into the Database. This function
-  /// assumes that the items have already been fully validated and that there
-  /// would be no negative side-effects to entering them.
+  /// This function is used to insert routes into the Database.
   void insert_items(
-    ParticipantId participant,
+    const ParticipantId participant,
     ParticipantState& state,
-    const std::vector<RouteStorage*>& entries,
-    const Input& input)
+    const Itinerary& itinerary)
   {
     assert(entries.size() == input.size());
 
-    for (std::size_t i = 0; i < input.size(); ++i)
+    ParticipantStorage& storage = state.storage;
+
+    const auto plan_id = state.latest_plan_id;
+    const auto initial_route_num = state.active_routes.size();
+    const auto final_route_num = itinerary.size() + initial_route_num;
+    for (std::size_t i = initial_route_num; i < final_route_num; ++i)
     {
-      const auto& item = input[i];
-      const RouteId route_id = item.id;
-      if (rmf_utils::modular(state.last_route_id).less_than(route_id))
-        state.last_route_id = route_id;
+      const auto& route = itinerary[i];
+      const auto storage_id = state.next_storage_id++;
 
-      state.active_routes.insert(route_id);
+      state.active_routes.insert(storage_id);
 
-      RouteStorage& entry_storage = *entries[i];
+      RouteStorage& entry_storage = storage[storage_id];
       entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
-          item.route,
+          std::make_shared<Route>(route),
           participant,
-          route_id,
+          plan_id,
+          i,
+          storage_id,
           state.description,
           schedule_version,
           nullptr,
@@ -283,12 +226,12 @@ public:
     Duration delay)
   {
     ParticipantStorage& storage = state.storage;
-    for (const RouteId id : state.active_routes)
+    for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(id) != storage.end());
-      auto& entry_storage = storage.at(id);
-      const Trajectory& old_trajectory =
-        entry_storage.entry->route->trajectory();
+      assert(storage.find(storage_id) != storage.end());
+      auto& entry_storage = storage.at(storage_id);
+      const auto& route_entry = entry_storage.entry;
+      const Trajectory& old_trajectory = route_entry->route->trajectory();
 
       assert(old_trajectory.start_time());
 
@@ -312,7 +255,9 @@ public:
         RouteEntry{
           std::move(new_route),
           participant,
-          id,
+          state.latest_plan_id,
+          route_entry->route_id,
+          storage_id,
           state.description,
           schedule_version,
           std::move(transition),
@@ -331,10 +276,10 @@ public:
     ParticipantState& state)
   {
     ParticipantStorage& storage = state.storage;
-    for (const RouteId id : state.active_routes)
+    for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(id) != storage.end());
-      auto& entry_storage = storage.at(id);
+      assert(storage.find(storage_id) != storage.end());
+      auto& entry_storage = storage.at(storage_id);
 
       auto route = entry_storage.entry->route;
 
@@ -348,7 +293,9 @@ public:
         RouteEntry{
           std::move(route),
           participant,
-          id,
+          state.latest_plan_id,
+          entry_storage.entry->route_id,
+          storage_id,
           state.description,
           schedule_version,
           std::move(transition),
@@ -365,13 +312,14 @@ public:
   void erase_routes(
     ParticipantId participant,
     ParticipantState& state,
-    const std::unordered_set<RouteId>& routes)
+    const std::unordered_set<StorageId>& routes)
   {
     ParticipantStorage& storage = state.storage;
-    for (const RouteId id : routes)
+    for (const StorageId storage_id : routes)
     {
-      assert(storage.find(id) != storage.end());
-      auto& entry_storage = storage.at(id);
+      assert(storage.find(storage_id) != storage.end());
+      auto& entry_storage = storage.at(storage_id);
+      const auto& entry = *entry_storage.entry;
 
       auto transition = std::make_unique<Transition>(
         Transition{
@@ -383,7 +331,9 @@ public:
         RouteEntry{
           nullptr,
           participant,
-          id,
+          entry.plan_id,
+          entry.route_id,
+          storage_id,
           state.description,
           schedule_version,
           std::move(transition),
@@ -471,7 +421,7 @@ std::size_t Database::Debug::current_removed_participant_count(
 }
 
 //==============================================================================
-std::optional<Writer::Input> Database::Debug::get_itinerary(
+std::optional<Itinerary> Database::Debug::get_itinerary(
   const Database& database,
   const ParticipantId participant)
 {
@@ -481,22 +431,21 @@ std::optional<Writer::Input> Database::Debug::get_itinerary(
 
   const Implementation::ParticipantState& state = state_it->second;
 
-  Writer::Input itinerary;
+  Itinerary itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back({route, state.storage.at(route).entry->route});
+    itinerary.push_back(*state.storage.at(route).entry->route);
 
   return itinerary;
 }
 
 //==============================================================================
 void Database::set(
-  ParticipantId participant,
-  const Input& input,
-  ItineraryVersion version)
+  const ParticipantId participant,
+  const PlanId plan,
+  const Itinerary& itinerary,
+  const ItineraryVersion version)
 {
-  auto itinerary = deep_copy_input(input);
-
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
@@ -518,14 +467,10 @@ void Database::set(
 
   if (auto ticket = state.tracker->check(version, true))
   {
-    ticket->set([=]() { this->set(participant, itinerary, version); });
+    ticket->set([=]() { this->set(participant, plan, itinerary, version); });
     return;
   }
 
-  std::vector<Implementation::RouteStorage*> entries =
-    _pimpl->check_route_ids(state, itinerary);
-
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
 
   // Erase the routes that are currently active
@@ -535,17 +480,16 @@ void Database::set(
   state.active_routes.clear();
 
   // Insert the new routes into the current itinerary
-  _pimpl->insert_items(participant, state, entries, input);
+  state.latest_plan_id = plan;
+  _pimpl->insert_items(participant, state, itinerary);
 }
 
 //==============================================================================
 void Database::extend(
   ParticipantId participant,
-  const Input& input,
+  const Itinerary& itinerary,
   ItineraryVersion version)
 {
-  auto routes = deep_copy_input(input);
-
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
@@ -571,17 +515,13 @@ void Database::extend(
   {
     // If we got a ticket from the inconsistency tracker, then pass along a
     // callback to call this
-    ticket->set([=]() { this->extend(participant, routes, version); });
+    ticket->set([=]() { this->extend(participant, itinerary, version); });
     return;
   }
 
-  std::vector<Implementation::RouteStorage*> entries =
-    _pimpl->check_route_ids(state, routes);
-
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
 
-  _pimpl->insert_items(participant, state, entries, input);
+  _pimpl->insert_items(participant, state, itinerary);
 }
 
 //==============================================================================
@@ -616,13 +556,12 @@ void Database::delay(
     return;
   }
 
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
   _pimpl->apply_delay(participant, state, delay);
 }
 
 //==============================================================================
-void Database::erase(
+void Database::clear(
   ParticipantId participant,
   ItineraryVersion version)
 {
@@ -648,71 +587,16 @@ void Database::erase(
 
   if (auto ticket = state.tracker->check(version))
   {
-    ticket->set([=]() { this->erase(participant, version); });
+    ticket->set([=]() { this->clear(participant, version); });
     return;
   }
 
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
   _pimpl->erase_routes(participant, state, state.active_routes);
   state.active_routes.clear();
 }
 
 //==============================================================================
-void Database::erase(
-  ParticipantId participant,
-  const std::vector<RouteId>& routes,
-  ItineraryVersion version)
-{
-  const auto p_it = _pimpl->states.find(participant);
-  if (p_it == _pimpl->states.end())
-  {
-    // *INDENT-OFF*
-    throw std::runtime_error(
-      "[Database::erase] No participant with ID ["
-      + std::to_string(participant) + "]");
-    // *INDENT-ON*
-  }
-
-  Implementation::ParticipantState& state = p_it->second;
-
-  assert(state.tracker);
-  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
-  {
-    // This is an old change, possibly a retransmission requested by a different
-    // database tracker, so we will ignore it.
-    return;
-  }
-
-  if (auto ticket = state.tracker->check(version))
-  {
-    ticket->set([=]() { this->erase(participant, routes, version); });
-    return;
-  }
-
-  std::unordered_set<RouteId> route_set;
-  route_set.reserve(routes.size());
-  for (const RouteId id : routes)
-  {
-    if (state.active_routes.count(id) == 0)
-    {
-      // *INDENT-OFF*
-      throw std::runtime_error(
-        "[Database::erase] The route with ID [" + std::to_string(id)
-        + "] is not active!");
-      // *INDENT-ON*
-    }
-
-    route_set.insert(id);
-  }
-
-  //======== All validation is complete ===========
-  ++_pimpl->schedule_version;
-  _pimpl->erase_routes(participant, state, route_set);
-  for (const RouteId id : routes)
-    state.active_routes.erase(id);
-}
-
 Writer::Registration register_participant_impl(
   Database::Implementation& pimpl,
   ParticipantId id,
@@ -743,7 +627,7 @@ Writer::Registration register_participant_impl(
 
   const auto& state = p_it->second;
   return Database::Registration(
-    id, state.tracker->last_known_version(), state.last_route_id);
+    id, state.tracker->last_known_version(), state.latest_plan_id);
 }
 
 //==============================================================================
@@ -1230,7 +1114,7 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
   Itinerary itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back(state.storage.at(route).entry->route);
+    itinerary.push_back(*state.storage.at(route).entry->route);
 
   return itinerary;
 }
@@ -1447,7 +1331,7 @@ ItineraryVersion Database::itinerary_version(ParticipantId participant) const
 }
 
 //==============================================================================
-RouteId Database::last_route_id(ParticipantId participant) const
+RouteId Database::latest_plan_id(ParticipantId participant) const
 {
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
@@ -1457,7 +1341,7 @@ RouteId Database::last_route_id(ParticipantId participant) const
             + std::to_string(participant) + "]");
   }
 
-  return p_it->second.last_route_id;
+  return p_it->second.latest_plan_id;
 }
 
 } // namespace schedule

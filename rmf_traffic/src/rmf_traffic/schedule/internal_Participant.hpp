@@ -47,7 +47,7 @@ public:
       ParticipantDescription description,
       std::shared_ptr<Writer> writer);
 
-    RouteId set(std::vector<Route> itinerary);
+    void set(PlanId plan, std::vector<Route> itinerary);
 
     void clear();
 
@@ -68,12 +68,10 @@ public:
   private:
     friend class Participant;
 
-    Writer::Input make_input(std::vector<Route> itinerary);
     ItineraryVersion get_next_version();
 
     ParticipantId _id;
     ItineraryVersion _version;
-    RouteId _last_route_id;
     const ParticipantDescription _description;
     std::shared_ptr<Writer> _writer;
     std::unique_ptr<RectificationRequester> _rectification;
@@ -81,12 +79,15 @@ public:
     using ChangeHistory =
       std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
 
-    Writer::Input _current_itinerary;
+    PlanId _current_plan_id;
+    Itinerary _current_itinerary;
 
     ChangeHistory _change_history;
     rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
 
     rmf_utils::RateLimiter _version_mismatch_limiter;
+
+    AssignIDPtr _assign_plan_id;
   };
 
   // Note: It would be better if this constructor were private, but we need to

@@ -60,10 +60,12 @@ SimpleResponder::SimpleResponder(
 }
 
 //==============================================================================
-void SimpleResponder::submit(std::vector<Route> itinerary,
+void SimpleResponder::submit(
+  PlanId plan_id,
+  std::vector<Route> itinerary,
   std::function<UpdateVersion()> /*approval_callback*/) const
 {
-  _pimpl->table->submit(std::move(itinerary), _pimpl->table_version+1);
+  _pimpl->table->submit(plan_id, std::move(itinerary), _pimpl->table_version+1);
 }
 
 //==============================================================================

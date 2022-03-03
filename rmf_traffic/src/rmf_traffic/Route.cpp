@@ -17,7 +17,66 @@
 
 #include "internal_Route.hpp"
 
+#include <rmf_utils/Modular.hpp>
+
 namespace rmf_traffic {
+
+//==============================================================================
+class DependsOnPlan::Implementation
+{
+public:
+
+  std::optional<PlanId> plan;
+  DependsOnRoute routes;
+
+};
+
+//==============================================================================
+DependsOnPlan::DependsOnPlan()
+: _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
+DependsOnPlan::DependsOnPlan(PlanId plan, DependsOnRoute routes)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{plan, std::move(routes)}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+DependsOnPlan& DependsOnPlan::plan(std::optional<PlanId> plan)
+{
+  _pimpl->plan = plan;
+  return *this;
+}
+
+//==============================================================================
+std::optional<PlanId> DependsOnPlan::plan() const
+{
+  return _pimpl->plan;
+}
+
+//==============================================================================
+DependsOnPlan& DependsOnPlan::routes(DependsOnRoute routes)
+{
+  _pimpl->routes = std::move(routes);
+  return *this;
+}
+
+//==============================================================================
+DependsOnRoute& DependsOnPlan::routes()
+{
+  return _pimpl->routes;
+}
+
+//==============================================================================
+const DependsOnRoute& DependsOnPlan::routes() const
+{
+  return _pimpl->routes;
+}
 
 //==============================================================================
 Route::Route(
@@ -26,7 +85,9 @@ Route::Route(
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(map),
-        std::move(trajectory)
+        std::move(trajectory),
+        {},
+        {}
       }))
 {
   // Do nothing
@@ -62,6 +123,114 @@ Trajectory& Route::trajectory()
 const Trajectory& Route::trajectory() const
 {
   return _pimpl->trajectory;
+}
+
+//==============================================================================
+Route& Route::checkpoints(std::set<uint64_t> value)
+{
+  _pimpl->checkpoints = std::move(value);
+  return *this;
+}
+
+//==============================================================================
+std::set<uint64_t>& Route::checkpoints()
+{
+  return _pimpl->checkpoints;
+}
+
+//==============================================================================
+const std::set<uint64_t>& Route::checkpoints() const
+{
+  return _pimpl->checkpoints;
+}
+
+//==============================================================================
+Route& Route::dependencies(DependsOnParticipant value)
+{
+  _pimpl->dependencies = std::move(value);
+  return *this;
+}
+
+//==============================================================================
+DependsOnParticipant& Route::dependencies()
+{
+  return _pimpl->dependencies;
+}
+
+//==============================================================================
+const DependsOnParticipant& Route::dependencies() const
+{
+  return _pimpl->dependencies;
+}
+
+//==============================================================================
+Route& Route::add_dependency(
+  CheckpointId dependent_checkpoint,
+  ParticipantId other_participant,
+  PlanId other_plan,
+  RouteId other_route,
+  CheckpointId other_checkpoint)
+{
+  auto& depends_on_plan = _pimpl->dependencies[other_participant];
+  if (depends_on_plan.plan().has_value())
+  {
+    // If the new dependency is for an earlier plan than the current one, we
+    // will ignore it.
+    // TODO(MXG): Should we consider throwing an exception instead?
+    if (rmf_utils::modular(other_plan).less_than(*depends_on_plan.plan()))
+    {
+      return *this;
+    }
+    else if (other_plan != *depends_on_plan.plan())
+    {
+      // A newer plan exists for this other participant, so we will clear out
+      // the old list of dependencies.
+      depends_on_plan.routes().clear();
+    }
+  }
+
+  depends_on_plan.add_dependency(
+    dependent_checkpoint, other_route, other_checkpoint);
+  return *this;
+}
+
+//==============================================================================
+bool Route::should_ignore(ParticipantId participant, PlanId plan) const
+{
+  const auto p_it = _pimpl->dependencies.find(participant);
+  if (p_it == _pimpl->dependencies.end())
+    return false;
+
+  if (!p_it->second.plan().has_value())
+    return false;
+
+  return rmf_utils::modular(plan).less_than(*p_it->second.plan());
+}
+
+//==============================================================================
+const Dependencies* Route::check_dependencies(
+  ParticipantId participant,
+  PlanId plan,
+  RouteId route) const
+{
+  const auto p_it = _pimpl->dependencies.find(participant);
+  if (p_it == _pimpl->dependencies.end())
+    return nullptr;
+
+  const auto& plan_deps = p_it->second;
+  const auto plan_deps_id = plan_deps.plan();
+  if (!plan_deps_id.has_value())
+    return nullptr;
+
+  if (*plan_deps_id != plan)
+    return nullptr;
+
+  const auto& routes = plan_deps.routes();
+  const auto r_it = routes.find(route);
+  if (r_it == routes.end())
+    return nullptr;
+
+  return &r_it->second;
 }
 
 } // namespace rmf_traffic

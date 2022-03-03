@@ -27,7 +27,7 @@ public:
 
   ParticipantId id;
   ItineraryVersion version;
-  RouteId route_id;
+  PlanId plan_id;
 
 };
 
@@ -55,9 +55,9 @@ ItineraryVersion Writer::Registration::last_itinerary_version() const
 }
 
 //==============================================================================
-RouteId Writer::Registration::last_route_id() const
+RouteId Writer::Registration::last_plan_id() const
 {
-  return _pimpl->route_id;
+  return _pimpl->plan_id;
 }
 
 } // namespace schedule

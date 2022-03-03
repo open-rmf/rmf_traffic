@@ -22,6 +22,8 @@
 #include <rmf_traffic/schedule/Writer.hpp>
 #include <rmf_traffic/schedule/Rectifier.hpp>
 
+#include <rmf_utils/AssignID.hpp>
+
 #include <unordered_set>
 
 namespace rmf_traffic {
@@ -32,28 +34,25 @@ class Participant
 {
 public:
 
+  using PlanId = Writer::PlanId;
+
   /// Set the whole itinerary for the participant. Every route that was
   /// previously in the itinerary will be removed and replaced with these new
   /// routes.
   ///
+  /// \param[in] plan
+  ///   A unique ID that this plan is associated with
+  ///
   /// \param[in] itinerary
   ///   The new itinerary that the participant should reflect in the schedule.
-  ///
-  /// \returns the highest RouteId of this participant before this change was
-  /// made. The RouteId of each new route will be this return value plus
-  /// the route's index in the input vector.
-  RouteId set(std::vector<Route> itinerary);
+  void set(PlanId plan, std::vector<Route> itinerary);
 
   /// Add more routes for the participant. All of the routes currently in the
   /// itinerary will still be in it.
   ///
   /// \param[in] additional_routes
   ///   The new routes to add to the itinerary.
-  ///
-  /// \returns the highest RouteId of this participant before this change was
-  /// made. The RouteId of each new route will be this return value plus the
-  /// route's index in the input vector.
-  RouteId extend(const std::vector<Route>& additional_routes);
+  void extend(const std::vector<Route>& additional_routes);
 
   /// Delay the current itinerary.
   ///
@@ -69,28 +68,11 @@ public:
   // TODO(MXG): Should extend() also reset this value? Currently it does not.
   Duration delay() const;
 
-  /// Erase certain routes from the itinerary.
-  ///
-  /// \param[in] routes
-  ///   The list of routes to erase.
-  void erase(const std::unordered_set<RouteId>& routes);
-
   /// Clear all routes from the itinerary.
   void clear();
 
-  /// Get the last RouteId used by this Participant. The next RouteId that gets
-  /// issued will be incremented from this value.
-  RouteId last_route_id() const;
-
   /// Get the current itinerary of the participant.
-  //
-  // TODO(MXG): The implementation of this class could be simpler and more
-  // efficient if we did not provide this function. But not having it might hurt
-  // usability if end users want some verification or reflection of the changes
-  // that they are making to the schedule. Perhaps we can create a second class
-  // that extends the functionality of this one, where it will both make the
-  // changes to the schedule and reflect the changes locally.
-  const Writer::Input& itinerary() const;
+  const Itinerary& itinerary() const;
 
   /// Get the current itinerary version for this participant.
   //
@@ -102,6 +84,17 @@ public:
 
   /// Get the ID that was assigned to this participant.
   ParticipantId id() const;
+
+  using AssignIDPtr = std::shared_ptr<const rmf_utils::AssignID<PlanId>>;
+
+  /// Use this to get a generator that can assign valid new unique plan IDs.
+  /// It is okay to generate a plan ID and not use it, as long as any new
+  /// call to set(~) uses a plan ID that was generated more recently than the
+  /// last one that was passed to set(~).
+  const AssignIDPtr& assign_plan_id() const;
+
+  /// Get the current plan ID of the participant
+  PlanId current_plan_id() const;
 
   // This class supports moving but not copying
   Participant(Participant&&) = default;
