@@ -163,6 +163,7 @@ void StubbornNegotiator::respond(
       .has_value())
     {
       responder->submit(
+        _pimpl->participant->plan_id_assigner()->assign(),
         add_margins(original, _pimpl->margins),
         [cb = _pimpl->approval_cb]() -> UpdateVersion
         {
@@ -183,6 +184,7 @@ void StubbornNegotiator::respond(
         if (candidate.has_value())
         {
           responder->submit(
+            _pimpl->participant->plan_id_assigner()->assign(),
             add_margins(*candidate, _pimpl->margins),
             [
               cb = _pimpl->approval_cb,

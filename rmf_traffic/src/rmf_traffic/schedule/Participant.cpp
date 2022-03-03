@@ -358,7 +358,7 @@ ParticipantId Participant::id() const
 }
 
 //==============================================================================
-auto Participant::assign_plan_id() const -> const AssignIDPtr&
+auto Participant::plan_id_assigner() const -> const AssignIDPtr&
 {
   return _pimpl->_shared->_assign_plan_id;
 }

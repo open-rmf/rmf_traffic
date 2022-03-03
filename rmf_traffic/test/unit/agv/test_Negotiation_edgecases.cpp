@@ -15,14 +15,17 @@
  *
 */
 
-#include "utils_NegotiationRoom.hpp"
-
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
+#include <rmf_traffic/agv/CentralizedNegotiation.hpp>
 
 #include <rmf_traffic/agv/debug/debug_Planner.hpp>
+
+#include <rmf_utils/catch.hpp>
+
+#include <iostream>
 
 //==============================================================================
 Eigen::Vector3d get_location(
@@ -107,6 +110,7 @@ std::vector<rmf_traffic::schedule::Itinerary> multiply(
 //==============================================================================
 SCENARIO("Test difficult 3-way scenarios")
 {
+  using rmf_traffic::agv::CentralizedNegotiation;
   const std::string test_map_name = "test_map";
 
   rmf_traffic::agv::Graph graph_a;
@@ -252,6 +256,17 @@ SCENARIO("Test difficult 3-way scenarios")
       profile_b
     }, database);
 
+  const auto planner_a = std::make_shared<rmf_traffic::agv::Planner>(
+    config_a, rmf_traffic::agv::Planner::Options{nullptr});
+
+  const auto planner_b = std::make_shared<rmf_traffic::agv::Planner>(
+    config_b, rmf_traffic::agv::Planner::Options{nullptr});
+
+  const auto options = rmf_traffic::agv::SimpleNegotiator::Options()
+    .maximum_cost_leeway(5.5)
+    .minimum_cost_threshold(std::nullopt)
+    .maximum_alternatives(200);
+
   GIVEN("Case 1")
   {
     const auto time = std::chrono::steady_clock::now();
@@ -268,22 +283,36 @@ SCENARIO("Test difficult 3-way scenarios")
       graph_b, test_map_name, {13.057442, -15.363754, -3.128299}, time);
     auto b2_goal = rmf_traffic::agv::Plan::Goal(13);
 
-    NegotiationRoom::Intentions intentions;
-    intentions.insert({
+    std::vector<CentralizedNegotiation::Agent> agents;
+    agents.push_back(
+      {
         a0.id(),
-        NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
+        std::move(a0_starts),
+        a0_goal,
+        planner_a,
+        options
+      });
 
-    intentions.insert({
+    agents.push_back(
+      {
         b1.id(),
-        NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
+        std::move(b1_starts),
+        b1_goal,
+        planner_b,
+        options
+      });
 
-    intentions.insert({
+    agents.push_back(
+      {
         b2.id(),
-        NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
+        std::move(b2_starts),
+        b2_goal,
+        planner_b,
+        options
+      });
 
-    auto room = NegotiationRoom(database, intentions, 5.5, std::nullopt, 200);
-    auto proposal = room.solve();
-    REQUIRE(proposal);
+    const auto result = CentralizedNegotiation(database).solve(agents);
+    REQUIRE(result.proposal().has_value());
   }
 }
 

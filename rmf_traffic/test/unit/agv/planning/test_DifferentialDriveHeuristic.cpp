@@ -18,7 +18,6 @@
 #include <src/rmf_traffic/agv/planning/DifferentialDriveHeuristic.hpp>
 
 #include "../../utils_Trajectory.hpp"
-#include "../utils_NegotiationRoom.hpp"
 
 #include <rmf_utils/catch.hpp>
 

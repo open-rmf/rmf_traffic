@@ -51,7 +51,8 @@ public:
 };
 
 //==============================================================================
-SimpleNegotiator::Options::Options(ApprovalCallback approval_cb,
+SimpleNegotiator::Options::Options(
+  ApprovalCallback approval_cb,
   std::shared_ptr<const bool> interrupt_flag,
   rmf_utils::optional<double> maximum_cost_leeway,
   rmf_utils::optional<std::size_t> maximum_alts,
@@ -167,38 +168,58 @@ class SimpleNegotiator::Implementation
 {
 public:
 
+  schedule::Participant::AssignIDPtr assign_id;
   std::vector<Planner::Start> starts;
   Planner::Goal goal;
   Planner::Options planner_options;
-  Planner planner;
+  std::shared_ptr<const Planner> planner;
   Options negotiator_options;
 
   bool debug_print = false;
 
   Implementation(
+    schedule::Participant::AssignIDPtr assign_id_,
     std::vector<Planner::Start> starts_,
     Planner::Goal goal_,
     Planner::Configuration configuration_,
     Options options_)
-  : starts(std::move(starts_)),
+  : assign_id(std::move(assign_id_)),
+    starts(std::move(starts_)),
     goal(std::move(goal_)),
     planner_options(nullptr, options_.minimum_holding_time()),
-    planner(std::move(configuration_), planner_options),
+    planner(
+      std::make_shared<Planner>(std::move(configuration_), planner_options)),
     negotiator_options(std::move(options_))
   {
     // Do nothing
   }
 
+  Implementation(
+    std::vector<Planner::Start> starts_,
+    Planner::Goal goal_,
+    std::shared_ptr<const Planner> planner_,
+    Options options_)
+  : starts(std::move(starts_)),
+    goal(std::move(goal_)),
+    planner_options(planner_->get_default_options()),
+    planner(std::move(planner_)),
+    negotiator_options(std::move(options_))
+  {
+    planner_options.minimum_holding_time(
+      negotiator_options.minimum_holding_time());
+  }
 };
 
 //==============================================================================
 SimpleNegotiator::SimpleNegotiator(
+  schedule::Participant::AssignIDPtr assign_id,
   Planner::Start start,
   Planner::Goal goal,
   Planner::Configuration planner_configuration,
   Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation(
+        std::move(assign_id),
         {std::move(start)},
         std::move(goal),
         std::move(planner_configuration),
@@ -209,14 +230,33 @@ SimpleNegotiator::SimpleNegotiator(
 
 //==============================================================================
 SimpleNegotiator::SimpleNegotiator(
+  schedule::Participant::AssignIDPtr assign_id,
   std::vector<Planner::Start> starts,
   Planner::Goal goal,
   Planner::Configuration planner_configuration,
   Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
+      std::move(assign_id),
       std::move(starts),
       std::move(goal),
       std::move(planner_configuration),
+      std::move(options)))
+{
+  // Do nothing
+}
+
+//==============================================================================
+SimpleNegotiator::SimpleNegotiator(
+  schedule::Participant::AssignIDPtr assign_id,
+  std::vector<Planner::Start> starts,
+  Planner::Goal goal,
+  std::shared_ptr<const Planner> planner,
+  Options options)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      std::move(assign_id),
+      std::move(starts),
+      std::move(goal),
+      std::move(planner),
       std::move(options)))
 {
   // Do nothing
@@ -272,23 +312,6 @@ inline void print_itinerary(
   }
   else
   {
-    auto start_time = print_start(*itinerary.front());
-    for (const auto& r : itinerary)
-      print_route(*r, start_time);
-
-    std::cout << "(end)" << std::endl;
-  }
-}
-
-//==============================================================================
-inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
-{
-  if (itinerary.empty())
-  {
-    std::cout << "No plan needed!" << std::endl;
-  }
-  else
-  {
     auto start_time = print_start(itinerary.front());
     for (const auto& r : itinerary)
       print_route(r, start_time);
@@ -296,7 +319,6 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
     std::cout << "(end)" << std::endl;
   }
 }
-
 
 ////==============================================================================
 class AlternativesTracker
@@ -361,7 +383,7 @@ void SimpleNegotiator::respond(
   const ResponderPtr& responder)
 {
   const auto& profile =
-    _pimpl->planner.get_configuration().vehicle_traits().profile();
+    _pimpl->planner->get_configuration().vehicle_traits().profile();
   NegotiatingRouteValidator::Generator rv_generator(table_viewer, profile);
 
   const auto& alternative_sets = rv_generator.alternative_sets();
@@ -429,7 +451,7 @@ void SimpleNegotiator::respond(
     }
 
     options.validator(validator);
-    auto plan = _pimpl->planner.setup(_pimpl->starts, _pimpl->goal, options);
+    auto plan = _pimpl->planner->setup(_pimpl->starts, _pimpl->goal, options);
     const double initial_cost_estimate = *plan.cost_estimate();
     if (_pimpl->debug_print)
     {
@@ -495,7 +517,10 @@ void SimpleNegotiator::respond(
       {
         std::cout << " >>>>> Submitting" << std::endl;
       }
-      return responder->submit(plan->get_itinerary(), responder_approval_cb);
+      return responder->submit(
+        _pimpl->assign_id->assign(),
+        plan->get_itinerary(),
+        responder_approval_cb);
     }
 
     if (_pimpl->debug_print)

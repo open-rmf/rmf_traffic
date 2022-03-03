@@ -91,7 +91,7 @@ public:
   /// It is okay to generate a plan ID and not use it, as long as any new
   /// call to set(~) uses a plan ID that was generated more recently than the
   /// last one that was passed to set(~).
-  const AssignIDPtr& assign_plan_id() const;
+  const AssignIDPtr& plan_id_assigner() const;
 
   /// Get the current plan ID of the participant
   PlanId current_plan_id() const;
