@@ -31,6 +31,7 @@
 
 #include <rmf_utils/catch.hpp>
 
+//==============================================================================
 inline void CHECK_EQUAL_TRAJECTORY(
   const rmf_traffic::Trajectory& t1,
   const rmf_traffic::Trajectory& t2)
@@ -81,32 +82,33 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
   return collision_trajectories;
 }
 
-inline rmf_traffic::schedule::Writer::Input create_test_input(
-  rmf_traffic::RouteId id, const rmf_traffic::Trajectory& t)
+//==============================================================================
+using RouteId = rmf_traffic::RouteId;
+using ConstRoutePtr = rmf_traffic::ConstRoutePtr;
+
+//==============================================================================
+inline void CHECK_ITINERARY(
+  const rmf_traffic::schedule::Participant& p,
+  const rmf_traffic::schedule::Database& db)
 {
-  return rmf_traffic::schedule::Writer::Input{
-    {
-      {id, std::make_shared<rmf_traffic::Route>("test_map", t)}
-    }
-  };
+  const auto database_itinerary = db.get_itinerary(p.id());
+  REQUIRE(database_itinerary.has_value());
+  REQUIRE(p.itinerary().size() == database_itinerary->size());
+  for (std::size_t i = 0; i < p.itinerary().size(); ++i)
+  {
+    const auto& database_route = database_itinerary->at(i);
+    const auto& participant_route = p.itinerary().at(i);
+    CHECK(database_route->map() == participant_route.map());
+    CHECK_EQUAL_TRAJECTORY(
+      database_route->trajectory(), participant_route.trajectory());
+  }
 }
 
-
-inline std::unordered_map<rmf_traffic::RouteId, rmf_traffic::ConstRoutePtr>
-convert_itinerary(rmf_traffic::schedule::Writer::Input input)
+//==============================================================================
+inline rmf_traffic::schedule::Itinerary create_test_input(
+  const rmf_traffic::Trajectory& t)
 {
-  std::unordered_map<rmf_traffic::RouteId, rmf_traffic::ConstRoutePtr>
-  itinerary;
-
-  itinerary.reserve(input.size());
-
-  for (const auto& item : input)
-  {
-    const auto result = itinerary.insert(std::make_pair(item.id, item.route));
-    assert(result.second);
-    (void)(result);
-  }
-  return itinerary;
+  return {rmf_traffic::Route("test_map", t)};
 }
 
 #endif //RMF_TRAFFIC__TEST__UNIT__SCHEDULE__UTILS_TRAJECTORY_HPP

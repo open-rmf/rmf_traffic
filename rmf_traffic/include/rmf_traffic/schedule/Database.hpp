@@ -112,7 +112,11 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
-  rmf_utils::optional<Itinerary> get_itinerary(
+  std::optional<ItineraryView> get_itinerary(
+    std::size_t participant_id) const final;
+
+  // Documentation inherited from Viewer
+  std::optional<PlanId> get_current_plan_id(
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer

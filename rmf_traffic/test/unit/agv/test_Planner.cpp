@@ -126,12 +126,11 @@ rmf_traffic::Trajectory test_with_obstacle(
       create_test_profile(UnitCircle)
     });
 
-  rmf_traffic::RouteId rid = 0;
   rmf_traffic::schedule::ItineraryVersion iv = 0;
   for (const auto& obstacle : obstacles)
   {
-    const auto r = std::make_shared<rmf_traffic::Route>("test_map", obstacle);
-    database.extend(p_obs.id(), {{rid++, r}}, iv++);
+    const auto r = rmf_traffic::Route("test_map", obstacle);
+    database.extend(p_obs.id(), {r}, iv++);
   }
 
   rmf_utils::optional<rmf_traffic::agv::Planner::Result> result;
@@ -2233,7 +2232,6 @@ SCENARIO("Test planner with various start conditions")
       profile
     });
   rmf_traffic::schedule::ItineraryVersion iv_o = 0;
-  rmf_traffic::RouteId ri_o = 0;
 
   const auto interrupt_flag = std::make_shared<std::atomic_bool>(false);
   Duration hold_time = std::chrono::seconds(6);
@@ -2465,9 +2463,8 @@ SCENARIO("Test planner with various start conditions")
 
       for (auto& obstacle : obstacles)
       {
-        const auto r = std::make_shared<rmf_traffic::Route>(
-          "test_map", obstacle);
-        database.extend(p_obs.id(), {{ri_o++, r}}, iv_o++);
+        const auto r = rmf_traffic::Route("test_map", obstacle);
+        database.extend(p_obs.id(), {r}, iv_o++);
       }
 
       const auto result1 = plan.replan(start1);
@@ -3129,7 +3126,7 @@ SCENARIO("Close start", "[close_start]")
   rmf_traffic::Trajectory t_obs;
   t_obs.insert(time, {-0.5, 0.0, 0.0}, {0.0, 0.0, 0.0});
   t_obs.insert(time + 10min, {-0.5, 0.0, 0.0}, {0.0, 0.0, 0.0});
-  p2.set({{test_map_name, t_obs}});
+  p2.set(p2.plan_id_assigner()->assign(), {{test_map_name, t_obs}});
 
   rmf_traffic::agv::Planner planner{
     configuration,
@@ -3240,7 +3237,7 @@ SCENARIO("Minimum time", "[minimum_time]")
   rmf_traffic::Trajectory t_obs;
   t_obs.insert(time, {0.0, 5.0, 0.0}, {0, 0, 0});
   t_obs.insert(time + duration, {0.0, -5.0, 0.0}, {0, 0, 0});
-  p2.set({{test_map_name, t_obs}});
+  p2.set(p2.plan_id_assigner()->assign(), {{test_map_name, t_obs}});
 
   rmf_traffic::agv::Planner::Configuration configuration{graph, traits};
   rmf_traffic::agv::Plan::Options options(nullptr);

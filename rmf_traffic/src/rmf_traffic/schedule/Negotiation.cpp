@@ -67,17 +67,6 @@ std::size_t termination_factor(
 }
 
 //==============================================================================
-Itinerary convert_itinerary(std::vector<Route> itinerary)
-{
-  Itinerary output;
-  output.reserve(itinerary.size());
-  for (auto&& r : itinerary)
-    output.emplace_back(std::make_shared<Route>(std::move(r)));
-
-  return output;
-}
-
-//==============================================================================
 struct NegotiationData
 {
   /// The participants that are part of the negotiation
@@ -406,7 +395,9 @@ public:
 
   const ParticipantId participant;
   const std::size_t depth;
-  rmf_utils::optional<Itinerary> itinerary;
+  // TODO(MXG): Do we really need this `itinerary` field when it's duplicated
+  // at the back of the `proposal` field?
+  std::optional<Itinerary> itinerary;
   bool rejected = false;
   bool forfeited = false;
   DefunctFlag defunct;
@@ -521,7 +512,7 @@ public:
 
   void make_descendants()
   {
-    assert(itinerary);
+    assert(itinerary.has_value());
     assert(proposal.size() == depth);
 
     assert(std::find(unsubmitted.begin(),
@@ -594,17 +585,18 @@ public:
       formerly_successful = true;
     }
 
+    itinerary = std::move(new_itinerary);
     rejected = false;
     forfeited = false;
 
     if (had_itinerary)
     {
-      proposal.back() = {participant, plan_id, std::move(new_itinerary)};
+      proposal.back() = {participant, plan_id, *itinerary};
       clear_descendants();
     }
     else
     {
-      proposal.push_back({participant, plan_id, std::move(new_itinerary)});
+      proposal.push_back({participant, plan_id, *itinerary});
     }
 
     make_descendants();
@@ -737,7 +729,7 @@ public:
 
     if (itinerary)
     {
-      itinerary = rmf_utils::nullopt;
+      itinerary = std::nullopt;
       proposal.pop_back();
     }
 

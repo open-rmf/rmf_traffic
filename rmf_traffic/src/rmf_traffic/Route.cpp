@@ -79,6 +79,28 @@ const DependsOnRoute& DependsOnPlan::routes() const
 }
 
 //==============================================================================
+DependsOnPlan& DependsOnPlan::add_dependency(
+  const CheckpointId dependent_checkpoint,
+  const RouteId other_route,
+  const CheckpointId other_checkpoint)
+{
+  const auto insertion = _pimpl->routes[other_route]
+    .insert({dependent_checkpoint, other_checkpoint});
+
+  if (!insertion.second)
+  {
+    // If the dependent checkpoint already has a dependency on this route, then
+    // we should check if the new other_checkpoint is larger than the one that
+    // already there.
+    auto& prior_checkpoint = insertion.first->second;
+    if (prior_checkpoint < other_checkpoint)
+      prior_checkpoint = other_checkpoint;
+  }
+
+  return *this;
+}
+
+//==============================================================================
 Route::Route(
   std::string map,
   Trajectory trajectory)

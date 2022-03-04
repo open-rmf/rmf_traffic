@@ -195,11 +195,13 @@ public:
   }
 
   Implementation(
+    schedule::Participant::AssignIDPtr assign_id_,
     std::vector<Planner::Start> starts_,
     Planner::Goal goal_,
     std::shared_ptr<const Planner> planner_,
     Options options_)
-  : starts(std::move(starts_)),
+  : assign_id(std::move(assign_id_)),
+    starts(std::move(starts_)),
     goal(std::move(goal_)),
     planner_options(planner_->get_default_options()),
     planner(std::move(planner_)),

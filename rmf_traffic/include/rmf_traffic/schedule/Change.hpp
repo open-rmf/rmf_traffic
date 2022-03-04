@@ -27,6 +27,8 @@
 namespace rmf_traffic {
 namespace schedule {
 
+using StorageId = uint64_t;
+
 //==============================================================================
 /// A class that describes a change within the schedule
 class Change
@@ -42,18 +44,24 @@ public:
     /// A description of an addition
     struct Item
     {
-      /// The ID of the route being added
-      RouteId id;
+      /// The ID of the route being added, relative to the plan it belongs to
+      RouteId route_id;
+
+      /// The storage ID of the route
+      StorageId storage_id;
 
       /// The information for the route being added
       ConstRoutePtr route;
     };
 
     /// Add a set of routes
-    Add(std::vector<Item> additions);
+    Add(PlanId plan, std::vector<Item> additions);
 
     /// A reference to the Trajectory that was inserted.
     const std::vector<Item>& items() const;
+
+    /// The plan ID that these routes are being added for
+    PlanId plan_id() const;
 
     class Implementation;
   private:
@@ -90,9 +98,9 @@ public:
     ///
     /// \param[in] id
     ///   The ID of the route that should be erased
-    Erase(std::vector<RouteId> ids);
+    Erase(std::vector<StorageId> ids);
 
-    const std::vector<RouteId>& ids() const;
+    const std::vector<StorageId>& ids() const;
 
     class Implementation;
   private:

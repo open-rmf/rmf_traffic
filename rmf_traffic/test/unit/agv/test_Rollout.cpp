@@ -46,17 +46,17 @@ public:
   {
     for (const auto& blocking_route : _other_itinerary)
     {
-      if (route.map() != blocking_route->map())
+      if (route.map() != blocking_route.map())
         continue;
 
-      if (blocking_route->trajectory().size() < 2)
+      if (blocking_route.trajectory().size() < 2)
         continue;
 
       if (const auto time = rmf_traffic::DetectConflict::between(
           _profile,
           route.trajectory(),
           _other_profile,
-          blocking_route->trajectory()))
+          blocking_route.trajectory()))
         return Conflict{_other_participant, *time};
     }
 
@@ -228,7 +228,7 @@ SCENARIO("Test Rollout on graph with side routes")
     rmf_traffic::agv::Plan::Start(start_time, start_0, 0.0),
     rmf_traffic::agv::Plan::Goal(goal_0), options_0);
   CHECK(plan_0);
-  p0.set(plan_0->get_itinerary());
+  p0.set(p0.plan_id_assigner()->assign(), plan_0->get_itinerary());
 
   const auto plan_1 = planner.plan(
     rmf_traffic::agv::Plan::Start(start_time, start_1, 0.0),
@@ -267,7 +267,7 @@ SCENARIO("Test Rollout on graph with side routes")
     if (new_plan_0)
     {
       found_plan = true;
-      p0.set(new_plan_0->get_itinerary());
+      p0.set(p0.plan_id_assigner()->assign(), new_plan_0->get_itinerary());
 
 //      std::cout << "Found plan:\n(start) --> ";
 //      for (const auto& wp : new_plan_0->get_waypoints())
@@ -287,10 +287,10 @@ SCENARIO("Test Rollout on graph with side routes")
 
   const auto new_plan_1 = plan_1.replan(plan_1.get_starts());
   REQUIRE(new_plan_1);
-  p1.set(new_plan_1->get_itinerary());
+  p1.set(p1.plan_id_assigner()->assign(), new_plan_1->get_itinerary());
 
   const auto new_plan_0 = plan_0.replan(plan_0.get_starts());
-  CHECK(new_plan_0);
+  CHECK(new_plan_0.success());
 //  std::cout << "Found plan:\n(start) --> ";
 //  for (const auto& wp : new_plan_0->get_waypoints())
 //  {

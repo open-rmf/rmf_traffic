@@ -188,16 +188,14 @@ public:
     ParticipantState& state,
     const Itinerary& itinerary)
   {
-    assert(entries.size() == input.size());
-
     ParticipantStorage& storage = state.storage;
 
     const auto plan_id = state.latest_plan_id;
     const auto initial_route_num = state.active_routes.size();
-    const auto final_route_num = itinerary.size() + initial_route_num;
-    for (std::size_t i = initial_route_num; i < final_route_num; ++i)
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
       const auto& route = itinerary[i];
+      const auto route_id = i + initial_route_num;
       const auto storage_id = state.next_storage_id++;
 
       state.active_routes.insert(storage_id);
@@ -208,7 +206,7 @@ public:
           std::make_shared<Route>(route),
           participant,
           plan_id,
-          i,
+          route_id,
           storage_id,
           state.description,
           schedule_version,
@@ -451,7 +449,7 @@ void Database::set(
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::set] No participant with ID ["
+      "[rmf_traffic::schedule::Database::set] No participant with ID ["
       + std::to_string(participant) + "]");
     // *INDENT-ON*
   }
@@ -495,7 +493,7 @@ void Database::extend(
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::extend] No participant with ID ["
+      "[rmf_traffic::schedule::Database::extend] No participant with ID ["
       + std::to_string(participant) + "]");
     // *INDENT-ON*
   }
@@ -600,11 +598,12 @@ void Database::clear(
 Writer::Registration register_participant_impl(
   Database::Implementation& pimpl,
   ParticipantId id,
+  ItineraryVersion last_known_version,
   ParticipantDescription description)
 {
   const Version version = ++pimpl.schedule_version;
   auto tracker = Inconsistencies::Implementation::register_participant(
-    pimpl.inconsistencies, id);
+    pimpl.inconsistencies, id, last_known_version);
 
   const auto description_ptr =
     std::make_shared<const ParticipantDescription>(std::move(description));
@@ -635,18 +634,90 @@ Writer::Registration Database::register_participant(
   ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
-  return register_participant_impl(*_pimpl, id, std::move(description));
+  return register_participant_impl(
+    *_pimpl,
+    id,
+    std::numeric_limits<ItineraryVersion>::max(),
+    std::move(description));
 }
 
 //==============================================================================
 void internal_register_participant(
   Database& database,
   ParticipantId id,
+  ItineraryVersion last_known_version,
   ParticipantDescription description)
 {
   auto& impl = Database::Implementation::get(database);
   impl.add_new_participant_id(id);
-  register_participant_impl(impl, id, std::move(description));
+  register_participant_impl(
+    impl, id, last_known_version, std::move(description));
+}
+
+//==============================================================================
+void set_participant_state(
+  Database& database,
+  ParticipantId participant,
+  PlanId plan,
+  std::vector<RouteStorageInfo> routes,
+  ItineraryVersion itinerary_version)
+{
+  using RouteEntry = Database::Implementation::RouteEntry;
+  using RouteEntryPtr = Database::Implementation::RouteEntryPtr;
+  auto& impl = Database::Implementation::get(database);
+  const auto p_it = impl.states.find(participant);
+  if (p_it == impl.states.end())
+  {
+    // *INDENT-OFF*
+    // The [rmf_traffic::schedule::Mirror] tag will be added to this message
+    // when it gets caught by that function.
+    throw std::runtime_error(
+      "No participant with ID [" + std::to_string(participant) + "]");
+    // *INDENT-ON*
+  }
+
+  auto& state = p_it->second;
+
+  // This should only be used by Mirror::fork, so the given value should always
+  // perfectly match the expectation.
+  assert(state.tracker->expected_version() == itinerary_version);
+  if (auto ticket = state.tracker->check(itinerary_version, true))
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "Inconsistency detected with the itinerary version ["
+      + std::to_string(itinerary_version) + "] of participant ["
+      + std::to_string(participant));
+    // *INDENT-ON*
+  }
+
+  state.active_routes.clear();
+  state.latest_plan_id = plan;
+  auto& storage = state.storage;
+
+  for (std::size_t i = 0; i < routes.size(); ++i)
+  {
+    const auto& info = routes[i];
+    const auto storage_id = info.storage_id;
+
+    state.active_routes.insert(storage_id);
+
+    auto& entry_storage = storage[storage_id];
+    entry_storage.entry = std::make_unique<RouteEntry>(
+      RouteEntry{
+        info.route,
+        participant,
+        plan,
+        i,
+        storage_id,
+        state.description,
+        impl.schedule_version,
+        nullptr,
+        RouteEntryPtr()
+      });
+
+    entry_storage.timeline_handle = impl.timeline.insert(entry_storage.entry);
+  }
 }
 
 //==============================================================================
@@ -885,6 +956,7 @@ public:
         changes[newest->participant].additions.emplace_back(
           Change::Add::Item{
             newest->route_id,
+            newest->storage_id,
             newest->route
           });
       }
@@ -919,6 +991,7 @@ public:
       changes[newest->participant].additions.emplace_back(
         Change::Add::Item{
           newest->route_id,
+          newest->storage_id,
           newest->route
         });
     }
@@ -1102,21 +1175,33 @@ std::shared_ptr<const ParticipantDescription> Database::get_participant(
 }
 
 //==============================================================================
-rmf_utils::optional<Itinerary> Database::get_itinerary(
-  std::size_t participant_id) const
+std::optional<ItineraryView> Database::get_itinerary(
+  const std::size_t participant_id) const
 {
   const auto state_it = _pimpl->states.find(participant_id);
   if (state_it == _pimpl->states.end())
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   const Implementation::ParticipantState& state = state_it->second;
 
-  Itinerary itinerary;
+  ItineraryView itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back(*state.storage.at(route).entry->route);
+    itinerary.push_back(state.storage.at(route).entry->route);
 
   return itinerary;
+}
+
+//==============================================================================
+std::optional<PlanId> Database::get_current_plan_id(
+  const std::size_t participant_id) const
+{
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return std::nullopt;
+
+  const auto& state = state_it->second;
+  return state.latest_plan_id;
 }
 
 //==============================================================================
@@ -1220,7 +1305,7 @@ auto Database::changes(
         state.tracker->last_known_version(),
         Change::Erase(std::move(p.second.erasures)),
         std::move(delays),
-        Change::Add(std::move(p.second.additions))
+        Change::Add(state.latest_plan_id, std::move(p.second.additions))
       });
   }
 

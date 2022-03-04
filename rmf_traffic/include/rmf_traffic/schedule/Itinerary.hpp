@@ -32,6 +32,9 @@ using ItineraryVersion = uint64_t;
 //==============================================================================
 using Itinerary = std::vector<Route>;
 
+//==============================================================================
+using ItineraryView = std::vector<std::shared_ptr<const Route>>;
+
 } // namespace schedule
 } // namespace rmf_traffic
 

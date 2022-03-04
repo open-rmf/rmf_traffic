@@ -38,10 +38,10 @@ void print_proposal(
   {
     std::cout << "\nparticipant " << proposal.participant << ":\n";
     const auto start_time =
-      *proposal.itinerary.front()->trajectory().start_time();
+      *proposal.itinerary.front().trajectory().start_time();
     for (const auto& r : proposal.itinerary)
     {
-      for (const auto& t : r->trajectory())
+      for (const auto& t : r.trajectory())
       {
         std::cout << "[" << rmf_traffic::time::to_seconds(t.time() - start_time)
                   << "]" << t.position().transpose() << std::endl;
@@ -159,13 +159,13 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
     rmf_traffic::agv::Plan::Goal(7));
   REQUIRE(plan_1);
-  p1.set(plan_1->get_itinerary());
+  p1.set(p1.plan_id_assigner()->assign(), plan_1->get_itinerary());
 
   const auto plan_2 = planner.plan(
     rmf_traffic::agv::Plan::Start(start_time, 0, 90.0*M_PI/180.0),
     rmf_traffic::agv::Plan::Goal(10));
   REQUIRE(plan_2);
-  p2.set(plan_2->get_itinerary());
+  p2.set(p2.plan_id_assigner()->assign(), plan_2->get_itinerary());
 
   bool has_conflict = false;
   for (const auto& r1 : plan_1->get_itinerary())
@@ -202,6 +202,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 //    CHECK_FALSE(negotiation->complete());
 
     rmf_traffic::agv::SimpleNegotiator negotiator_1{
+      p1.plan_id_assigner(),
       plan_1->get_start(),
       plan_1.get_goal(),
       configuration,
@@ -212,6 +213,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     GIVEN("Negotiator #2 is a SimpleNegotiator")
     {
       rmf_traffic::agv::SimpleNegotiator negotiator_2{
+        p2.plan_id_assigner(),
         plan_2->get_start(),
         plan_2.get_goal(),
         configuration,
@@ -258,8 +260,8 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
         for (const auto& r2 : proposal_2.itinerary)
         {
           CHECK_FALSE(rmf_traffic::DetectConflict::between(
-              profile, r1->trajectory(),
-              profile, r2->trajectory()));
+              profile, r1.trajectory(),
+              profile, r2.trajectory()));
         }
       }
 
@@ -330,13 +332,14 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
         rmf_traffic::agv::Plan::Goal(10));
       REQUIRE(plan_3);
 
-      p3.set(plan_3->get_itinerary());
+      p3.set(p3.plan_id_assigner()->assign(), plan_3->get_itinerary());
     }
 
     auto negotiation = std::make_shared<rmf_traffic::schedule::Negotiation>(
       *rmf_traffic::schedule::Negotiation::make(database, {p1.id(), p2.id()}));
 
     rmf_traffic::agv::SimpleNegotiator negotiator_1{
+      p1.plan_id_assigner(),
       rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
       rmf_traffic::agv::Plan::Goal(7),
       configuration,
@@ -345,6 +348,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     };
 
     rmf_traffic::agv::SimpleNegotiator negotiator_2{
+      p2.plan_id_assigner(),
       rmf_traffic::agv::Plan::Start(start_time, 7, 0.0),
       rmf_traffic::agv::Plan::Goal(3),
       configuration,
@@ -393,8 +397,8 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       for (const auto& r2 : proposal_2.itinerary)
       {
         CHECK_FALSE(rmf_traffic::DetectConflict::between(
-            profile, r1->trajectory(),
-            profile, r2->trajectory()));
+            profile, r1.trajectory(),
+            profile, r2.trajectory()));
       }
     }
 
@@ -887,7 +891,7 @@ SCENARIO("A Single Lane")
         {vertex_id_to_idx["B"]}
       );
 
-      p0.set(a0_plan_0->get_itinerary());
+      p0.set(p0.plan_id_assigner()->assign(), a0_plan_0->get_itinerary());
 
       std::vector<CentralizedNegotiation::Agent> agents;
       agents.push_back(
@@ -927,7 +931,7 @@ SCENARIO("A Single Lane")
         {vertex_id_to_idx["C"]}
       );
 
-      p0.set(a0_plan_0->get_itinerary());
+      p0.set(p0.plan_id_assigner()->assign(), a0_plan_0->get_itinerary());
 
       const auto a0_plan_1 = a0_planner.plan(
         {time + 8s, vertex_id_to_idx["C"], 0.0},
@@ -1061,7 +1065,7 @@ SCENARIO("A single lane, limited holding spaces")
         {vertex_id_to_idx["D"]}
       );
 
-      p2.set(a2_plan->get_itinerary());
+      p2.set(p2.plan_id_assigner()->assign(), a2_plan->get_itinerary());
 
       std::vector<CentralizedNegotiation::Agent> agents;
       agents.push_back(
@@ -1455,7 +1459,7 @@ SCENARIO("A single lane with an alcove holding space")
         {vertex_id_to_idx["A"]}
       );
 
-      p1.set(a1_plan->get_itinerary());
+      p1.set(p1.plan_id_assigner()->assign(), a1_plan->get_itinerary());
 
       std::vector<CentralizedNegotiation::Agent> agents;
       agents.push_back(
@@ -1495,7 +1499,7 @@ SCENARIO("A single lane with an alcove holding space")
         {vertex_id_to_idx["D"]}
       );
 
-      p1.set(a1_plan->get_itinerary());
+      p1.set(p1.plan_id_assigner()->assign(), a1_plan->get_itinerary());
 
       std::vector<CentralizedNegotiation::Agent> agents;
       agents.push_back(
@@ -1535,7 +1539,7 @@ SCENARIO("A single lane with an alcove holding space")
         {vertex_id_to_idx["A"]}
       );
 
-      p1.set(a1_plan_0->get_itinerary());
+      p1.set(p1.plan_id_assigner()->assign(), a1_plan_0->get_itinerary());
 
       const auto a1_plan_1 = a1_planner.plan(
         {time + 16s, vertex_id_to_idx["A"], 0.0},

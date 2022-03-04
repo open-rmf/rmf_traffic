@@ -130,7 +130,13 @@ public:
   /// Get the itinerary of a specific participant if it is available. If a
   /// participant with the specified ID is not registered with the schedule or
   /// has never submitted an itinerary, then this will return a nullopt.
-  virtual rmf_utils::optional<Itinerary> get_itinerary(
+  virtual std::optional<ItineraryView> get_itinerary(
+    std::size_t participant_id) const = 0;
+
+  /// Get the current plan ID of a specific participant if it is available. If
+  /// a participant with the specified ID is not registered with the schedule,
+  /// then this will return a nullopt.
+  virtual std::optional<PlanId> get_current_plan_id(
     std::size_t participant_id) const = 0;
 
   // Virtual destructor

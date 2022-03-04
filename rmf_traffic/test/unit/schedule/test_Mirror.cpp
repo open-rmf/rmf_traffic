@@ -63,7 +63,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     });
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv1 = 0;
-  rmf_traffic::RouteId rv1 = 0;
+  rmf_traffic::PlanId pv1 = 0;
 
   const auto p2 = db.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -74,7 +74,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     });
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv2 = 0;
-  rmf_traffic::RouteId rv2 = 0;
+  rmf_traffic::PlanId pv2 = 0;
 
   // Creating Trajectories to insert
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -89,10 +89,10 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   t2.insert(time+10s, Eigen::Vector3d{5, 10, 0}, Eigen::Vector3d{0, 0, 0});
   REQUIRE(t2.size() == 2);
 
-  db.set(p1.id(), create_test_input(rv1++, t1), iv1++);
+  db.set(p1.id(), pv1++, create_test_input(t1), iv1++);
   CHECK(db.latest_version() == ++dbv);
 
-  db.set(p2.id(), create_test_input(rv2++, t2), iv2++);
+  db.set(p2.id(), pv2++, create_test_input(t2), iv2++);
   CHECK(db.latest_version() == ++dbv);
   REQUIRE_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
 
@@ -113,7 +113,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     t3.insert(time, Eigen::Vector3d{-5, -10, 0}, Eigen::Vector3d{0, 0, 0});
     t3.insert(time+10s, Eigen::Vector3d{5, 10, 0}, Eigen::Vector3d{0, 0, 0});
 
-    db.extend(p1.id(), create_test_input(rv1++, t3), iv1++);
+    db.extend(p1.id(), create_test_input(t3), iv1++);
     CHECK(db.latest_version() == ++dbv);
     CHECK_TRAJECTORY_COUNT(db, 2, 3);
     CHECK(mirror.latest_version() != db.latest_version());
@@ -145,7 +145,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       t4.insert(time, Eigen::Vector3d{-5, 0, 0}, Eigen::Vector3d{0, 0, 0});
       t4.insert(time+10s, Eigen::Vector3d{-2, 0, 0}, Eigen::Vector3d{0, 0, 0});
 
-      db.set(p1.id(), create_test_input(rv1++, t4), iv1++);
+      db.set(p1.id(), pv1++, create_test_input(t4), iv1++);
       CHECK(db.latest_version() == ++dbv);
 
       view = db.query(query_all);
@@ -164,9 +164,9 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     }
 
     WHEN(
-      "Erasing conflicting trajectory in db and updating mirror should eliminate conflict")
+      "Clearing conflicting trajectory in db and updating mirror should eliminate conflict")
     {
-      db.erase(p1.id(), {0}, iv1++);
+      db.clear(p1.id(), iv1++);
       CHECK(db.latest_version() == ++dbv);
       changes = db.changes(query_all, mirror.latest_version());
       mirror.update(changes);
@@ -234,7 +234,7 @@ SCENARIO("Testing specialized mirrors")
     });
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv1 = 0;
-  rmf_traffic::RouteId rv1 = 0;
+  rmf_traffic::PlanId pv1 = 0;
 
   const auto p2 = db.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -245,7 +245,7 @@ SCENARIO("Testing specialized mirrors")
     });
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv2 = 0;
-  rmf_traffic::RouteId rv2 = 0;
+  rmf_traffic::PlanId pv2 = 0;
 
   //Creating routes r1, r2, r3 in "test_map"
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -254,36 +254,36 @@ SCENARIO("Testing specialized mirrors")
   t1.insert(time, {-5, 0, 0}, {0, 0, 0});
   t1.insert(time + 10s, {5, 0, 0}, {0, 0, 0});
   REQUIRE(t1.size() == 2);
-  const auto r1 = std::make_shared<rmf_traffic::Route>("test_map", t1);
+  const auto r1 =rmf_traffic::Route("test_map", t1);
 
   rmf_traffic::Trajectory t2;
   t2.insert(time, {-5, 10, 0}, {0, 0, 0});
   t2.insert(time+11s, {5, 10, 0}, {0, 0, 0});
   REQUIRE(t2.size() == 2);
-  const auto r2 = std::make_shared<rmf_traffic::Route>("test_map", t2);
+  const auto r2 = rmf_traffic::Route("test_map", t2);
 
   rmf_traffic::Trajectory t3;
   t3.insert(time+11s, {0, -5, 0}, {0, 0, 0});
   t3.insert(time+20s, {0, 5, 0}, {0, 0, 0});
   REQUIRE(t3.size() == 2);
-  const auto r3 = std::make_shared<rmf_traffic::Route>("test_map", t3);
+  const auto r3 = rmf_traffic::Route("test_map", t3);
 
   // creating routes r4 and r5 in "test_map_2"
   rmf_traffic::Trajectory t4;
   t4.insert(time, {-5, 0, 0}, {0, 0, 0});
   t4.insert(time + 10s, {5, 0, 0}, {0, 0, 0});
   REQUIRE(t4.size() == 2);
-  const auto r4 = std::make_shared<rmf_traffic::Route>("test_map_2", t4);
+  const auto r4 = rmf_traffic::Route("test_map_2", t4);
 
   rmf_traffic::Trajectory t5;
   t5.insert(time, {-5, 10, 0}, {0, 0, 0});
   t5.insert(time+10s, {5, 10, 0}, {0, 0, 0});
   REQUIRE(t5.size() == 2);
-  const auto r5 = std::make_shared<rmf_traffic::Route>("test_map_2", t5);
+  const auto r5 = rmf_traffic::Route("test_map_2", t5);
 
-  db.set(p1.id(), {{rv1++, r1}, {rv1++, r2}, {rv1++, r4}}, iv1++);
+  db.set(p1.id(), pv1++, {r1, r2, r4}, iv1++);
   CHECK(db.latest_version() == ++dbv);
-  db.set(p2.id(), {{rv2++, r3}, {rv2++, r5}}, iv2++);
+  db.set(p2.id(), pv2++, {r3, r5}, iv2++);
   CHECK(db.latest_version() == ++dbv);
 
   // Check that there are no conflicts between the routes on test_map
@@ -318,7 +318,7 @@ SCENARIO("Testing specialized mirrors")
     CHECK(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
-    CHECK(changes.begin()->additions().items().begin()->id == 0);
+    CHECK(changes.begin()->additions().items().begin()->storage_id == 0);
   }
 
   GIVEN("Query patch with spacetime region overlapping with t2")
@@ -347,7 +347,7 @@ SCENARIO("Testing specialized mirrors")
     CHECK(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
-    CHECK(changes.begin()->additions().items().begin()->id == 1);
+    CHECK(changes.begin()->additions().items().begin()->storage_id == 1);
   }
 
 //  // COMMENTED DUE TO NON-DETERMINISTIC BEHAVIOR OF FCL
@@ -404,7 +404,7 @@ SCENARIO("Testing specialized mirrors")
     CHECK(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p2.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
-    CHECK(changes.begin()->additions().items().begin()->id == 0);
+    CHECK(changes.begin()->additions().items().begin()->storage_id == 0);
   }
 
   GIVEN("Query patch with spacetime region overlapping with t1 and t3")
@@ -440,7 +440,7 @@ SCENARIO("Testing specialized mirrors")
     for (const auto& c : changes)
     {
       for (const auto& i : c.additions().items())
-        ids[c.participant_id()].insert(i.id);
+        ids[c.participant_id()].insert(i.storage_id);
     }
 
     IdMap expected_ids;
@@ -480,7 +480,7 @@ SCENARIO("Testing specialized mirrors")
     for (const auto& c : changes)
     {
       for (const auto& i : c.additions().items())
-        ids[c.participant_id()].insert(i.id);
+        ids[c.participant_id()].insert(i.storage_id);
     }
 
     IdMap expected_ids;
@@ -510,19 +510,20 @@ public:
 
   void set(
     ParticipantId participant,
-    const Input& itinerary,
+    PlanId plan,
+    const Itinerary& itinerary,
     ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->set(participant, itinerary, version);
+    _database->set(participant, plan, itinerary, version);
     _mirror.update(_database->changes(_all, _mirror.latest_version()));
   }
 
   void extend(
     ParticipantId participant,
-    const Input& routes,
+    const Itinerary& routes,
     ItineraryVersion version) final
   {
     if (drop_packets)
@@ -544,24 +545,12 @@ public:
     _mirror.update(_database->changes(_all, _mirror.latest_version()));
   }
 
-  void erase(ParticipantId participant, ItineraryVersion version) final
+  void clear(ParticipantId participant, ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->erase(participant, version);
-    _mirror.update(_database->changes(_all, _mirror.latest_version()));
-  }
-
-  void erase(
-    ParticipantId participant,
-    const std::vector<RouteId>& routes,
-    ItineraryVersion version) final
-  {
-    if (drop_packets)
-      return;
-
-    _database->erase(participant, routes, version);
+    _database->clear(participant, version);
     _mirror.update(_database->changes(_all, _mirror.latest_version()));
   }
 
@@ -674,7 +663,7 @@ SCENARIO("Test forking off of mirrors")
 
   const std::string test_map = "test_map";
 
-  p0.set({{test_map, trajectory}});
+  p0.set(p0.plan_id_assigner()->assign(), {{test_map, trajectory}});
 
   writer->drop_packets = true;
 
@@ -708,47 +697,33 @@ SCENARIO("Test forking off of mirrors")
   writer->rectify();
 
   {
-    const auto itinerary = convert_itinerary(
-      *rmf_traffic::schedule::Database::Debug::get_itinerary(
-        writer->database(), p0.id()));
-    REQUIRE(p0.itinerary().size() == itinerary.size());
-
-    for (const auto& [route_id, route] : p0.itinerary())
+    const auto database_itinerary = writer->database().get_itinerary(p0.id());
+    REQUIRE(database_itinerary.has_value());
+    REQUIRE(p0.itinerary().size() == database_itinerary->size());
+    for (std::size_t i = 0; i < p0.itinerary().size(); ++i)
     {
-      const auto db_it = itinerary.find(route_id);
-      REQUIRE(db_it != itinerary.end());
-      CHECK(route->map() == db_it->second->map());
-      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
+      const auto& database_route = database_itinerary->at(i);
+      const auto& participant_route = p0.itinerary().at(i);
+      CHECK(database_route->map() == participant_route.map());
+      CHECK_EQUAL_TRAJECTORY(
+        database_route->trajectory(), participant_route.trajectory());
     }
   }
 
-  p0.set({{test_map, trajectory}});
+  p0.set(p0.plan_id_assigner()->assign(), {{test_map, trajectory}});
 
   writer->failover();
 
-  {
-    // This block tests to make sure the new Database's itinerary information
-    // perfectly matches the participant's intended itinerary information.
-    const auto itinerary = convert_itinerary(
-      *rmf_traffic::schedule::Database::Debug::get_itinerary(
-        writer->database(), p0.id()));
-    REQUIRE(p0.itinerary().size() == itinerary.size());
-
-    for (const auto& [route_id, route] : p0.itinerary())
-    {
-      const auto db_it = itinerary.find(route_id);
-      REQUIRE(db_it != itinerary.end());
-      CHECK(route->map() == db_it->second->map());
-      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
-    }
-  }
+  // This tests to make sure the new Database's itinerary information
+  // perfectly matches the participant's intended itinerary information.
+  CHECK_ITINERARY(p0, writer->database());
 
   p0.clear();
 
   writer->drop_packets = true;
 
   trajectory.insert(now + 32s, {10, 0, 0}, {0, 0, 0});
-  p0.set({{test_map, trajectory}});
+  p0.set(p0.plan_id_assigner()->assign(), {{test_map, trajectory}});
   p0.delay(20s);
 
   trajectory.insert(now + 10s, {0, 10, 0}, {0, 0, 0});
@@ -757,37 +732,11 @@ SCENARIO("Test forking off of mirrors")
   writer->drop_packets = false;
   writer->rectify();
 
-  {
-    const auto itinerary = convert_itinerary(
-      *rmf_traffic::schedule::Database::Debug::get_itinerary(
-        writer->database(), p0.id()));
-    REQUIRE(p0.itinerary().size() == itinerary.size());
-
-    for (const auto& [route_id, route] : p0.itinerary())
-    {
-      const auto db_it = itinerary.find(route_id);
-      REQUIRE(db_it != itinerary.end());
-      CHECK(route->map() == db_it->second->map());
-      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
-    }
-  }
+  CHECK_ITINERARY(p0, writer->database());
 
   writer->failover();
 
-  {
-    const auto itinerary = convert_itinerary(
-      *rmf_traffic::schedule::Database::Debug::get_itinerary(
-        writer->database(), p0.id()));
-    REQUIRE(p0.itinerary().size() == itinerary.size());
-
-    for (const auto& [route_id, route] : p0.itinerary())
-    {
-      const auto db_it = itinerary.find(route_id);
-      REQUIRE(db_it != itinerary.end());
-      CHECK(route->map() == db_it->second->map());
-      CHECK_EQUAL_TRAJECTORY(route->trajectory(), db_it->second->trajectory());
-    }
-  }
+  CHECK_ITINERARY(p0, writer->database());
 
   writer->drop_packets = true;
   p0.clear();

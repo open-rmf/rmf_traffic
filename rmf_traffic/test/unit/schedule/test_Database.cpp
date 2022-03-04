@@ -82,8 +82,8 @@ SCENARIO("Test Database Conflicts")
     REQUIRE(t1.size() == 2);
 
     rmf_traffic::schedule::ItineraryVersion iv1 = 0;
-    rmf_traffic::RouteId rv1 = 0;
-    db.set(p1.id(), create_test_input(rv1++, t1), iv1++);
+    rmf_traffic::RouteId pv1 = 0;
+    db.set(p1.id(), pv1++, create_test_input(t1), iv1++);
     CHECK(db.latest_version() == ++dbv);
 
     // query for the changes after version 0
@@ -92,7 +92,7 @@ SCENARIO("Test Database Conflicts")
     REQUIRE(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
-    CHECK(changes.begin()->additions().items().begin()->id == 0);
+    CHECK(changes.begin()->additions().items().begin()->storage_id == 0);
     CHECK_FALSE(changes.cull());
     CHECK(changes.latest_version() == db.latest_version());
     CHECK_TRAJECTORY_COUNT(db, 1, 1);
@@ -104,7 +104,7 @@ SCENARIO("Test Database Conflicts")
       t2.insert(time+10min, Eigen::Vector3d{0, 5, 0}, Eigen::Vector3d{0, 0, 0});
       REQUIRE(t2.size() == 2);
 
-      db.extend(p1.id(), create_test_input(rv1++, t2), iv1++);
+      db.extend(p1.id(), create_test_input(t2), iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 2);
 
@@ -123,7 +123,7 @@ SCENARIO("Test Database Conflicts")
       REQUIRE(changes.size() == 1);
       CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 1);
-      CHECK(changes.begin()->additions().items().begin()->id == 1);
+      CHECK(changes.begin()->additions().items().begin()->storage_id == 1);
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());
@@ -191,38 +191,9 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.latest_version() == db.latest_version());
     }
 
-    // WHEN("Trajectory is erased")
-    {
-      db.erase(p1.id(), {1}, iv1++);
-      CHECK(db.latest_version() == ++dbv);
-      CHECK_TRAJECTORY_COUNT(db, 1, 1);
-
-      // query from the start
-      changes = db.changes(query_all, rmf_utils::nullopt);
-      REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1.id());
-      REQUIRE(changes.begin()->additions().items().size() == 1);
-      CHECK(changes.begin()->additions().items().begin()->id == 0);
-      CHECK(changes.begin()->delays().size() == 0);
-      CHECK(changes.begin()->erasures().ids().size() == 0);
-      CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == db.latest_version());
-
-      // query the diff
-      changes = db.changes(query_all, db.latest_version()-1);
-      REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1.id());
-      CHECK(changes.begin()->additions().items().size() == 0);
-      CHECK(changes.begin()->delays().size() == 0);
-      REQUIRE(changes.begin()->erasures().ids().size() == 1);
-      CHECK(changes.begin()->erasures().ids().front() == 1);
-      CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == db.latest_version());
-    }
-
     // WHEN("Itinerary is erased")
     {
-      db.erase(p1.id(), iv1++);
+      db.clear(p1.id(), iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 0);
 

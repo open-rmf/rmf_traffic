@@ -44,9 +44,10 @@ public:
 
   struct ParticipantState
   {
-    std::unordered_map<RouteId, RouteStorage> storage;
+    std::unordered_map<StorageId, RouteStorage> storage;
     std::shared_ptr<const ParticipantDescription> description;
     ItineraryVersion itinerary_version;
+    PlanId current_plan_id;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
@@ -113,15 +114,16 @@ public:
     const ParticipantId participant,
     ParticipantState& state,
     const RouteId route_id,
+    const StorageId storage_id,
     const ConstRoutePtr& route)
   {
-    auto insertion = state.storage.insert({route_id, RouteStorage()});
+    auto insertion = state.storage.insert({storage_id, RouteStorage()});
     const bool inserted = insertion.second;
     if (!inserted)
     {
-      std::cerr << "[Mirror::update] Inserting a route [" << route_id
-                << "] which already exists for participant [" << participant
-                << "]" << std::endl;
+      std::cerr << "[Mirror::update] Inserting a route at storage_id ["
+                << storage_id << "] which is already used for participant ["
+                << participant << "]" << std::endl;
       // NOTE(MXG): We will continue anyway. The new route will simply
       // overwrite the old one.
     }
@@ -131,6 +133,7 @@ public:
       RouteEntry{
         std::move(route),
         participant,
+        state.current_plan_id,
         route_id,
         state.description
       });
@@ -148,7 +151,8 @@ public:
       add_route(
         participant,
         state,
-        item.id,
+        item.route_id,
+        item.storage_id,
         std::make_shared<const Route>(*item.route));
     }
   }
@@ -249,8 +253,8 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
 }
 
 //==============================================================================
-std::optional<Itinerary> Mirror::get_itinerary(
-  std::size_t participant_id) const
+std::optional<ItineraryView> Mirror::get_itinerary(
+  const std::size_t participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
@@ -261,16 +265,27 @@ std::optional<Itinerary> Mirror::get_itinerary(
     if (_pimpl->participant_ids.count(participant_id) > 0)
       return {};
 
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   const auto& state = p->second;
-  Itinerary itinerary;
+  ItineraryView itinerary;
   itinerary.reserve(state.storage.size());
   for (const auto& s : state.storage)
     itinerary.push_back(s.second.entry->route);
 
   return itinerary;
+}
+
+//==============================================================================
+std::optional<PlanId> Mirror::get_current_plan_id(
+  const std::size_t participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return std::nullopt;
+
+  return p->second.current_plan_id;
 }
 
 //==============================================================================
@@ -355,14 +370,16 @@ void Mirror::update_participants_info(
       const auto old_storage = state.storage;
 
       // Clear out the state's copy of the route information
-      p_it->second.storage.clear();
+      state.storage.clear();
 
       // Insert new routes that are equivalent to the old ones, but which have
       // the updated description.
-      for (const auto& [route_id, route_storage] : old_storage)
+      for (const auto& [storage_id, route_storage] : old_storage)
       {
-        const auto& route = route_storage.entry->route;
-        _pimpl->add_route(participant_id, state, route_id, route);
+        const auto& entry = *route_storage.entry;
+        const auto& route = entry.route;
+        _pimpl->add_route(
+          participant_id, state, entry.route_id, storage_id, route);
       }
     }
   }
@@ -454,20 +471,43 @@ Database Mirror::fork() const
 {
   Database output;
 
-  for (const auto& [id, description] : _pimpl->descriptions)
-    internal_register_participant(output, id, *description);
-
-  for (const auto& [participant, state] : _pimpl->states)
+  try
   {
-    Writer::Input input;
-    input.reserve(state.storage.size());
-    for (const auto& [route_id, route] : state.storage)
-      input.emplace_back(Writer::Item{route_id, route.entry->route});
+    for (const auto& [id, description] : _pimpl->descriptions)
+    {
+      ItineraryVersion v = std::numeric_limits<ItineraryVersion>::max();
+      const auto p_it = _pimpl->states.find(id);
+      if (p_it != _pimpl->states.end())
+        v = p_it->second.itinerary_version-1;
 
-    output.set(participant, input, state.itinerary_version);
+      internal_register_participant(output, id, v, *description);
+    }
+
+    for (const auto& [participant, state] : _pimpl->states)
+    {
+      std::vector<RouteStorageInfo> routes;
+      routes.reserve(state.storage.size());
+      for (const auto& [storage_id, route] : state.storage)
+      {
+        routes.emplace_back(
+          RouteStorageInfo{storage_id, route.entry->route_id, route.entry->route});
+      }
+
+      set_participant_state(
+        output,
+        participant,
+        state.current_plan_id,
+        routes,
+        state.itinerary_version);
+    }
+
+    set_initial_fork_version(output, _pimpl->latest_version);
   }
-
-  set_initial_fork_version(output, _pimpl->latest_version);
+  catch (const std::exception& e)
+  {
+    throw std::runtime_error(
+      std::string("[rmf_traffic::schedule::Mirror] ") + e.what());
+  }
 
   return output;
 }

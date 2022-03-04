@@ -53,6 +53,16 @@ Participant::Implementation::Shared::Shared(
 void Participant::Implementation::Shared::set(
   PlanId plan, std::vector<Route> itinerary)
 {
+  if (rmf_utils::modular(plan).less_than_or_equal(_current_plan_id))
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "[Participant::set] The given plan ID [" + std::to_string(plan)
+      + "] needs to be greater than the current ["
+      + std::to_string(_current_plan_id) + "]");
+    // *INDENT-ON*
+  }
+
   // TODO(MXG): Consider issuing an exception or warning when a single-point
   // trajectory is submitted.
   const auto r_it = std::remove_if(itinerary.begin(), itinerary.end(),
@@ -68,6 +78,8 @@ void Participant::Implementation::Shared::set(
 
   _change_history.clear();
   _cumulative_delay = std::chrono::seconds(0);
+  _current_plan_id = plan;
+  _assign_plan_id->fast_forward_to(plan);
   _current_itinerary = std::move(itinerary);
 
   const ItineraryVersion itinerary_version = get_next_version();

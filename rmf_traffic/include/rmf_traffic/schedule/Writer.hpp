@@ -35,6 +35,7 @@ public:
 
   using ParticipantId = rmf_traffic::schedule::ParticipantId;
   using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
+  using Itinerary = rmf_traffic::schedule::Itinerary;
   using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
   using PlanId = rmf_traffic::PlanId;
   using Duration = rmf_traffic::Duration;

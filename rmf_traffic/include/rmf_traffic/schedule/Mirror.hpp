@@ -54,12 +54,20 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
-  std::optional<Itinerary> get_itinerary(
-    std::size_t participant_id) const final;
-
-  // Documentation inherited from Viewer
   Version latest_version() const final;
 
+
+  //============================================================================
+  // ItineraryViewer API
+  //============================================================================
+
+  // Documentation inherited from ItineraryViewer
+  std::optional<ItineraryView> get_itinerary(
+    std::size_t participant_id) const final;
+
+  // Documentation inherited from ItineraryViewer
+  std::optional<PlanId> get_current_plan_id(
+    std::size_t participant_id) const final;
 
   //============================================================================
   // Snappable API

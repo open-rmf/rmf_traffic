@@ -37,7 +37,7 @@ struct MockNegotiator : public rmf_traffic::schedule::Negotiator
     const ResponderPtr& responder) final
   {
     if (Submit == _choice)
-      responder->submit({});
+      responder->submit(0, {});
     else if (Reject == _choice)
       responder->reject({});
     else
@@ -224,11 +224,12 @@ public:
   }
 
   void submit(
+    rmf_traffic::PlanId plan,
     std::vector<rmf_traffic::Route> itinerary,
     std::function<UpdateVersion()>) const final
   {
     *version = table->version() + 1;
-    *accepted = table->submit(std::move(itinerary), **version);
+    *accepted = table->submit(plan, std::move(itinerary), **version);
   }
 
   void reject(const Alternatives& alternatives) const final

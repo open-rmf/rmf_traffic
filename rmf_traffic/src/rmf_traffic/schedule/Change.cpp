@@ -41,14 +41,17 @@ class Change::Add::Implementation
 {
 public:
 
+  PlanId plan;
   std::vector<Item> additions;
 
 };
 
 //==============================================================================
-Change::Add::Add(std::vector<Item> additions)
+Change::Add::Add(
+  rmf_traffic::PlanId plan,
+  std::vector<Item> additions)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(additions)}))
+      Implementation{plan, std::move(additions)}))
 {
   // Do nothing
 }
@@ -77,12 +80,12 @@ class Change::Erase::Implementation
 {
 public:
 
-  std::vector<RouteId> ids;
+  std::vector<StorageId> ids;
 
 };
 
 //==============================================================================
-Change::Erase::Erase(std::vector<RouteId> ids)
+Change::Erase::Erase(std::vector<StorageId> ids)
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{std::move(ids)}))
 {
   // Do nothing

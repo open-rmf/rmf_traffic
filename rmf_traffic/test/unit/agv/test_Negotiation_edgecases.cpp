@@ -83,18 +83,6 @@ void check_start_compatibility(
 }
 
 //==============================================================================
-rmf_traffic::schedule::Itinerary convert(
-  const std::vector<rmf_traffic::Route>& itinerary)
-{
-  rmf_traffic::schedule::Itinerary output;
-  output.reserve(itinerary.size());
-  for (const auto& it : itinerary)
-    output.push_back(std::make_shared<rmf_traffic::Route>(it));
-
-  return output;
-}
-
-//==============================================================================
 std::vector<rmf_traffic::schedule::Itinerary> multiply(
   const rmf_traffic::schedule::Itinerary& itinerary,
   const std::size_t num = 10)
@@ -441,8 +429,8 @@ SCENARIO("Test cycling through all negotiation alternatives")
   const auto plan_1 = planner.plan(start_1, goal_1);
   const auto plan_2 = planner.plan(start_2, goal_2);
 
-  const auto alt_1 = multiply(convert(plan_1->get_itinerary()));
-  const auto alt_2 = multiply(convert(plan_2->get_itinerary()));
+  const auto alt_1 = multiply(plan_1->get_itinerary());
+  const auto alt_2 = multiply(plan_2->get_itinerary());
   const auto alt_3 = alt_2;
 
   WHEN("One rejects")
@@ -520,10 +508,10 @@ SCENARIO("Test empty proposal")
   const auto not_empty_route =
     rmf_traffic::Route("test_map", not_empty_trajectory);
 
-  negotiation.table(0, {})->submit({}, 1);
-  negotiation.table(1, {})->submit({not_empty_route}, 1);
-  negotiation.table(1, {0})->submit({not_empty_route}, 1);
-  negotiation.table(0, {1})->submit({not_empty_route}, 1);
+  negotiation.table(0, {})->submit(0, {}, 1);
+  negotiation.table(1, {})->submit(0, {not_empty_route}, 1);
+  negotiation.table(1, {0})->submit(0, {not_empty_route}, 1);
+  negotiation.table(0, {1})->submit(0, {not_empty_route}, 1);
 
   const auto quickest_finish =
     negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());

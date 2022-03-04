@@ -1714,16 +1714,9 @@ public:
       auto node = finished_rollouts.top();
       finished_rollouts.pop();
 
-      schedule::Itinerary itinerary;
       auto [routes, _] = reconstruct_routes(reconstruct_nodes(node), max_span);
-      for (auto& r : routes)
-      {
-        assert(r.trajectory().size() > 0);
-        itinerary.emplace_back(std::make_shared<Route>(std::move(r)));
-      }
-
-      assert(!itinerary.empty());
-      alternatives.emplace_back(std::move(itinerary));
+      assert(!routes.empty());
+      alternatives.emplace_back(std::move(routes));
     }
 
     return alternatives;
