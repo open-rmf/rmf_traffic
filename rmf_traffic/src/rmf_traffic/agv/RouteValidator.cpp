@@ -18,6 +18,8 @@
 #include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 

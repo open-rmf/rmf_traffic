@@ -82,8 +82,9 @@ SCENARIO("Test Database Conflicts")
     REQUIRE(t1.size() == 2);
 
     rmf_traffic::schedule::ItineraryVersion iv1 = 0;
-    rmf_traffic::RouteId pv1 = 0;
-    db.set(p1.id(), pv1++, create_test_input(t1), iv1++);
+    rmf_traffic::PlanId pv1 = 0;
+    rmf_traffic::schedule::Writer::StorageId sv1 = 0;
+    db.set(p1.id(), pv1++, create_test_input(t1), sv1++, iv1++);
     CHECK(db.latest_version() == ++dbv);
 
     // query for the changes after version 0
@@ -132,7 +133,7 @@ SCENARIO("Test Database Conflicts")
 
     // WHEN("Trajectory is delayed")
     {
-      //introduce a delay after the first waypoint in t1
+      // introduce a delay
       const auto duration = 5s;
       db.delay(p1.id(), duration, iv1++);
       CHECK(db.latest_version() == ++dbv);
@@ -209,7 +210,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
       CHECK(changes.begin()->delays().size() == 0);
-      REQUIRE(changes.begin()->erasures().ids().size() == 1);
+      REQUIRE(changes.begin()->erasures().ids().size() == 2);
       CHECK(changes.begin()->erasures().ids().front() == 0);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());

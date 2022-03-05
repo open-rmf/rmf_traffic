@@ -45,12 +45,13 @@ public:
     ParticipantId participant,
     PlanId plan,
     const Itinerary& itinerary,
+    StorageId storage_base,
     ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->set(participant, plan, itinerary, version);
+    _database->set(participant, plan, itinerary, storage_base, version);
   }
 
   void extend(
@@ -473,7 +474,7 @@ SCENARIO("Test Participant")
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
-  GIVEN("Changes: sddxeX")
+  GIVEN("Changes: sddxX")
   {
     writer->drop_packets = true;
 
@@ -509,7 +510,7 @@ SCENARIO("Test Participant")
 
     // Extend the itinerary
     p1.extend({Route{"test_map_2", t3}});
-    CHECK(p1.itinerary().size() == 3);
+    CHECK(p1.itinerary().size() == 4);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
     CHECK(db->get_itinerary(p1.id())->empty());
@@ -519,13 +520,13 @@ SCENARIO("Test Participant")
     CHECK(db->inconsistencies().begin()->participant == p1.id());
     const auto inconsistency = db->inconsistencies().begin();
     CHECK(inconsistency->ranges.size() == 1);
-    CHECK(inconsistency->ranges.last_known_version() == 5);
+    CHECK(inconsistency->ranges.last_known_version() == 4);
     CHECK(inconsistency->ranges.begin()->lower == 0);
-    CHECK(inconsistency->ranges.begin()->upper == 4);
+    CHECK(inconsistency->ranges.begin()->upper == 3);
 
     // Fix inconsistencies
     rectifier->rectify();
-    dbv += 6;
+    dbv += 5;
     CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);

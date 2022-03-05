@@ -42,6 +42,7 @@ Participant::Implementation::Shared::Shared(
   _description(std::move(description)),
   _writer(std::move(writer)),
   _current_plan_id(registration.last_plan_id()),
+  _next_storage_base(registration.next_storage_base()),
   _version_mismatch_limiter(1min, 5),
   _assign_plan_id(
     std::make_shared<AssignIDPtr::element_type>(_current_plan_id+1))
@@ -63,11 +64,19 @@ void Participant::Implementation::Shared::set(
     // *INDENT-ON*
   }
 
-  // TODO(MXG): Consider issuing an exception or warning when a single-point
-  // trajectory is submitted.
-  const auto r_it = std::remove_if(itinerary.begin(), itinerary.end(),
-      [](const auto& r) { return r.trajectory().size() < 2; });
-  itinerary.erase(r_it, itinerary.end());
+  for (std::size_t i = 0; i < itinerary.size(); ++i)
+  {
+    const auto& r = itinerary[i];
+    if (r.trajectory().size() < 2)
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[Participant::set] Route [" + std::to_string(i) + "] has a trajectory "
+        "of size [" + std::to_string(r.trajectory().size()) + "], but the "
+        "minimum acceptable size is 2.");
+      // *INDENT-ON*
+    }
+  }
 
   if (itinerary.empty())
   {
@@ -79,6 +88,8 @@ void Participant::Implementation::Shared::set(
   _change_history.clear();
   _cumulative_delay = std::chrono::seconds(0);
   _current_plan_id = plan;
+  const auto storage_base = _next_storage_base;
+  _next_storage_base += itinerary.size();
   _assign_plan_id->fast_forward_to(plan);
   _current_itinerary = std::move(itinerary);
 
@@ -90,11 +101,87 @@ void Participant::Implementation::Shared::set(
       itinerary = _current_itinerary,
       itinerary_version,
       id,
-      plan
+      plan,
+      storage_base
     ]()
     {
       if (const auto me = self.lock())
-        me->_writer->set(id, plan, itinerary, itinerary_version);
+        me->_writer->set(id, plan, itinerary, storage_base, itinerary_version);
+    };
+
+  _change_history[itinerary_version] = change;
+  change();
+}
+
+//==============================================================================
+void Participant::Implementation::Shared::extend(
+  std::vector<Route> additional_routes)
+{
+  for (std::size_t i = 0; i < additional_routes.size(); ++i)
+  {
+    const auto& r = additional_routes[i];
+    if (r.trajectory().size() < 2)
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[Participant::extend] Route [" + std::to_string(i) + "] has a "
+        "trajectory of size [" + std::to_string(r.trajectory().size()) + "], "
+        "but the minimum acceptable size is 2.");
+      // *INDENT-ON*
+    }
+  }
+
+  if (additional_routes.empty())
+    return;
+
+  _next_storage_base += additional_routes.size();
+  _current_itinerary.reserve(
+    _current_itinerary.size() + additional_routes.size());
+
+  for (const auto& item : additional_routes)
+    _current_itinerary.push_back(item);
+
+  const ItineraryVersion itinerary_version = get_next_version();
+  const ParticipantId id = _id;
+  auto change =
+    [self = weak_from_this(), additional_routes, itinerary_version, id]()
+    {
+      if (const auto me = self.lock())
+        me->_writer->extend(id, additional_routes, itinerary_version);
+    };
+
+  _change_history[itinerary_version] = change;
+  change();
+}
+
+//==============================================================================
+void Participant::Implementation::Shared::delay(Duration delay)
+{
+  bool no_delays = true;
+  for (auto& route : _current_itinerary)
+  {
+    if (route.trajectory().size() > 0)
+    {
+      no_delays = false;
+      route.trajectory().front().adjust_times(delay);
+    }
+  }
+
+  if (no_delays)
+  {
+    // We don't need to make any changes, because there are no waypoints to move
+    return;
+  }
+
+  _cumulative_delay += delay;
+
+  const ItineraryVersion itinerary_version = get_next_version();
+  const ParticipantId id = _id;
+  auto change =
+    [self = weak_from_this(), delay, itinerary_version, id]()
+    {
+      if (const auto me = self.lock())
+        me->_writer->delay(id, delay, itinerary_version);
     };
 
   _change_history[itinerary_version] = change;
@@ -274,63 +361,15 @@ void Participant::set(PlanId plan, std::vector<Route> itinerary)
 }
 
 //==============================================================================
-void Participant::extend(const std::vector<Route>& additional_routes)
+void Participant::extend(std::vector<Route> additional_routes)
 {
-  const auto& p = _pimpl->_shared;
-
-  p->_current_itinerary.reserve(
-    p->_current_itinerary.size() + additional_routes.size());
-
-  for (const auto& item : additional_routes)
-    p->_current_itinerary.push_back(item);
-
-  const ItineraryVersion itinerary_version = p->get_next_version();
-  const ParticipantId id = p->_id;
-  auto change =
-    [self = p.get(), additional_routes, itinerary_version, id]()
-    {
-      // See note in Participant::set::[lambda<change>]
-      self->_writer->extend(id, additional_routes, itinerary_version);
-    };
-
-  p->_change_history[itinerary_version] = change;
-  change();
+  return _pimpl->_shared->extend(additional_routes);
 }
 
 //==============================================================================
 void Participant::delay(Duration delay)
 {
-  const auto& p = _pimpl->_shared;
-
-  bool no_delays = true;
-  for (auto& route : p->_current_itinerary)
-  {
-    if (route.trajectory().size() > 0)
-    {
-      no_delays = false;
-      route.trajectory().front().adjust_times(delay);
-    }
-  }
-
-  if (no_delays)
-  {
-    // We don't need to make any changes, because there are no waypoints to move
-    return;
-  }
-
-  p->_cumulative_delay += delay;
-
-  const ItineraryVersion itinerary_version = p->get_next_version();
-  const ParticipantId id = p->_id;
-  auto change =
-    [self = p.get(), delay, itinerary_version, id]()
-    {
-      // See note in Participant::set::[lambda<change>]
-      self->_writer->delay(id, delay, itinerary_version);
-    };
-
-  p->_change_history[itinerary_version] = change;
-  change();
+  return _pimpl->_shared->delay(delay);
 }
 
 //==============================================================================

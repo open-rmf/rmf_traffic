@@ -64,6 +64,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv1 = 0;
   rmf_traffic::PlanId pv1 = 0;
+  rmf_traffic::schedule::Writer::StorageId sv1 = 0;
 
   const auto p2 = db.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -75,6 +76,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv2 = 0;
   rmf_traffic::PlanId pv2 = 0;
+  rmf_traffic::schedule::Writer::StorageId sv2 = 0;
 
   // Creating Trajectories to insert
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -89,10 +91,10 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   t2.insert(time+10s, Eigen::Vector3d{5, 10, 0}, Eigen::Vector3d{0, 0, 0});
   REQUIRE(t2.size() == 2);
 
-  db.set(p1.id(), pv1++, create_test_input(t1), iv1++);
+  db.set(p1.id(), pv1++, create_test_input(t1), sv1++, iv1++);
   CHECK(db.latest_version() == ++dbv);
 
-  db.set(p2.id(), pv2++, create_test_input(t2), iv2++);
+  db.set(p2.id(), pv2++, create_test_input(t2), sv2++, iv2++);
   CHECK(db.latest_version() == ++dbv);
   REQUIRE_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
 
@@ -114,6 +116,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     t3.insert(time+10s, Eigen::Vector3d{5, 10, 0}, Eigen::Vector3d{0, 0, 0});
 
     db.extend(p1.id(), create_test_input(t3), iv1++);
+    ++sv1;
     CHECK(db.latest_version() == ++dbv);
     CHECK_TRAJECTORY_COUNT(db, 2, 3);
     CHECK(mirror.latest_version() != db.latest_version());
@@ -145,7 +148,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       t4.insert(time, Eigen::Vector3d{-5, 0, 0}, Eigen::Vector3d{0, 0, 0});
       t4.insert(time+10s, Eigen::Vector3d{-2, 0, 0}, Eigen::Vector3d{0, 0, 0});
 
-      db.set(p1.id(), pv1++, create_test_input(t4), iv1++);
+      db.set(p1.id(), pv1++, create_test_input(t4), sv1++, iv1++);
       CHECK(db.latest_version() == ++dbv);
 
       view = db.query(query_all);
@@ -235,6 +238,7 @@ SCENARIO("Testing specialized mirrors")
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv1 = 0;
   rmf_traffic::PlanId pv1 = 0;
+  rmf_traffic::schedule::Writer::StorageId sv1 = 0;
 
   const auto p2 = db.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -246,6 +250,7 @@ SCENARIO("Testing specialized mirrors")
   CHECK(db.latest_version() == ++dbv);
   rmf_traffic::schedule::ItineraryVersion iv2 = 0;
   rmf_traffic::PlanId pv2 = 0;
+  rmf_traffic::schedule::Writer::StorageId sv2 = 0;
 
   //Creating routes r1, r2, r3 in "test_map"
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -281,9 +286,11 @@ SCENARIO("Testing specialized mirrors")
   REQUIRE(t5.size() == 2);
   const auto r5 = rmf_traffic::Route("test_map_2", t5);
 
-  db.set(p1.id(), pv1++, {r1, r2, r4}, iv1++);
+  db.set(p1.id(), pv1++, {r1, r2, r4}, sv1, iv1++);
+  sv1 += 3;
   CHECK(db.latest_version() == ++dbv);
-  db.set(p2.id(), pv2++, {r3, r5}, iv2++);
+  db.set(p2.id(), pv2++, {r3, r5}, sv2, iv2++);
+  sv2 += 2;
   CHECK(db.latest_version() == ++dbv);
 
   // Check that there are no conflicts between the routes on test_map
@@ -512,12 +519,13 @@ public:
     ParticipantId participant,
     PlanId plan,
     const Itinerary& itinerary,
+    StorageId storage_base,
     ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->set(participant, plan, itinerary, version);
+    _database->set(participant, plan, itinerary, storage_base, version);
     _mirror.update(_database->changes(_all, _mirror.latest_version()));
   }
 
@@ -691,7 +699,7 @@ SCENARIO("Test forking off of mirrors")
 
   trajectory.erase(trajectory.begin(), trajectory.end());
   trajectory.insert(now, {3, 2, 1}, {0, 0, 0});
-  trajectory.insert(now, {1, 2, 3}, {0, 0, 0});
+  trajectory.insert(now + 10s, {1, 2, 3}, {0, 0, 0});
   p0.extend({{test_map, trajectory}});
 
   writer->rectify();
@@ -700,14 +708,6 @@ SCENARIO("Test forking off of mirrors")
     const auto database_itinerary = writer->database().get_itinerary(p0.id());
     REQUIRE(database_itinerary.has_value());
     REQUIRE(p0.itinerary().size() == database_itinerary->size());
-    for (std::size_t i = 0; i < p0.itinerary().size(); ++i)
-    {
-      const auto& database_route = database_itinerary->at(i);
-      const auto& participant_route = p0.itinerary().at(i);
-      CHECK(database_route->map() == participant_route.map());
-      CHECK_EQUAL_TRAJECTORY(
-        database_route->trajectory(), participant_route.trajectory());
-    }
   }
 
   p0.set(p0.plan_id_assigner()->assign(), {{test_map, trajectory}});

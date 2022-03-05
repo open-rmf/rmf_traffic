@@ -40,6 +40,7 @@ public:
   using PlanId = rmf_traffic::PlanId;
   using Duration = rmf_traffic::Duration;
   using RouteId = rmf_traffic::RouteId;
+  using StorageId = uint64_t;
 
   /// Set a brand new itinerary for a participant. This will replace any
   /// itinerary that is already in the schedule for the participant.
@@ -47,16 +48,26 @@ public:
   /// \param[in] participant
   ///   The ID of the participant whose itinerary is being updated.
   ///
+  /// \param[in] plan
+  ///   The ID of the plan that this new itinerary belongs to.
+  ///
   /// \param[in] itinerary
   ///   The new itinerary of the participant.
   ///
-  /// \param[in] version
-  ///   The version for this itinerary change
+  /// \param[in] storage_base
+  ///   The storage index offset that the database should use for this plan.
+  ///   This should generally be the integer number of total routes that the
+  ///   participant has ever given to the writer prior to setting this new
+  ///   itinerary. This value helps ensure consistent unique IDs for every
+  ///   route, even after a database has failed over or restarted.
   ///
+  /// \param[in] version
+  ///   The version for this itinerary change.
   virtual void set(
     ParticipantId participant,
     PlanId plan,
     const Itinerary& itinerary,
+    StorageId storage_base,
     ItineraryVersion version) = 0;
 
   /// Add a set of routes to the itinerary of this participant.
@@ -122,10 +133,14 @@ public:
     ///
     /// \param[in] plan_id
     ///   The last plan_id for the registered participant
+    ///
+    /// \param[in] storage_base
+    ///   The next storage base that the registered participant should use
     Registration(
       ParticipantId id,
       ItineraryVersion version,
-      PlanId plan_id);
+      PlanId plan_id,
+      StorageId storage_base);
 
     /// The ID of the registered participant
     ParticipantId id() const;
@@ -145,7 +160,10 @@ public:
     ///
     /// Similar to last_itinerary_version, this value might vary for systems
     /// that enforce participant uniqueness.
-    RouteId last_plan_id() const;
+    PlanId last_plan_id() const;
+
+    /// The next storage base that the participant should use.
+    StorageId next_storage_base() const;
 
     class Implementation;
   private:

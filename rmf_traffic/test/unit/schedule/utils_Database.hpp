@@ -47,11 +47,11 @@ inline void CHECK_EQUAL_TRAJECTORY(
 
   for (; t1_it != t1.end(); ++t1_it, ++t2_it)
   {
-    REQUIRE((t1_it->position() - t2_it->position()).norm() == Approx(0.0).margin(
+    CHECK((t1_it->position() - t2_it->position()).norm() == Approx(0.0).margin(
         1e-6));
-    REQUIRE((t1_it->velocity() - t2_it->velocity()).norm() == Approx(0.0).margin(
+    CHECK((t1_it->velocity() - t2_it->velocity()).norm() == Approx(0.0).margin(
         1e-6));
-    REQUIRE((t1_it->time() - t2_it->time()).count() == Approx(0.0));
+    CHECK((t1_it->time() - t2_it->time()).count() == Approx(0.0));
   }
 }
 

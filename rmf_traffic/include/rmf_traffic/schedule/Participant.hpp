@@ -52,7 +52,7 @@ public:
   ///
   /// \param[in] additional_routes
   ///   The new routes to add to the itinerary.
-  void extend(const std::vector<Route>& additional_routes);
+  void extend(std::vector<Route> additional_routes);
 
   /// Delay the current itinerary.
   ///

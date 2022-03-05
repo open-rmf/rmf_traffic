@@ -44,6 +44,7 @@ void set_participant_state(
   ParticipantId participant,
   PlanId plan,
   std::vector<RouteStorageInfo> routes,
+  StorageId storage_base,
   ItineraryVersion itinerary_version);
 
 //==============================================================================

@@ -455,6 +455,7 @@ public:
             participant,
             p.plan,
             i,
+            i,
             description
           });
 
@@ -637,6 +638,7 @@ public:
             // plan IDs. When we migrated to a distributed CBS system, we should
             // try to eliminate the use of placeholder values.
             0,
+            id,
             id,
             description
           });

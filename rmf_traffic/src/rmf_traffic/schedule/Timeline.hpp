@@ -228,7 +228,7 @@ protected:
       if (participant_filter.ignore(entry->participant))
         continue;
 
-      if (!checked[entry->participant].insert(entry->route_id).second)
+      if (!checked[entry->participant].insert(entry->storage_id).second)
         continue;
 
       inspector.inspect(entry.get(), relevant);
@@ -385,7 +385,7 @@ protected:
         if (participant_filter.ignore(entry->participant))
           continue;
 
-        if (!checked[entry->participant].insert(entry->route_id).second)
+        if (!checked[entry->participant].insert(entry->storage_id).second)
           continue;
 
         inspector.inspect(entry, relevant);
@@ -426,6 +426,7 @@ struct BaseRouteEntry
   ParticipantId participant;
   PlanId plan_id;
   RouteId route_id;
+  StorageId storage_id;
 
   std::shared_ptr<const ParticipantDescription> description;
 };

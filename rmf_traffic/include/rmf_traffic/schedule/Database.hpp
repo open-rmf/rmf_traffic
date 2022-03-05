@@ -56,6 +56,7 @@ public:
     ParticipantId participant,
     PlanId plan,
     const Itinerary& itinerary,
+    StorageId storage_base,
     ItineraryVersion version) final;
 
   // Documentation inherited from Writer

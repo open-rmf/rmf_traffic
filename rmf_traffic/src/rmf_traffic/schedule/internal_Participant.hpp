@@ -49,6 +49,10 @@ public:
 
     void set(PlanId plan, std::vector<Route> itinerary);
 
+    void extend(std::vector<Route> additional_routes);
+
+    void delay(Duration delay);
+
     void clear();
 
     void retransmit(
@@ -80,6 +84,7 @@ public:
       std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
 
     PlanId _current_plan_id;
+    Writer::StorageId _next_storage_base;
     Itinerary _current_itinerary;
 
     ChangeHistory _change_history;

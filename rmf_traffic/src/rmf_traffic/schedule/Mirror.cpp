@@ -17,6 +17,8 @@
 
 #include <rmf_traffic/schedule/Mirror.hpp>
 
+#include <rmf_utils/Modular.hpp>
+
 #include "ChangeInternal.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
@@ -48,6 +50,7 @@ public:
     std::shared_ptr<const ParticipantDescription> description;
     ItineraryVersion itinerary_version;
     PlanId current_plan_id;
+    std::optional<StorageId> highest_storage;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
@@ -70,7 +73,7 @@ public:
     ParticipantState& state,
     const Change::Erase& erase)
   {
-    for (const RouteId id : erase.ids())
+    for (const StorageId id : erase.ids())
     {
       const auto r_it = state.storage.find(id);
       if (r_it == state.storage.end())
@@ -135,10 +138,16 @@ public:
         participant,
         state.current_plan_id,
         route_id,
+        storage_id,
         state.description
       });
 
     entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+
+    if (!state.highest_storage.has_value())
+      state.highest_storage = storage_id;
+    else if (rmf_utils::modular(*state.highest_storage).less_than(storage_id))
+      state.highest_storage = storage_id;
   }
 
   void add_routes(
@@ -200,7 +209,7 @@ public:
   struct Info
   {
     ParticipantId participant;
-    RouteId route_id;
+    StorageId storage_id;
   };
 
   std::vector<Info> info;
@@ -212,7 +221,7 @@ public:
     assert(entry);
     assert(entry->route);
     if (relevant(*entry))
-      info.emplace_back(Info{entry->participant, entry->route_id});
+      info.emplace_back(Info{entry->participant, entry->storage_id});
   }
 
 };
@@ -458,7 +467,7 @@ bool Mirror::update(const Patch& patch)
         continue;
       }
 
-      p_it->second.storage.erase(route.route_id);
+      p_it->second.storage.erase(route.storage_id);
     }
   }
 
@@ -490,14 +499,23 @@ Database Mirror::fork() const
       for (const auto& [storage_id, route] : state.storage)
       {
         routes.emplace_back(
-          RouteStorageInfo{storage_id, route.entry->route_id, route.entry->route});
+          RouteStorageInfo{
+            route.entry->route_id,
+            storage_id,
+            route.entry->route
+          });
       }
+
+      std::size_t next_storage_id = 0;
+      if (state.highest_storage.has_value())
+        next_storage_id = *state.highest_storage + 1;
 
       set_participant_state(
         output,
         participant,
         state.current_plan_id,
         routes,
+        next_storage_id,
         state.itinerary_version);
     }
 

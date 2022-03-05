@@ -69,7 +69,6 @@ public:
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
     // templates to automatically mix these custom fields with the required
     // fields of the base Entry
-    StorageId storage_id;
     Version schedule_version;
     TransitionPtr transition;
     std::weak_ptr<RouteEntry> successor;
@@ -89,9 +88,9 @@ public:
         participant_,
         plan_id_,
         route_id_,
+        storage_id_,
         std::move(desc_),
     },
-      storage_id(storage_id_),
       schedule_version(schedule_version_),
       transition(std::move(transition_)),
       successor(std::move(successor_))
@@ -106,7 +105,7 @@ public:
 
   struct ParticipantState
   {
-    std::unordered_set<RouteId> active_routes;
+    std::vector<StorageId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
     std::shared_ptr<const ParticipantDescription> description;
@@ -176,7 +175,7 @@ public:
     Version version;
   };
 
-  rmf_utils::optional<CullInfo> last_cull;
+  std::optional<CullInfo> last_cull;
 
   /// The current time is used to know when participants can be culled after
   /// getting unregistered
@@ -198,7 +197,7 @@ public:
       const auto route_id = i + initial_route_num;
       const auto storage_id = state.next_storage_id++;
 
-      state.active_routes.insert(storage_id);
+      state.active_routes.push_back(storage_id);
 
       RouteStorage& entry_storage = storage[storage_id];
       entry_storage.entry = std::make_unique<RouteEntry>(
@@ -229,6 +228,7 @@ public:
       assert(storage.find(storage_id) != storage.end());
       auto& entry_storage = storage.at(storage_id);
       const auto& route_entry = entry_storage.entry;
+      const auto route_id = route_entry->route_id;
       const Trajectory& old_trajectory = route_entry->route->trajectory();
 
       assert(old_trajectory.start_time());
@@ -254,7 +254,7 @@ public:
           std::move(new_route),
           participant,
           state.latest_plan_id,
-          route_entry->route_id,
+          route_id,
           storage_id,
           state.description,
           schedule_version,
@@ -280,6 +280,7 @@ public:
       auto& entry_storage = storage.at(storage_id);
 
       auto route = entry_storage.entry->route;
+      const auto route_id = entry_storage.entry->route_id;
 
       auto transition = std::make_unique<Transition>(
         Transition{
@@ -292,7 +293,7 @@ public:
           std::move(route),
           participant,
           state.latest_plan_id,
-          entry_storage.entry->route_id,
+          route_id,
           storage_id,
           state.description,
           schedule_version,
@@ -307,13 +308,12 @@ public:
     }
   }
 
-  void erase_routes(
+  void clear(
     ParticipantId participant,
-    ParticipantState& state,
-    const std::unordered_set<StorageId>& routes)
+    ParticipantState& state)
   {
     ParticipantStorage& storage = state.storage;
-    for (const StorageId storage_id : routes)
+    for (const StorageId storage_id : state.active_routes)
     {
       assert(storage.find(storage_id) != storage.end());
       auto& entry_storage = storage.at(storage_id);
@@ -344,9 +344,7 @@ public:
       entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
 
-    // TODO(MXG): Consider erasing the routes from the active_routes field of
-    // the state using this function. It gets tricky, though since the "erase"
-    // argument is sometimes a reference to the active_routes field.
+    state.active_routes.clear();
   }
 
   ParticipantId get_next_participant_id()
@@ -442,6 +440,7 @@ void Database::set(
   const ParticipantId participant,
   const PlanId plan,
   const Itinerary& itinerary,
+  const StorageId storage_base,
   const ItineraryVersion version)
 {
   const auto p_it = _pimpl->states.find(participant);
@@ -465,20 +464,20 @@ void Database::set(
 
   if (auto ticket = state.tracker->check(version, true))
   {
-    ticket->set([=]() { this->set(participant, plan, itinerary, version); });
+    ticket->set([=]() {
+      this->set(participant, plan, itinerary, storage_base, version);
+    });
     return;
   }
 
   ++_pimpl->schedule_version;
 
   // Erase the routes that are currently active
-  _pimpl->erase_routes(participant, state, state.active_routes);
-
-  // Clear the list of routes that are currently active
-  state.active_routes.clear();
+  _pimpl->clear(participant, state);
 
   // Insert the new routes into the current itinerary
   state.latest_plan_id = plan;
+  state.next_storage_id = storage_base;
   _pimpl->insert_items(participant, state, itinerary);
 }
 
@@ -590,8 +589,7 @@ void Database::clear(
   }
 
   ++_pimpl->schedule_version;
-  _pimpl->erase_routes(participant, state, state.active_routes);
-  state.active_routes.clear();
+  _pimpl->clear(participant, state);
 }
 
 //==============================================================================
@@ -626,7 +624,8 @@ Writer::Registration register_participant_impl(
 
   const auto& state = p_it->second;
   return Database::Registration(
-    id, state.tracker->last_known_version(), state.latest_plan_id);
+    id, state.tracker->last_known_version(),
+    state.latest_plan_id, state.next_storage_id);
 }
 
 //==============================================================================
@@ -660,6 +659,7 @@ void set_participant_state(
   ParticipantId participant,
   PlanId plan,
   std::vector<RouteStorageInfo> routes,
+  StorageId storage_base,
   ItineraryVersion itinerary_version)
 {
   using RouteEntry = Database::Implementation::RouteEntry;
@@ -693,6 +693,7 @@ void set_participant_state(
 
   state.active_routes.clear();
   state.latest_plan_id = plan;
+  state.next_storage_id = storage_base;
   auto& storage = state.storage;
 
   for (std::size_t i = 0; i < routes.size(); ++i)
@@ -700,7 +701,7 @@ void set_participant_state(
     const auto& info = routes[i];
     const auto storage_id = info.storage_id;
 
-    state.active_routes.insert(storage_id);
+    state.active_routes.push_back(storage_id);
 
     auto& entry_storage = storage[storage_id];
     entry_storage.entry = std::make_unique<RouteEntry>(
@@ -718,6 +719,8 @@ void set_participant_state(
 
     entry_storage.timeline_handle = impl.timeline.insert(entry_storage.entry);
   }
+
+  std::sort(state.active_routes.begin(), state.active_routes.end());
 }
 
 //==============================================================================
@@ -762,7 +765,7 @@ void Database::update_description(
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::erase] No participant with ID ["
+      "[Database::update_description] No participant with ID ["
       + std::to_string(id) + "]");
     // *INDENT-ON*
   }
@@ -944,7 +947,7 @@ public:
       {
         // The newest version of this route is not relevant to the mirror, so
         // we will erase it from the mirror.
-        changes[newest->participant].erasures.emplace_back(newest->route_id);
+        changes[newest->participant].erasures.emplace_back(newest->storage_id);
       }
     }
     else
@@ -1111,7 +1114,7 @@ public:
   struct Info
   {
     ParticipantId participant;
-    RouteId route_id;
+    StorageId storage_id;
   };
 
   std::vector<Info> routes;
@@ -1131,7 +1134,7 @@ public:
     assert(entry->route->trajectory().finish_time());
     if (*entry->route->trajectory().finish_time() < _cull_time)
     {
-      routes.emplace_back(Info{entry->participant, entry->route_id});
+      routes.emplace_back(Info{entry->participant, entry->storage_id});
     }
   }
 
@@ -1350,7 +1353,7 @@ Version Database::cull(Time time)
     assert(p_it != _pimpl->states.end());
 
     auto& storage = p_it->second.storage;
-    const auto r_it = storage.find(route.route_id);
+    const auto r_it = storage.find(route.storage_id);
     assert(r_it != storage.end());
 
     storage.erase(r_it);
@@ -1422,7 +1425,7 @@ RouteId Database::latest_plan_id(ParticipantId participant) const
   if (p_it == _pimpl->states.end())
   {
     throw std::runtime_error(
-            "[Database::last_route_id] No participant with ID ["
+            "[Database::lastest_plan_id] No participant with ID ["
             + std::to_string(participant) + "]");
   }
 
