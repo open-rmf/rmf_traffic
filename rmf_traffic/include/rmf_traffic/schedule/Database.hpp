@@ -209,6 +209,13 @@ public:
   // TODO(MXG): This function needs unit testing
   ItineraryVersion itinerary_version(ParticipantId participant) const;
 
+  /// Get the last Plan ID used by this participant.
+  ///
+  /// This provides the same information as get_current_plan_id, except it
+  /// throws an exception instead of returning an optional if the participant
+  /// does not exist.
+  PlanId latest_plan_id(ParticipantId participant) const;
+
   /// Get the last Storage ID used by this participant.
   StorageId next_storage_base(ParticipantId participant) const;
 
