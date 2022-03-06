@@ -79,6 +79,11 @@ public:
     ///
     /// These delays should be applied in sequential order after the erasures
     /// are performed, and before any additions are performed.
+    //
+    // TODO(MXG): Why don't we sum these delays into one value since they all
+    // get applied at the same time anyway? They were originally split because
+    // we used to allow delays to be applied to partial trajectories, but that
+    // is no longer allowed.
     const std::vector<Change::Delay>& delays() const;
 
     /// The set of additions to perfom.

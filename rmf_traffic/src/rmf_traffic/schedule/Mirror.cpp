@@ -49,7 +49,7 @@ public:
     std::unordered_map<StorageId, RouteStorage> storage;
     std::shared_ptr<const ParticipantDescription> description;
     ItineraryVersion itinerary_version;
-    PlanId current_plan_id;
+    PlanId current_plan_id = std::numeric_limits<PlanId>::max();
     std::optional<StorageId> highest_storage;
   };
 
@@ -443,6 +443,7 @@ bool Mirror::update(const Patch& patch)
     for (const auto& delay : p.delays())
       _pimpl->apply_delay(state, delay);
 
+    state.current_plan_id = p.additions().plan_id();
     _pimpl->add_routes(participant, state, p.additions());
   }
 

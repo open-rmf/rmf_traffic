@@ -612,6 +612,11 @@ public:
     return *_database;
   }
 
+  const rmf_traffic::schedule::Mirror& mirror() const
+  {
+    return _mirror;
+  }
+
 private:
 
   void _update_participants()
@@ -708,6 +713,10 @@ SCENARIO("Test forking off of mirrors")
     const auto database_itinerary = writer->database().get_itinerary(p0.id());
     REQUIRE(database_itinerary.has_value());
     REQUIRE(p0.itinerary().size() == database_itinerary->size());
+    CHECK(p0.current_plan_id() ==
+      writer->database().get_current_plan_id(p0.id()).value());
+    CHECK(p0.current_plan_id() ==
+      writer->mirror().get_current_plan_id(p0.id()).value());
   }
 
   p0.set(p0.plan_id_assigner()->assign(), {{test_map, trajectory}});
@@ -733,6 +742,10 @@ SCENARIO("Test forking off of mirrors")
   writer->rectify();
 
   CHECK_ITINERARY(p0, writer->database());
+  CHECK(p0.current_plan_id() ==
+    writer->database().get_current_plan_id(p0.id()).value());
+  CHECK(p0.current_plan_id() ==
+    writer->mirror().get_current_plan_id(p0.id()).value());
 
   writer->failover();
 

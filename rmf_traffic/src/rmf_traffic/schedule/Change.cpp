@@ -63,6 +63,12 @@ auto Change::Add::items() const -> const std::vector<Item>&
 }
 
 //==============================================================================
+PlanId Change::Add::plan_id() const
+{
+  return _pimpl->plan;
+}
+
+//==============================================================================
 Change::Delay::Delay(Duration duration)
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{duration}))
 {

@@ -1419,17 +1419,17 @@ ItineraryVersion Database::itinerary_version(ParticipantId participant) const
 }
 
 //==============================================================================
-RouteId Database::latest_plan_id(ParticipantId participant) const
+StorageId Database::next_storage_base(ParticipantId participant) const
 {
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
     throw std::runtime_error(
-            "[Database::lastest_plan_id] No participant with ID ["
+            "[Database::latest_storage_id] No participant with ID ["
             + std::to_string(participant) + "]");
   }
 
-  return p_it->second.latest_plan_id;
+  return p_it->second.next_storage_id;
 }
 
 } // namespace schedule
