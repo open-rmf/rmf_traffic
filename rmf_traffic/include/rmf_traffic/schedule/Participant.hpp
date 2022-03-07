@@ -93,6 +93,10 @@ public:
   /// last one that was passed to set(~).
   const AssignIDPtr& plan_id_assigner() const;
 
+  /// Use this to assign an ID to a plan. This is equivalent to
+  /// plan_id_assigner()->assign()
+  PlanId assign_plan_id() const;
+
   /// Get the current plan ID of the participant
   PlanId current_plan_id() const;
 

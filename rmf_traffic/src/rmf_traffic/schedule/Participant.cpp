@@ -415,6 +415,12 @@ auto Participant::plan_id_assigner() const -> const AssignIDPtr&
 }
 
 //==============================================================================
+PlanId Participant::assign_plan_id() const
+{
+  return _pimpl->_shared->_assign_plan_id->assign();
+}
+
+//==============================================================================
 PlanId Participant::current_plan_id() const
 {
   return _pimpl->_shared->_current_plan_id;
