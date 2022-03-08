@@ -90,7 +90,7 @@ void Participant::Implementation::Shared::set(
   _current_plan_id = plan;
   const auto storage_base = _next_storage_base;
   _next_storage_base += itinerary.size();
-  _assign_plan_id->fast_forward_to(plan);
+  _assign_plan_id->fast_forward_to(plan+1);
   _current_itinerary = std::move(itinerary);
 
   const ItineraryVersion itinerary_version = get_next_version();
