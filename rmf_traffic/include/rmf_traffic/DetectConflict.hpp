@@ -19,10 +19,16 @@
 #define RMF_TRAFFIC__DETECTCONFLICT_HPP
 
 #include <rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/Profile.hpp>
 #include <exception>
 
 namespace rmf_traffic {
+
+namespace {
+
+
+} // anonymous namespace
 
 //==============================================================================
 class invalid_trajectory_error : public std::exception
@@ -49,13 +55,33 @@ public:
 
   /// Checks if there are any conflicts between the two trajectories.
   ///
+  /// \param[in] profile_a
+  ///   The profile of agent A
+  ///
+  /// \param[in] trajectory_a
+  ///   The trajectory of agent A
+  ///
+  /// \param[in] dependencies_of_a_on_b
+  ///   The dependencies that agent A has on the given trajectory of agent B
+  ///
+  /// \param[in] profile_b
+  ///   The profile of agent B
+  ///
+  /// \param[in] trajectory_b
+  ///   The trajectory of agent B
+  ///
+  /// \param[in] dependencies_of_b_on_a
+  ///   The dependencies that agent B has on the given trajectory of agent A
+  ///
   /// \return true if a conflict exists between the trajectories, false
   /// otherwise.
-  static rmf_utils::optional<rmf_traffic::Time> between(
+  static std::optional<rmf_traffic::Time> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
+    const Dependencies* dependencies_of_a_on_b,
     const Profile& profile_b,
     const Trajectory& trajectory_b,
+    const Dependencies* dependencies_of_b_on_a,
     Interpolate interpolation = Interpolate::CubicSpline);
 
   class Implementation;

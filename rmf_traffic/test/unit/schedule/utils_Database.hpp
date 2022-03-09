@@ -75,7 +75,7 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
   {
     const auto& v_p = v.description.profile();
     const auto& v_t = v.route.trajectory();
-    if (rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
+    if (rmf_traffic::DetectConflict::between(v_p, v_t, nullptr, p, t, nullptr))
       collision_trajectories.push_back(v_t);
   }
 

@@ -96,7 +96,7 @@ schedule::ParticipantId ScheduleRouteValidator::participant() const
 }
 
 //==============================================================================
-rmf_utils::optional<RouteValidator::Conflict>
+std::optional<RouteValidator::Conflict>
 ScheduleRouteValidator::find_conflict(const Route& route) const
 {
   // TODO(MXG): Should we use a mutable Spacetime instance to avoid the
@@ -119,8 +119,10 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
     if (const auto time = rmf_traffic::DetectConflict::between(
         _pimpl->profile,
         route.trajectory(),
+        route.check_dependencies(v.participant, v.plan_id, v.route_id),
         v.description.profile(),
-        v.route.trajectory()))
+        v.route.trajectory(),
+        nullptr))
     {
       return Conflict{v.participant, *time};
     }
@@ -187,7 +189,7 @@ public:
 
   std::shared_ptr<const Generator::Implementation::Data> data;
   schedule::Negotiation::VersionedKeySequence rollouts;
-  rmf_utils::optional<schedule::ParticipantId> masked = rmf_utils::nullopt;
+  std::optional<schedule::ParticipantId> masked = rmf_utils::nullopt;
 
   static NegotiatingRouteValidator make(
     std::shared_ptr<const Generator::Implementation::Data> data,
@@ -410,7 +412,7 @@ bool NegotiatingRouteValidator::end() const
 }
 
 //==============================================================================
-rmf_utils::optional<RouteValidator::Conflict>
+std::optional<RouteValidator::Conflict>
 NegotiatingRouteValidator::find_conflict(const Route& route) const
 {
   using namespace std::chrono_literals;
@@ -472,8 +474,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     if (const auto time = rmf_traffic::DetectConflict::between(
         _pimpl->data->profile,
         route.trajectory(),
+        route.check_dependencies(v.participant, v.plan_id, v.route_id),
         v.description.profile(),
-        v.route.trajectory()))
+        v.route.trajectory(),
+        nullptr))
     {
       return Conflict{v.participant, *time};
     }
@@ -511,8 +515,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       if (const auto time = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
+          nullptr,
           ep.description().profile(),
-          other_start))
+          other_start,
+          nullptr))
       {
         return Conflict{other.first, *time};
       }
@@ -551,8 +557,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       if (const auto time = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
+          nullptr,
           ep.description().profile(),
-          other_finish))
+          other_finish,
+          nullptr))
       {
         return Conflict{other.first, *time};
       }

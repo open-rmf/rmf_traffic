@@ -154,9 +154,9 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1},
-        t1,
+        t1, nullptr,
         {circle_1},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Two moving trajectories with non-overlapping vicinities")
@@ -171,9 +171,9 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1},
-        t1,
+        t1, nullptr,
         {circle_1},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Overlapping vicinities but not footprints")
@@ -188,9 +188,9 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1, circle_2},
-        t1,
+        t1, nullptr,
         {circle_1, circle_2},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Footprint overlaps with vicinity from the start")
@@ -211,7 +211,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move in parallel")
@@ -219,7 +219,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {2.8, 10, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("One vehicle moves away")
@@ -227,7 +227,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move apart slightly")
@@ -235,7 +235,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {3, 10, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move apart orthogonally")
@@ -243,7 +243,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move apart in opposite shearing directions")
@@ -251,7 +251,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {2.8, -10, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move directly apart from each other")
@@ -259,7 +259,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {-10, 0, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
       CHECK_FALSE(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move directly across each other")
@@ -267,7 +267,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {-10, 0, 0}, {0, 0, 0});
       CHECK(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
 
     WHEN("Vehicles move a little closer")
@@ -275,7 +275,7 @@ SCENARIO("Testing conflicts", "[close_start]")
       t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
       t2.insert(start_time + 10s, {2.79, 10, 0}, {0, 0, 0});
       CHECK(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2));
+          profile, t1, nullptr, profile, t2, nullptr));
     }
   }
 
@@ -293,9 +293,9 @@ SCENARIO("Testing conflicts", "[close_start]")
     // start of the trajectory
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1, circle_2},
-        t1,
+        t1, nullptr,
         {circle_1},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Footprint overlaps with vicinity at the end, but not at the start")
@@ -312,9 +312,9 @@ SCENARIO("Testing conflicts", "[close_start]")
     // a conflict when it enters.
     CHECK(rmf_traffic::DetectConflict::between(
         {circle_1, circle_2},
-        t1,
+        t1, nullptr,
         {circle_1},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Overlapping box vicinities")
@@ -329,9 +329,9 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1, box_3},
-        t1,
+        t1, nullptr,
         {circle_1, box_3},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Overlapping box vicinity and circle footprint from the start")
@@ -346,9 +346,9 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1, box_3},
-        t1,
+        t1, nullptr,
         {circle_1, circle_1},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Overlapping circle vicinity and box footprint from the start")
@@ -363,9 +363,9 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {box_1, circle_2},
-        t1,
+        t1, nullptr,
         {box_2, box_2},
-        t2));
+        t2, nullptr));
   }
 
   GIVEN("Overlapping box footprints")
@@ -380,8 +380,8 @@ SCENARIO("Testing conflicts", "[close_start]")
 
     CHECK(rmf_traffic::DetectConflict::between(
         {box_2, box_2},
-        t1,
+        t1, nullptr,
         {box_2, box_2},
-        t2));
+        t2, nullptr));
   }
 }

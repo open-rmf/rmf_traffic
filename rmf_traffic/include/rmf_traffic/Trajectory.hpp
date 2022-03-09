@@ -84,6 +84,12 @@ public:
     /// Get the time that the trajectory will reach this Waypoint.
     Time time() const;
 
+    /// The index of this waypoint within its trajectory. Waypoints are indexed
+    /// according to their chronological order. Adjusting the time of any
+    /// waypoint in a trajectory could change its index and/or the index of
+    /// other waypoints.
+    std::size_t index() const;
+
     /// Change the timing of this Trajectory Waypoint. Note that this function
     /// will only affect this waypoint, and may cause this waypoint to be
     /// reordered within the Trajectory.

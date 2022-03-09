@@ -73,8 +73,8 @@ void check_start_compatibility(
       b_traj.insert(b.time() + 10s, p_b, zero);
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-          profile_a, a_traj,
-          profile_b, b_traj))
+          profile_a, a_traj, nullptr,
+          profile_b, b_traj, nullptr))
       {
         std::cout << "CONFLICT FOUND" << std::endl;
       }

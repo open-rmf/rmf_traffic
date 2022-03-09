@@ -92,6 +92,77 @@ invalid_trajectory_error::invalid_trajectory_error()
 }
 
 namespace {
+
+//==============================================================================
+class Crawler
+{
+public:
+
+  Crawler(
+    Trajectory::const_iterator current,
+    Trajectory::const_iterator end,
+    const Dependencies* dependencies_on_me)
+  : _current(std::move(current)),
+    _end(std::move(end)),
+    _deps(dependencies_on_me)
+  {
+    if (_deps && _current != _end)
+      _current_dep = _deps->lower_bound(_current->index());
+  }
+
+  bool finished() const
+  {
+    return _current == _end;
+  }
+
+  Trajectory::const_iterator current() const
+  {
+    return _current;
+  }
+
+  Trajectory::const_iterator end() const
+  {
+    return _end;
+  }
+
+  bool ignore(std::size_t other)
+  {
+    if (!_current_dep.has_value())
+      return false;
+
+    if (*_current_dep == _deps->end())
+      return false;
+
+    const auto ignore_other_after = (*_current_dep)->second;
+    if (ignore_other_after < other)
+      return true;
+
+    return false;
+  }
+
+  void next()
+  {
+    if (_current_dep.has_value() && *_current_dep != _deps->end())
+    {
+      if ((*_current_dep)->first == _current->index())
+        ++(*_current_dep);
+    }
+
+    ++_current;
+  }
+
+  const Dependencies* deps() const
+  {
+    return _deps;
+  }
+
+private:
+  Trajectory::const_iterator _current;
+  Trajectory::const_iterator _end;
+  const Dependencies* _deps;
+  std::optional<Dependencies::const_iterator> _current_dep;
+};
+
 //==============================================================================
 bool have_time_overlap(
   const Trajectory& trajectory_a,
@@ -371,7 +442,7 @@ FclContinuousCollisionRequest make_fcl_request()
 }
 
 //==============================================================================
-rmf_utils::optional<double> check_collision(
+std::optional<double> check_collision(
   const geometry::FinalConvexShape& shape_a,
   const std::shared_ptr<FclSplineMotion>& motion_a,
   const geometry::FinalConvexShape& shape_b,
@@ -392,7 +463,7 @@ rmf_utils::optional<double> check_collision(
   if (result.is_collide)
     return result.time_of_contact;
 
-  return rmf_utils::nullopt;
+  return std::nullopt;
 }
 
 //==============================================================================
@@ -421,16 +492,18 @@ Time compute_time(
 } // anonymous namespace
 
 //==============================================================================
-rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
+std::optional<rmf_traffic::Time> DetectConflict::between(
   const Profile& profile_a,
   const Trajectory& trajectory_a,
+  const Dependencies* dependencies_of_a_on_b,
   const Profile& profile_b,
   const Trajectory& trajectory_b,
+  const Dependencies* dependencies_of_b_on_a,
   Interpolate interpolation)
 {
   return Implementation::between(
-    profile_a, trajectory_a,
-    profile_b, trajectory_b,
+    profile_a, trajectory_a, dependencies_of_a_on_b,
+    profile_b, trajectory_b, dependencies_of_b_on_a,
     interpolation);
 }
 
@@ -529,17 +602,15 @@ bool close_start(
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_traffic::Time> detect_invasion(
+std::optional<rmf_traffic::Time> detect_invasion(
   const Profile::Implementation& profile_a,
-  Trajectory::const_iterator a_it,
-  const Trajectory::const_iterator& a_end,
+  Crawler crawl_a,
   const Profile::Implementation& profile_b,
-  Trajectory::const_iterator b_it,
-  const Trajectory::const_iterator& b_end,
+  Crawler crawl_b,
   std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
 {
-  rmf_utils::optional<Spline> spline_a;
-  rmf_utils::optional<Spline> spline_b;
+  std::optional<Spline> spline_a;
+  std::optional<Spline> spline_b;
 
   std::shared_ptr<FclSplineMotion> motion_a =
     make_uninitialized_fcl_spline_motion();
@@ -557,13 +628,13 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
   if (output_conflicts)
     output_conflicts->clear();
 
-  while (a_it != a_end && b_it != b_end)
+  while (!crawl_a.finished() && !crawl_b.finished())
   {
     if (!spline_a)
-      spline_a = Spline(a_it);
+      spline_a = Spline(crawl_a.current());
 
     if (!spline_b)
-      spline_b = Spline(b_it);
+      spline_b = Spline(crawl_b.current());
 
     const Time start_time =
       std::max(spline_a->start_time(), spline_b->start_time());
@@ -588,7 +659,9 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
           return time;
 
         output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{a_it, b_it, time});
+          DetectConflict::Implementation::Conflict{
+            crawl_a.current(), crawl_b.current(), time
+          });
       }
     }
 
@@ -603,35 +676,37 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
           return time;
 
         output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{a_it, b_it, time});
+          DetectConflict::Implementation::Conflict{
+            crawl_a.current(), crawl_b.current(), time
+          });
       }
     }
 
     if (spline_a->finish_time() < spline_b->finish_time())
     {
-      spline_a = rmf_utils::nullopt;
-      ++a_it;
+      spline_a = std::nullopt;
+      crawl_a.next();
     }
     else if (spline_b->finish_time() < spline_a->finish_time())
     {
-      spline_b = rmf_utils::nullopt;
-      ++b_it;
+      spline_b = std::nullopt;
+      crawl_b.next();
     }
     else
     {
-      spline_a = rmf_utils::nullopt;
-      ++a_it;
+      spline_a = std::nullopt;
+      crawl_a.next();
 
-      spline_b = rmf_utils::nullopt;
-      ++b_it;
+      spline_b = std::nullopt;
+      crawl_b.next();
     }
   }
 
   if (!output_conflicts)
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   if (output_conflicts->empty())
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   return output_conflicts->front().time;
 }
@@ -656,25 +731,23 @@ Trajectory slice_trajectory(
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_traffic::Time> detect_approach(
+std::optional<rmf_traffic::Time> detect_approach(
   const Profile::Implementation& profile_a,
-  Trajectory::const_iterator a_it,
-  const Trajectory::const_iterator& a_end,
+  Crawler crawl_a,
   const Profile::Implementation& profile_b,
-  Trajectory::const_iterator b_it,
-  const Trajectory::const_iterator& b_end,
+  Crawler crawl_b,
   std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
 {
-  rmf_utils::optional<Spline> spline_a;
-  rmf_utils::optional<Spline> spline_b;
+  std::optional<Spline> spline_a;
+  std::optional<Spline> spline_b;
 
-  while (a_it != a_end && b_it != b_end)
+  while (!crawl_a.finished() && !crawl_b.finished())
   {
     if (!spline_a)
-      spline_a = Spline(a_it);
+      spline_a = Spline(crawl_a.current());
 
     if (!spline_b)
-      spline_b = Spline(b_it);
+      spline_b = Spline(crawl_b.current());
 
     const DistanceDifferential D(*spline_a, *spline_b);
 
@@ -685,7 +758,9 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
         return time;
 
       output_conflicts->emplace_back(
-        DetectConflict::Implementation::Conflict{a_it, b_it, time});
+        DetectConflict::Implementation::Conflict{
+          crawl_a.current(), crawl_b.current(), time
+        });
     }
 
     const auto approach_times = D.approach_times();
@@ -700,14 +775,26 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
         // TODO(MXG): Consider an approach that does not require making copies
         // of the trajectories.
         const Trajectory sliced_trajectory_a =
-          slice_trajectory(t, *spline_a, a_it, a_end);
+          slice_trajectory(t, *spline_a, crawl_a.current(), crawl_a.end());
 
         const Trajectory sliced_trajectory_b =
-          slice_trajectory(t, *spline_b, b_it, b_end);
+          slice_trajectory(t, *spline_b, crawl_b.current(), crawl_b.end());
+
+        Crawler sliced_crawl_a{
+          ++sliced_trajectory_a.begin(),
+          sliced_trajectory_a.end(),
+          crawl_a.deps()
+        };
+
+        Crawler sliced_crawl_b{
+          ++sliced_trajectory_b.begin(),
+          sliced_trajectory_b.end(),
+          crawl_b.deps()
+        };
 
         return detect_invasion(
-          profile_a, ++sliced_trajectory_a.begin(), sliced_trajectory_a.end(),
-          profile_b, ++sliced_trajectory_b.begin(), sliced_trajectory_b.end(),
+          profile_a, sliced_crawl_a,
+          profile_b, sliced_crawl_b,
           output_conflicts);
       }
 
@@ -717,7 +804,9 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
         return t;
 
       output_conflicts->emplace_back(
-        DetectConflict::Implementation::Conflict{a_it, b_it, t});
+        DetectConflict::Implementation::Conflict{
+          crawl_a.current(), crawl_b.current(), t
+        });
     }
 
     const bool still_close = check_overlap(
@@ -725,37 +814,37 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
 
     if (spline_a->finish_time() < spline_b->finish_time())
     {
-      spline_a = rmf_utils::nullopt;
-      ++a_it;
+      spline_a = std::nullopt;
+      crawl_a.next();
     }
     else if (spline_b->finish_time() < spline_a->finish_time())
     {
-      spline_b = rmf_utils::nullopt;
-      ++b_it;
+      spline_b = std::nullopt;
+      crawl_b.next();
     }
     else
     {
-      spline_a = rmf_utils::nullopt;
-      ++a_it;
+      spline_a = std::nullopt;
+      crawl_a.next();
 
-      spline_b = rmf_utils::nullopt;
-      ++b_it;
+      spline_b = std::nullopt;
+      crawl_b.next();
     }
 
     if (!still_close)
     {
       return detect_invasion(
-        profile_a, a_it, a_end,
-        profile_b, b_it, b_end,
+        profile_a, crawl_a,
+        profile_b, crawl_b,
         output_conflicts);
     }
   }
 
   if (!output_conflicts)
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   if (output_conflicts->empty())
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   return output_conflicts->front().time;
 }
@@ -763,11 +852,13 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
 } // anonymous namespace
 
 //==============================================================================
-rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
+std::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
   const Trajectory& trajectory_a,
+  const Dependencies* deps_a_on_b,
   const Profile& input_profile_b,
   const Trajectory& trajectory_b,
+  const Dependencies* deps_b_on_a,
   Interpolate /*interpolation*/,
   std::vector<Conflict>* output_conflicts)
 {
@@ -791,7 +882,7 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   // Return early if there is no geometry in the profiles
   // TODO(MXG): Should this produce an exception? Is this an okay scenario?
   if (!profile_a.footprint && !profile_b.footprint)
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   // Return early if either profile is missing both a vicinity and a footprint.
   // NOTE(MXG): Since convert_profile will promote the vicinity to have the same
@@ -799,39 +890,36 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   // a vicinity doesn't exist is the same as checking that both the vicinity and
   // footprint doesn't exist.
   if (!profile_a.vicinity || !profile_b.vicinity)
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   // Return early if there is no time overlap between the trajectories
   if (!have_time_overlap(trajectory_a, trajectory_b))
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
   std::tie(a_it, b_it) = get_initial_iterators(trajectory_a, trajectory_b);
 
-  if (close_start(profile_a, a_it, profile_b, b_it))
+  // NOTE: The deps are intentionally swapped here because passing them to the
+  // opposite crawler makes them more efficient to crawl through.
+  Crawler crawl_a(std::move(a_it), trajectory_a.end(), deps_b_on_a);
+  Crawler crawl_b(std::move(b_it), trajectory_b.end(), deps_a_on_b);
+
+  if (close_start(profile_a, crawl_a.current(), profile_b, crawl_b.current()))
   {
     // If the vehicles are already starting in close proximity, then we consider
     // it a conflict if they get any closer while within that proximity.
     return detect_approach(
-      profile_a,
-      std::move(a_it),
-      trajectory_a.end(),
-      profile_b,
-      std::move(b_it),
-      trajectory_b.end(),
+      profile_a, crawl_a,
+      profile_b, crawl_b,
       output_conflicts);
   }
 
   // If the vehicles are starting an acceptable distance from each other, then
   // check if either one invades the vicinity of the other.
   return detect_invasion(
-    profile_a,
-    std::move(a_it),
-    trajectory_a.end(),
-    profile_b,
-    std::move(b_it),
-    trajectory_b.end(),
+    profile_a, crawl_a,
+    profile_b, crawl_b,
     output_conflicts);
 }
 

@@ -173,8 +173,8 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     for (const auto& r2 : plan_2->get_itinerary())
     {
       if (rmf_traffic::DetectConflict::between(
-          profile, r1.trajectory(),
-          profile, r2.trajectory()))
+          profile, r1.trajectory(), nullptr,
+          profile, r2.trajectory(), nullptr))
       {
         has_conflict = true;
         break;
@@ -260,8 +260,8 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
         for (const auto& r2 : proposal_2.itinerary)
         {
           CHECK_FALSE(rmf_traffic::DetectConflict::between(
-              profile, r1.trajectory(),
-              profile, r2.trajectory()));
+              profile, r1.trajectory(), nullptr,
+              profile, r2.trajectory(), nullptr));
         }
       }
 
@@ -397,8 +397,8 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       for (const auto& r2 : proposal_2.itinerary)
       {
         CHECK_FALSE(rmf_traffic::DetectConflict::between(
-            profile, r1.trajectory(),
-            profile, r2.trajectory()));
+            profile, r1.trajectory(), nullptr,
+            profile, r2.trajectory(), nullptr));
       }
     }
 

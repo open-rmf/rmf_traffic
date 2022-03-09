@@ -41,7 +41,7 @@ public:
     // Do nothing
   }
 
-  rmf_utils::optional<Conflict> find_conflict(
+  std::optional<Conflict> find_conflict(
     const Route& route) const final
   {
     for (const auto& blocking_route : _other_itinerary)
@@ -55,8 +55,10 @@ public:
       if (const auto time = rmf_traffic::DetectConflict::between(
           _profile,
           route.trajectory(),
+          nullptr,
           _other_profile,
-          blocking_route.trajectory()))
+          blocking_route.trajectory(),
+          nullptr))
       {
 //        std::cout << "Conflict at " << rmf_traffic::time::to_seconds(time->time_since_epoch()) << std::endl;
         return Conflict{_other_participant, *time};

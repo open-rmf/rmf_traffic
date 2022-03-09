@@ -58,6 +58,7 @@ public:
     struct Element
     {
       const ParticipantId participant;
+      const PlanId plan_id;
       const RouteId route_id;
       const Route& route;
       const ParticipantDescription& description;

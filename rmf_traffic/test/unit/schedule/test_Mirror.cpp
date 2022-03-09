@@ -96,7 +96,8 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
   db.set(p2.id(), pv2++, create_test_input(t2), sv2++, iv2++);
   CHECK(db.latest_version() == ++dbv);
-  REQUIRE_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
+  REQUIRE_FALSE(rmf_traffic::DetectConflict::between(
+      profile, t1, nullptr, profile, t2, nullptr));
 
   rmf_traffic::schedule::Mirror mirror;
   // updating mirror
@@ -294,12 +295,16 @@ SCENARIO("Testing specialized mirrors")
   CHECK(db.latest_version() == ++dbv);
 
   // Check that there are no conflicts between the routes on test_map
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t3));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t3));
+  CHECK_FALSE(rmf_traffic::DetectConflict::between(
+      profile, t1, nullptr, profile, t2, nullptr));
+  CHECK_FALSE(rmf_traffic::DetectConflict::between(
+      profile, t1, nullptr, profile, t3, nullptr));
+  CHECK_FALSE(rmf_traffic::DetectConflict::between(
+      profile, t2, nullptr, profile, t3, nullptr));
 
   // Check that there is no conflict between the routes on test_map_2
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t4, profile, t5));
+  CHECK_FALSE(rmf_traffic::DetectConflict::between(
+      profile, t4, nullptr, profile, t5, nullptr));
 
   GIVEN("Query patch with spacetime region overlapping with t1")
   {

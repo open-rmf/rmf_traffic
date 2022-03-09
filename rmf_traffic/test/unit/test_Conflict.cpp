@@ -152,7 +152,8 @@ SCENARIO("DetectConflict unit tests")
 
       THEN("narrow_phase should return empty")
       {
-        CHECK(!rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
+        CHECK(!rmf_traffic::DetectConflict::between(
+            profile, t1, nullptr, profile, t2, nullptr));
         CHECK_between_is_commutative(profile, t1, profile, t2);
       }
     }
@@ -233,7 +234,7 @@ SCENARIO("DetectConflict unit tests")
       REQUIRE(trajectory_b.size() == 2);
 
       CHECK(rmf_traffic::DetectConflict::between(
-          profile, trajectory_a, profile, trajectory_b));
+          profile, trajectory_a, nullptr, profile, trajectory_b, nullptr));
 
       const auto conflicts = get_conflicts(
         profile, trajectory_a, profile, trajectory_b);
@@ -432,8 +433,8 @@ SCENARIO("DetectConflict unit tests")
       t2.insert(time + 35s, Eigen::Vector3d{5, 5, 0}, Eigen::Vector3d{0, 0, 0});
       REQUIRE(t2.size() == 2);
 
-      CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile,
-        t2));
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, nullptr, profile, t2, nullptr));
     }
   }
 
@@ -552,7 +553,7 @@ SCENARIO("Conservative Advancement Regression Tests")
       t2.insert(finish, {0.5, 0, 0}, {-1, 0, 0});
 
       CHECK(rmf_traffic::DetectConflict::between(
-          profile, t1, profile, t2).has_value());
+          profile, t1, nullptr, profile, t2, nullptr).has_value());
     }
   }
 }

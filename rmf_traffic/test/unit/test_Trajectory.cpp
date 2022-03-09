@@ -22,6 +22,18 @@
 
 using namespace std::chrono_literals;
 
+bool consistent_trajectory_indices(const rmf_traffic::Trajectory& traj)
+{
+  bool result = true;
+  for (std::size_t i = 0; i < traj.size(); ++i)
+  {
+    CHECK(traj[i].index() == i);
+    result &= traj[i].index() == i;
+  }
+
+  return result;
+}
+
 SCENARIO("Profile unit tests")
 {
   // TODO(MXG): Test the new rmf_traffic::Profile API.
@@ -41,6 +53,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos, vel);
+      CHECK(consistent_trajectory_indices(trajectory));
 
       const rmf_traffic::Trajectory::Waypoint& waypoint = *(result.it);
 
@@ -69,6 +82,7 @@ SCENARIO("Waypoint Unit Tests")
         2),
         Eigen::Vector3d(0, 0, 0)});
     rmf_traffic::Trajectory trajectory = create_test_trajectory(inputs);
+    CHECK(consistent_trajectory_indices(trajectory));
     rmf_traffic::Trajectory::iterator trajectory_it = trajectory.begin();
     rmf_traffic::Trajectory::Waypoint& waypoint = *trajectory_it;
     rmf_traffic::Trajectory::Waypoint& waypoint_10s = *(++trajectory_it);
@@ -99,6 +113,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const rmf_traffic::Time new_time = time + 5s;
       waypoint.change_time(new_time);
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("Finish time is updated successfully.")
       {
@@ -121,6 +136,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const rmf_traffic::Time new_time = time + 12s;
       waypoint.change_time(new_time);
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("The appropriate waypoints are rearranged")
       {
@@ -137,6 +153,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const rmf_traffic::Time new_time = time + 22s;
       waypoint.change_time(new_time);
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("The appropriate waypoints are rearranged")
       {
@@ -155,6 +172,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
       waypoint.adjust_times(delta_t);
+      CHECK(consistent_trajectory_indices(trajectory));
       int i = 0;
       const rmf_traffic::Time new_order[3] =
       {time + 5s, time + 15s, time + 25s};
@@ -174,6 +192,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
       waypoint.adjust_times(delta_t);
+      CHECK(consistent_trajectory_indices(trajectory));
       int i = 0;
       const rmf_traffic::Time new_order[3] = {time - 5s, time + 5s, time + 15s};
 
@@ -192,6 +211,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-50);
       waypoint.adjust_times(delta_t);
+      CHECK(consistent_trajectory_indices(trajectory));
       int i = 0;
       const rmf_traffic::Time new_order[3] =
       {time - 50s, time - 40s, time - 30s};
@@ -212,6 +232,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
       waypoint_10s.adjust_times(delta_t);
+      CHECK(consistent_trajectory_indices(trajectory));
       int i = 0;
 
       THEN("Finish times from the second waypoint on are adjusted correctly.")
@@ -230,6 +251,7 @@ SCENARIO("Waypoint Unit Tests")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
       waypoint_10s.adjust_times(delta_t);
+      CHECK(consistent_trajectory_indices(trajectory));
       int i = 0;
 
       THEN("All finish times are adjusted correctly.")
@@ -267,12 +289,19 @@ SCENARIO("Insertion time tests")
 
   rmf_traffic::Trajectory trajectory;
   trajectory.insert(now + 10s, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
   trajectory.insert(now + 1s, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
   trajectory.insert(now + 1001ms, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
   trajectory.insert(now, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
   trajectory.insert(now - 100s, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
   trajectory.insert(now + 1h, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
   trajectory.insert(now + 12s, x, v);
+  CHECK(consistent_trajectory_indices(trajectory));
 
   CHECK_FALSE(trajectory.insert(now + 12s, x, v).inserted);
   CHECK_FALSE(trajectory.insert(now + 1001ms, x, v).inserted);
@@ -320,6 +349,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos_0, vel_0);
+      CHECK(consistent_trajectory_indices(trajectory));
       const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
 
       THEN("Length 1 trajectory is created.")
@@ -344,8 +374,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos_0, vel_0);
+      CHECK(consistent_trajectory_indices(trajectory));
       const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, pos_1, vel_1);
+      CHECK(consistent_trajectory_indices(trajectory));
       const rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("Length 2 trajectory is created.")
@@ -380,8 +412,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos_0, vel_0);
+      CHECK(consistent_trajectory_indices(trajectory));
       rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time, pos_1, vel_1);
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("Returned result has inserted field set to false.")
       {
@@ -394,8 +428,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos_0, vel_0);
+      CHECK(consistent_trajectory_indices(trajectory));
       rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, pos_1, vel_1);
+      CHECK(consistent_trajectory_indices(trajectory));
       rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("New iterator is created")
@@ -410,8 +446,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos_0, vel_0);
+      CHECK(consistent_trajectory_indices(trajectory));
       rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, pos_1, vel_1);
+      CHECK(consistent_trajectory_indices(trajectory));
       rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("New iterator is created")
@@ -427,8 +465,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos_0, vel_0);
+      CHECK(consistent_trajectory_indices(trajectory));
       const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, pos_1, vel_1);
+      CHECK(consistent_trajectory_indices(trajectory));
       const rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("New iterator is created")
@@ -495,6 +535,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
       auto fourth_it = trajectory.insert(time_3, pos_3, vel_3).it;
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -521,6 +562,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
       auto fourth_it = trajectory.insert(time_3, pos_3, vel_3).it;
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -547,6 +589,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
       auto fourth_it = trajectory.insert(time_3, pos_3, vel_3).it;
+      CHECK(consistent_trajectory_indices(trajectory));
 
       THEN("base_iterators assigned prior are still valid")
       {

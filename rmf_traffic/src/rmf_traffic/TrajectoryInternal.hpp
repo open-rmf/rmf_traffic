@@ -161,7 +161,10 @@ public:
 
   /// Rotate the elements of the vector so that the mover is located right in
   /// front of the target.
-  void rotate(iterator mover, iterator target)
+  ///
+  /// \return the lowest index whose element needs to change its internally
+  /// stored index.
+  std::size_t rotate(iterator mover, iterator target)
   {
     // These conditions should be checked by change_time before the rotate()
     // function gets used.
@@ -170,12 +173,16 @@ public:
 
     if (mover < target)
     {
+      const std::size_t index = mover - begin();
       std::rotate(mover, mover+1, target);
+      return index;
     }
     else
     {
+      const std::size_t index = target - begin();
       assert(target < mover);
       std::rotate(target, mover, mover+1);
+      return index;
     }
   }
 
@@ -265,6 +272,7 @@ struct WaypointElement
     Time time;
     Eigen::Vector3d position;
     Eigen::Vector3d velocity;
+    std::size_t index = std::numeric_limits<std::size_t>::max();
   };
 
   Data data;

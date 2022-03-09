@@ -35,7 +35,8 @@ inline std::vector<ConflictData> get_conflicts(
 {
   rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
   rmf_traffic::DetectConflict::Implementation::between(
-    p1, t1, p2, t2, rmf_traffic::DetectConflict::Interpolate::CubicSpline,
+    p1, t1, nullptr, p2, t2, nullptr,
+    rmf_traffic::DetectConflict::Interpolate::CubicSpline,
     &conflicts);
 
   return conflicts;

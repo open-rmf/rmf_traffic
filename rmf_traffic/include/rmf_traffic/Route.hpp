@@ -33,7 +33,7 @@ using ParticipantId = uint64_t;
 using CheckpointId = uint64_t;
 using PlanId = uint64_t;
 
-/// The checkpoint in the key waits for the checkpoint in the value
+/// The checkpoint in the value waits for the checkpoint in the key
 using Dependencies = std::map<CheckpointId, CheckpointId>;
 
 /// The checkpoint dependencies relate to the route ID of the key
@@ -68,8 +68,8 @@ public:
   /// Add a dependency
   DependsOnPlan& add_dependency(
     CheckpointId dependent_checkpoint,
-    RouteId other_route,
-    CheckpointId other_checkpoint);
+    RouteId on_route,
+    CheckpointId on_checkpoint);
 
   class Implementation;
 private:
@@ -139,23 +139,23 @@ public:
   ///   The checkpoint inside of this route which has a dependency on the other
   ///   participant's route.
   ///
-  /// \param[in] other_participant
+  /// \param[in] on_participant
   ///   The other participant which this route is depending on.
   ///
-  /// \param[in] other_plan
+  /// \param[in] on_plan
   ///   The ID of the other participant's plan that this route is depending on.
   ///
-  /// \param[in] other_route
+  /// \param[in] on_route
   ///   The ID of the other participant's route that this robot is depending on.
   ///
-  /// \param[in] other_checkpoint
+  /// \param[in] on_checkpoint
   ///   The ID of the checkpoint
   Route& add_dependency(
     CheckpointId dependent_checkpoint,
-    ParticipantId other_participant,
-    PlanId other_plan,
-    RouteId other_route,
-    CheckpointId other_checkpoint);
+    ParticipantId on_participant,
+    PlanId on_plan,
+    RouteId on_route,
+    CheckpointId on_checkpoint);
 
   /// True if this route should ignore information about the given
   /// (participant, plan) pair. If this route has a dependency on a plan from
@@ -166,22 +166,22 @@ public:
   /// Get any dependencies that this route has on the given route of another
   /// participant.
   ///
-  /// \param[in] participant
+  /// \param[in] on_participant
   ///   The ID of the other participant of interest
   ///
-  /// \param[in] plan
+  /// \param[in] on_plan
   ///   The ID of the other participant's current plan
   ///
-  /// \param[in] route
+  /// \param[in] on_route
   ///   The ID of the other participant's route that is being considered
   ///
   /// \return A pointer to the relevant dependencies, if any exist. If there is
   /// no dependency relevant to the specified route of the participant, then
   /// this will be a nullptr.
   const Dependencies* check_dependencies(
-    ParticipantId participant,
-    PlanId plan,
-    RouteId route) const;
+    ParticipantId on_participant,
+    PlanId on_plan,
+    RouteId on_route) const;
 
   class Implementation;
 private:
