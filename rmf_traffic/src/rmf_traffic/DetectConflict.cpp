@@ -101,7 +101,7 @@ public:
   Crawler(
     Trajectory::const_iterator current,
     Trajectory::const_iterator end,
-    const Dependencies* dependencies_on_me)
+    const DependsOnCheckpoint* dependencies_on_me)
   : _current(std::move(current)),
     _end(std::move(end)),
     _deps(dependencies_on_me)
@@ -153,7 +153,7 @@ public:
     ++_current;
   }
 
-  const Dependencies* deps() const
+  const DependsOnCheckpoint* deps() const
   {
     return _deps;
   }
@@ -161,8 +161,8 @@ public:
 private:
   Trajectory::const_iterator _current;
   Trajectory::const_iterator _end;
-  const Dependencies* _deps;
-  std::optional<Dependencies::const_iterator> _current_dep;
+  const DependsOnCheckpoint* _deps;
+  std::optional<DependsOnCheckpoint::const_iterator> _current_dep;
 };
 
 //==============================================================================
@@ -497,10 +497,10 @@ Time compute_time(
 std::optional<rmf_traffic::Time> DetectConflict::between(
   const Profile& profile_a,
   const Trajectory& trajectory_a,
-  const Dependencies* dependencies_of_a_on_b,
+  const DependsOnCheckpoint* dependencies_of_a_on_b,
   const Profile& profile_b,
   const Trajectory& trajectory_b,
-  const Dependencies* dependencies_of_b_on_a,
+  const DependsOnCheckpoint* dependencies_of_b_on_a,
   Interpolate interpolation)
 {
   return Implementation::between(
@@ -869,10 +869,10 @@ std::optional<rmf_traffic::Time> detect_approach(
 std::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
   const Trajectory& trajectory_a,
-  const Dependencies* deps_a_on_b,
+  const DependsOnCheckpoint* deps_a_on_b,
   const Profile& input_profile_b,
   const Trajectory& trajectory_b,
-  const Dependencies* deps_b_on_a,
+  const DependsOnCheckpoint* deps_b_on_a,
   Interpolate /*interpolation*/,
   std::vector<Conflict>* output_conflicts)
 {

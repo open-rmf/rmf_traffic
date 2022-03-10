@@ -189,7 +189,7 @@ const DependsOnParticipant& Route::dependencies() const
 //==============================================================================
 Route& Route::add_dependency(
   const CheckpointId dependent_checkpoint,
-  const rmf_traffic::Route::Dependency dep)
+  const Dependency dep)
 {
   auto& depends_on_plan = _pimpl->dependencies[dep.on_participant];
   if (depends_on_plan.plan().has_value())
@@ -229,7 +229,7 @@ bool Route::should_ignore(ParticipantId participant, PlanId plan) const
 }
 
 //==============================================================================
-const Dependencies* Route::check_dependencies(ParticipantId on_participant,
+const DependsOnCheckpoint* Route::check_dependencies(ParticipantId on_participant,
   PlanId on_plan,
   RouteId on_route) const
 {

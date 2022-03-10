@@ -78,10 +78,10 @@ public:
   static std::optional<rmf_traffic::Time> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
-    const Dependencies* dependencies_of_a_on_b,
+    const DependsOnCheckpoint* dependencies_of_a_on_b,
     const Profile& profile_b,
     const Trajectory& trajectory_b,
-    const Dependencies* dependencies_of_b_on_a,
+    const DependsOnCheckpoint* dependencies_of_b_on_a,
     Interpolate interpolation = Interpolate::CubicSpline);
 
   class Implementation;

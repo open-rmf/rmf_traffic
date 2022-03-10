@@ -38,11 +38,11 @@ public:
 
   std::vector<std::size_t> approach_lanes;
 
-  std::size_t itinerary_index;
-
-  std::size_t trajectory_index;
+  Checkpoints checkpoints;
 
   Graph::Lane::EventPtr event;
+
+  Dependencies dependencies = {};
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -52,6 +52,11 @@ public:
       Implementation{std::forward<Args>(args)...});
 
     return wp;
+  }
+
+  static void add_dependency(Waypoint& waypoint, const Dependency dep)
+  {
+    waypoint._pimpl->dependencies.push_back(dep);
   }
 };
 

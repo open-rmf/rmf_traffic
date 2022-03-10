@@ -39,6 +39,9 @@ public:
   struct Conflict
   {
     ParticipantId participant;
+    PlanId plan;
+    RouteId route;
+    CheckpointId checkpoint;
     Time time;
   };
 

@@ -124,7 +124,13 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
         v.route.trajectory(),
         nullptr))
     {
-      return Conflict{v.participant, *time};
+      return Conflict{
+        v.participant,
+        v.plan_id,
+        v.route_id,
+        v.route.trajectory().find(*time)->index(),
+        *time
+      };
     }
   }
 
@@ -479,7 +485,13 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         v.route.trajectory(),
         nullptr))
     {
-      return Conflict{v.participant, *time};
+      return Conflict{
+        v.participant,
+        v.plan_id,
+        v.route_id,
+        v.route.trajectory().find(*time)->index(),
+        *time
+      };
     }
   }
 
@@ -520,7 +532,13 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
           other_start,
           nullptr))
       {
-        return Conflict{other.first, *time};
+        return Conflict{
+          other.first,
+          ep.plan_id(),
+          ep.route_id(),
+          ep.checkpoint_id(),
+          *time
+        };
       }
     }
   }
@@ -562,7 +580,13 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
           other_finish,
           nullptr))
       {
-        return Conflict{other.first, *time};
+        return Conflict{
+          other.first,
+          ep.plan_id(),
+          ep.route_id(),
+          ep.checkpoint_id(),
+          *time
+        };
       }
     }
   }

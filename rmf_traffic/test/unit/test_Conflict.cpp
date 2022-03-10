@@ -565,7 +565,7 @@ struct Range
   }
 };
 
-SCENARIO("Route dependency conflict tests", "[deps]")
+SCENARIO("Route dependency conflict tests")
 {
   using namespace std::chrono_literals;
   const auto t0 = rmf_traffic::Time(rmf_traffic::Duration(0));
@@ -723,8 +723,9 @@ SCENARIO("Route dependency conflict tests", "[deps]")
     CHECK(conflict.has_value());
     if (conflict.has_value())
     {
-      CHECK(conflict_range->lower.count() <= conflict->time_since_epoch().count());
-      CHECK(conflict->time_since_epoch().count() <= conflict_range->upper.count());
+      const auto t = conflict->time_since_epoch().count();
+      CHECK(conflict_range->lower.count() <= t);
+      CHECK(t <= conflict_range->upper.count());
     }
   }
   else

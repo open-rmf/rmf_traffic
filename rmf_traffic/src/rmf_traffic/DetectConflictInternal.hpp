@@ -45,10 +45,10 @@ public:
   static rmf_utils::optional<Time> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
-    const Dependencies* deps_a,
+    const DependsOnCheckpoint* deps_a,
     const Profile& profile_b,
     const Trajectory& trajectory_b,
-    const Dependencies* deps_b,
+    const DependsOnCheckpoint* deps_b,
     Interpolate interpolation,
     std::vector<Conflict>* output_conflicts = nullptr);
 

@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <thread>
 #include <iostream>
+#include <limits>
 
 // TODO(MXG): Move performance testing content into a performance test folder
 const bool test_performance = false;
@@ -133,7 +134,7 @@ rmf_traffic::Trajectory test_with_obstacle(
     database.extend(p_obs.id(), {r}, iv++);
   }
 
-  rmf_utils::optional<rmf_traffic::agv::Planner::Result> result;
+  std::optional<rmf_traffic::agv::Planner::Result> result;
   const auto start_time = std::chrono::steady_clock::now();
   for (std::size_t i = 0; i < N; ++i)
   {
@@ -349,8 +350,9 @@ inline void CHECK_PLAN(
     if (wp.graph_index())
       plan_indices.push_back(*wp.graph_index());
 
-    const std::size_t i_itin = wp.itinerary_index();
-    const std::size_t i_wp = wp.trajectory_index();
+    REQUIRE_FALSE(wp.itinerary_checkpoints().empty());
+    const std::size_t i_itin = wp.itinerary_checkpoints().back().route_id;
+    const std::size_t i_wp = wp.itinerary_checkpoints().back().checkpoint_id;
     REQUIRE(i_itin < plan->get_itinerary().size());
     REQUIRE(i_wp < plan->get_itinerary()[i_itin].trajectory().size());
 
@@ -694,8 +696,8 @@ SCENARIO("Test Start")
   CHECK(start.waypoint() == 1);
   CHECK((start.orientation() - 0.0) == Approx(0.0).margin(1e-6));
 
-  rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{0, 0};
-  rmf_utils::optional<std::size_t> initial_lane = std::size_t(0);
+  std::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{0, 0};
+  std::optional<std::size_t> initial_lane = std::size_t(0);
 
   start.location(initial_location);
   CHECK(start.location());
@@ -798,7 +800,7 @@ SCENARIO("Test planning")
 
   WHEN("initial and goal waypoints are same but goal_orientation is different")
   {
-    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+    std::optional<rmf_traffic::agv::Plan::Result> result;
     const double goal_orientation = M_PI/2.0;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
@@ -834,7 +836,7 @@ SCENARIO("Test planning")
 
   WHEN("goal waypoint is an adjacent node")
   {
-    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+    std::optional<rmf_traffic::agv::Plan::Result> result;
     const double goal_orientation = M_PI;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
@@ -910,7 +912,7 @@ SCENARIO("Test planning")
       };
 
       const auto start_time = std::chrono::steady_clock::now();
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      std::optional<rmf_traffic::agv::Plan::Result> result;
 
       for (std::size_t i = 0; i < N; ++i)
       {
@@ -959,7 +961,7 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      std::optional<rmf_traffic::agv::Plan::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < N; ++i)
       {
@@ -1032,7 +1034,7 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      std::optional<rmf_traffic::agv::Plan::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
 
       for (std::size_t i = 0; i < N; ++i)
@@ -1081,7 +1083,7 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<Planner::Result> result;
+      std::optional<Planner::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
 
       for (std::size_t i = 0; i < N; ++i)
@@ -1131,7 +1133,7 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      std::optional<rmf_traffic::agv::Plan::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < N; ++i)
       {
@@ -1210,7 +1212,7 @@ SCENARIO("Test planning")
 
       planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      std::optional<rmf_traffic::agv::Plan::Result> result;
 
       const auto start_time = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < N; ++i)
@@ -1923,7 +1925,7 @@ SCENARIO("DP1 Graph")
       const std::size_t goal_index = 32;
       const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
 
-      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      std::optional<rmf_traffic::agv::Plan::Result> result;
       auto plan_thread = std::thread(
         [&]()
         {
@@ -2268,7 +2270,7 @@ SCENARIO("Test planner with various start conditions")
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    rmf_utils::optional<Eigen::Vector2d> initial_location =
+    std::optional<Eigen::Vector2d> initial_location =
       Eigen::Vector2d{-5.0, 0};
 
     Planner::Start start1 = Planner::Start{
@@ -2316,7 +2318,7 @@ SCENARIO("Test planner with various start conditions")
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    rmf_utils::optional<Eigen::Vector2d> initial_location =
+    std::optional<Eigen::Vector2d> initial_location =
       Eigen::Vector2d{-2.5, 0};
 
     Planner::Start start = Planner::Start{
@@ -2375,7 +2377,7 @@ SCENARIO("Test planner with various start conditions")
   {
 
     Planner::Goal goal{3};
-    rmf_utils::optional<Eigen::Vector2d> initial_location =
+    std::optional<Eigen::Vector2d> initial_location =
       Eigen::Vector2d{-2.5, 0};
 
     WHEN("initial_lane is not constrained")
@@ -2384,7 +2386,7 @@ SCENARIO("Test planner with various start conditions")
       graph.add_lane(2, 1); // 7
       planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-      rmf_utils::optional<std::size_t> initial_lane = std::size_t{7};
+      std::optional<std::size_t> initial_lane = std::size_t{7};
 
       Planner::Start start{
         initial_time,
@@ -2411,9 +2413,9 @@ SCENARIO("Test planner with various start conditions")
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    rmf_utils::optional<Eigen::Vector2d> initial_location =
+    std::optional<Eigen::Vector2d> initial_location =
       Eigen::Vector2d{-4.99, 0};
-    rmf_utils::optional<std::size_t> initial_lane = 6;
+    std::optional<std::size_t> initial_lane = 6;
 
     Planner::Start start = Planner::Start{
       initial_time,
@@ -2505,7 +2507,7 @@ SCENARIO("Test planner with various start conditions")
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+    std::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
     std::vector<Planner::Start> starts;
     Planner::Start start1{initial_time, 1, 0.0, location};
     Planner::Start start2{initial_time, 2, 0.0, location};
@@ -2540,8 +2542,8 @@ SCENARIO("Test planner with various start conditions")
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
-    rmf_utils::optional<std::size_t> initial_lane = 6;
+    std::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+    std::optional<std::size_t> initial_lane = 6;
 
     std::vector<Planner::Start> starts;
     Planner::Start start1{initial_time, 2, 0.0, location, initial_lane};
@@ -2635,7 +2637,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
 
     // starts where robot has initial_locations displace from waypoint 1
     // Displaced 0.5m along lane 5
-    rmf_utils::optional<Eigen::Vector2d> start_location1 =
+    std::optional<Eigen::Vector2d> start_location1 =
       Eigen::Vector2d{-4, 3.5};
 
     Planner::Start start3{initial_time, 1, -M_PI_2, start_location1};
@@ -3570,5 +3572,99 @@ SCENARIO("Test speed limits")
     CHECK(used_lanes.count(1));
     CHECK(used_lanes.count(2));
     CHECK_FALSE(used_lanes.count(0));
+  }
+}
+
+SCENARIO("Test dependencies", "[deps]")
+{
+  using namespace std::chrono_literals;
+  const rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<rmf_traffic::geometry::Circle>(0.2)
+  };
+
+  rmf_traffic::agv::VehicleTraits traits(
+    {1.0, 100.0}, {M_PI, 100.0}, profile);
+  traits.get_differential()->set_reversible(false);
+
+  const std::string test_map = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map, {0, 0}); // 0
+  graph.add_waypoint(test_map, {1, 0}); // 1
+  graph.add_waypoint(test_map, {2, 0}); // 2
+  graph.add_waypoint(test_map, {3, 0}); // 3
+  graph.add_waypoint(test_map, {4, 0}); // 4
+  graph.add_waypoint(test_map, {5, 0}); // 5
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 1);
+  add_bidir_lane(1, 2);
+  add_bidir_lane(2, 3);
+  add_bidir_lane(3, 4);
+  add_bidir_lane(4, 5);
+
+  const auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
+  auto p0 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 0",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  auto p1 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 1",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  const auto pN =
+    std::numeric_limits<rmf_traffic::schedule::ParticipantId>::max();
+
+  rmf_traffic::agv::Plan::Options options{
+    rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+          database, pN, profile)
+  };
+  options.minimum_holding_time(1s);
+
+  rmf_traffic::agv::Planner planner{
+    rmf_traffic::agv::Planner::Configuration{graph, traits}, options
+  };
+
+  const auto t0 = rmf_traffic::Time(rmf_traffic::Duration(0));
+  rmf_traffic::Trajectory traj_0;
+  traj_0.insert(t0 + 1s, {1.5, 0.5, 0}, {0, 0, 0});
+  traj_0.insert(t0 + 2s, {1.5, -0.5, 0}, {0, 0, 0});
+  const auto p0_plan_id = 5;
+  p0.set(p0_plan_id, {{test_map, traj_0}});
+
+  rmf_traffic::Trajectory traj_1;
+  traj_1.insert(t0 + 3s, {3.5, -0.5, 0}, {0, 0, 0});
+  traj_1.insert(t0 + 4s, {3.5, 0.5, 0}, {0, 0, 0});
+  const auto p1_plan_id = 3;
+  p1.set(p1_plan_id, {{test_map, traj_1}});
+
+  const auto result = planner.plan({t0, 0, 0.0}, 5);
+  REQUIRE(result);
+  for (const auto& wp : result->get_waypoints())
+  {
+    std::cout << wp.graph_index().value() << " @ "
+              << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
+              << ":";
+    for (const auto& dep : wp.dependencies())
+    {
+      std::cout << " [" << dep.on_participant << " " << dep.on_plan
+                << " " << dep.on_route << " " << dep.on_checkpoint << "]";
+    }
+    std::cout << std::endl;
   }
 }

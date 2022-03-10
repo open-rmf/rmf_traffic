@@ -60,8 +60,11 @@ public:
           blocking_route.trajectory(),
           nullptr))
       {
-//        std::cout << "Conflict at " << rmf_traffic::time::to_seconds(time->time_since_epoch()) << std::endl;
-        return Conflict{_other_participant, *time};
+        return Conflict{
+          _other_participant, 0, 0,
+          route.trajectory().find(*time)->index(),
+          *time
+        };
       }
     }
 

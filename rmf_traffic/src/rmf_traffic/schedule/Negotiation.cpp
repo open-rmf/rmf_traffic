@@ -124,11 +124,16 @@ public:
 
   Type type;
   ParticipantId participant;
+  PlanId plan_id;
+  RouteId route_id;
+  CheckpointId checkpoint_id;
   std::shared_ptr<const Route> route;
   std::shared_ptr<const ParticipantDescription> description;
 
   static Endpoint make_initial(
     ParticipantId participant,
+    PlanId plan_id,
+    RouteId route_id,
     std::shared_ptr<const Route> route,
     std::shared_ptr<const ParticipantDescription> description)
   {
@@ -137,6 +142,9 @@ public:
       Implementation{
         Initial,
         participant,
+        plan_id,
+        route_id,
+        0,
         std::move(route),
         std::move(description)
       });
@@ -146,6 +154,8 @@ public:
 
   static Endpoint make_final(
     ParticipantId participant,
+    PlanId plan_id,
+    RouteId route_id,
     std::shared_ptr<const Route> route,
     std::shared_ptr<const ParticipantDescription> description)
   {
@@ -154,6 +164,9 @@ public:
       Implementation{
         Final,
         participant,
+        plan_id,
+        route_id,
+        route->trajectory().size(),
         std::move(route),
         std::move(description)
       });
@@ -203,16 +216,20 @@ public:
   static void insert_initial_endpoint(
     std::unordered_map<ParticipantId, Endpoint>& initial_endpoints,
     const ParticipantId participant,
+    const PlanId plan_id,
     const std::shared_ptr<const ParticipantDescription>& description,
     const Itinerary& itinerary)
   {
     ConstRoutePtr initial = nullptr;
-    for (const auto& r : itinerary)
+    std::optional<RouteId> route_id;
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
+      const auto& r = itinerary[i];
       const auto& check = r.trajectory().front().time();
       if (!initial || check < initial->trajectory().front().time())
       {
         initial = std::make_shared<Route>(r);
+        route_id = i;
       }
     }
 
@@ -221,8 +238,8 @@ public:
       initial_endpoints.insert(
         {
           participant,
-          Endpoint::Implementation::make_initial(participant, initial,
-          description)
+          Endpoint::Implementation::make_initial(
+            participant, plan_id, route_id.value(), initial, description)
         });
     }
   }
@@ -230,16 +247,20 @@ public:
   static void insert_final_endpoint(
     std::unordered_map<ParticipantId, Endpoint>& final_endpoints,
     const ParticipantId participant,
+    const PlanId plan_id,
     const std::shared_ptr<const ParticipantDescription>& description,
     const Itinerary& itinerary)
   {
     ConstRoutePtr final = nullptr;
-    for (const auto& r : itinerary)
+    std::optional<RouteId> route_id;
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
+      const auto& r = itinerary[i];
       const auto& check = r.trajectory().back().time();
       if (!final || final->trajectory().front().time() < check)
       {
         final = std::make_shared<Route>(r);
+        route_id = i;
       }
     }
 
@@ -248,11 +269,11 @@ public:
       final_endpoints.insert(
         {
           participant,
-          Endpoint::Implementation::make_final(participant, final, description)
+          Endpoint::Implementation::make_final(
+            participant, plan_id, route_id.value(), final, description)
         });
     }
   }
-
 
   std::unordered_map<ParticipantId, Endpoint> get_initial_endpoints(
     const VersionedKeySequence& alt_keys) const
@@ -267,6 +288,8 @@ public:
       insert_initial_endpoint(
         output,
         key.participant,
+        // NOTE(MXG): placeholder value since alt plan_ids don't really matter
+        std::numeric_limits<PlanId>::max(),
         description,
         alternatives.at(key.participant)->at(key.version));
     }
@@ -287,6 +310,8 @@ public:
       insert_final_endpoint(
         output,
         key.participant,
+        // NOTE(MXG): placeholder value since alt plan_ids don't really matter
+        std::numeric_limits<PlanId>::max(),
         description,
         alternatives.at(key.participant)->at(key.version));
     }
@@ -307,12 +332,14 @@ private:
       insert_initial_endpoint(
         initial_endpoints,
         p.participant,
+        p.plan,
         description,
         p.itinerary);
 
       insert_final_endpoint(
         final_endpoints,
         p.participant,
+        p.plan,
         description,
         p.itinerary);
     }
@@ -1178,6 +1205,24 @@ Viewer::View Negotiation::Table::Viewer::query(
 ParticipantId Negotiation::Table::Viewer::Endpoint::participant() const
 {
   return _pimpl->participant;
+}
+
+//==============================================================================
+PlanId Negotiation::Table::Viewer::Endpoint::plan_id() const
+{
+  return _pimpl->plan_id;
+}
+
+//==============================================================================
+RouteId Negotiation::Table::Viewer::Endpoint::route_id() const
+{
+  return _pimpl->route_id;
+}
+
+//==============================================================================
+CheckpointId Negotiation::Table::Viewer::Endpoint::checkpoint_id() const
+{
+  return _pimpl->checkpoint_id;
 }
 
 //==============================================================================

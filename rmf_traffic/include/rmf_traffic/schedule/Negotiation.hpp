@@ -168,6 +168,15 @@ public:
         /// The ID of the participant
         ParticipantId participant() const;
 
+        /// The ID of the plan for this endpoint
+        PlanId plan_id() const;
+
+        /// The ID of the route for this endpoint
+        RouteId route_id() const;
+
+        /// The ID of the checkpoint
+        CheckpointId checkpoint_id() const;
+
         /// The first or last (depending on context) waypoint
         const rmf_traffic::Trajectory::Waypoint& waypoint() const;
 

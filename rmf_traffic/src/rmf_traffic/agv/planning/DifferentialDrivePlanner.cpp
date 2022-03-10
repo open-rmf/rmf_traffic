@@ -206,17 +206,11 @@ std::vector<NodePtr> reconstruct_nodes(
 }
 
 //==============================================================================
-struct Indexing
-{
-  std::size_t itinerary_index;
-  std::size_t trajectory_index;
-};
-
-//==============================================================================
 template<typename NodePtr>
-std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
+std::pair<std::vector<Route>, std::vector<Plan::Checkpoints>>
+reconstruct_routes(
   const std::vector<NodePtr>& node_sequence,
-  rmf_utils::optional<rmf_traffic::Duration> span = rmf_utils::nullopt)
+  std::optional<rmf_traffic::Duration> span = std::nullopt)
 {
   if (node_sequence.size() == 1)
   {
@@ -252,24 +246,19 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
     return {output, {}};
   }
 
-  std::vector<Indexing> indexing;
+  std::vector<Plan::Checkpoints> indexing;
   indexing.resize(node_sequence.size());
 
   assert(node_sequence.back()->start.has_value());
 
   std::vector<Route> routes = node_sequence.back()->route_from_parent;
-  indexing.at(node_sequence.size()-1).itinerary_index = 0;
-  indexing.at(node_sequence.size()-1).trajectory_index = 0;
-
-  // We exclude the first node in the sequence, because it contains an empty
-  // route which is not helpful.
   const std::size_t N = node_sequence.size();
   const std::size_t stop = node_sequence.size()-1;
   for (std::size_t i = 0; i < stop; ++i)
   {
     const std::size_t n = N-2-i;
     const auto& node = node_sequence.at(n);
-    auto& index = indexing.at(n);
+    auto& checkpoints = indexing.at(n);
 
     for (const Route& next_route : node->route_from_parent)
     {
@@ -287,13 +276,20 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       }
 
       // We will take note of the itinerary and trajectory indices here
-      index.itinerary_index = routes.size() - 1;
       assert(!routes.back().trajectory().empty());
-      index.trajectory_index = routes.back().trajectory().size() - 1;
+      checkpoints.push_back({
+        routes.size()-1,
+        routes.back().trajectory().size()-1
+      });
+
+      routes.back().checkpoints().insert(routes.size()-1);
     }
 
     assert(routes.back().trajectory().back().time() == node->time);
   }
+
+  // The first plan waypoint is indexed to the 0th checkpoint of the 0th route
+  indexing.at(stop).push_back({0, 0});
 
   // Throw away any routes that have less than two waypoints.
   const auto r_it = std::remove_if(
@@ -308,7 +304,7 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 template<typename NodePtr>
 std::vector<Plan::Waypoint> reconstruct_waypoints(
   const std::vector<NodePtr>& node_sequence,
-  const std::vector<Indexing>& indexing,
+  const std::vector<Plan::Checkpoints>& indexing,
   const Graph::Implementation& graph)
 {
   if (node_sequence.size() == 1)
@@ -326,7 +322,7 @@ std::vector<Plan::Waypoint> reconstruct_waypoints(
   for (std::size_t i = 0; i < N; ++i)
   {
     const auto& n = node_sequence[N-1-i];
-    const auto& index = indexing[N-1-i];
+    const auto& checkpoints = indexing[N-1-i];
 
     const Eigen::Vector2d p = n->waypoint ?
       graph.waypoints[*n->waypoint].get_location() :
@@ -336,11 +332,103 @@ std::vector<Plan::Waypoint> reconstruct_waypoints(
     waypoints.emplace_back(
       Plan::Waypoint::Implementation::make(
         Eigen::Vector3d{p[0], p[1], n->yaw}, time, n->waypoint,
-        n->approach_lanes, index.itinerary_index, index.trajectory_index,
-        n->event));
+        n->approach_lanes, checkpoints, n->event));
   }
 
   return waypoints;
+}
+
+//==============================================================================
+void find_dependencies(
+  std::vector<Route>& itinerary,
+  std::vector<Plan::Waypoint>& waypoints,
+  const RouteValidator* validator,
+  const std::optional<Duration> dependency_window,
+  const Duration dependency_resolution)
+{
+  if (!validator || !dependency_window.has_value())
+  {
+    return;
+  }
+
+  using PlanWaypointId = std::size_t;
+  std::vector<std::map<CheckpointId, PlanWaypointId>> checkpoint_maps;
+  checkpoint_maps.resize(itinerary.size());
+
+  for (std::size_t i = 0; i < waypoints.size(); ++i)
+  {
+    for (const auto& c : waypoints[i].itinerary_checkpoints())
+    {
+      const auto insertion =
+        checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
+      if (!insertion.second)
+      {
+        // *INDENT-OFF*
+        throw std::runtime_error(
+          "[rmf_traffic::agv::planning::find_dependencies] INTERNAL BUG: "
+          "Route [" + std::to_string(c.route_id) + "] checkpoint ["
+          + std::to_string(c.checkpoint_id) + "] maps to more than one "
+          "waypoint index: " + std::to_string(insertion.first->second)
+          + " vs " + std::to_string(i));
+        // *INDENT-ON*
+      }
+    }
+  }
+
+  for (std::size_t i = 0; i < itinerary.size(); ++i)
+  {
+    auto& route = itinerary[i];
+    auto& checkpoint_map = checkpoint_maps[i];
+    assert(route.trajectory().start_time());
+    const auto initial_time = *route.trajectory().start_time();
+    bool no_conflicts = false;
+    while (!no_conflicts)
+    {
+      no_conflicts = true;
+
+      for (auto t = dependency_resolution;
+           t < *dependency_window; t += dependency_resolution)
+      {
+        route.trajectory().front().adjust_times(-dependency_resolution);
+        const auto conflict = validator->find_conflict(route);
+        if (conflict.has_value())
+        {
+          auto it = route.trajectory().find(conflict->time);
+          if (it != route.trajectory().begin())
+          {
+            // NOTE: If a conflict is detected with the exact start of the
+            // trajectory then we ignore it because it is not physically
+            // meaningful and there isn't anything we could do about it anyway.
+            no_conflicts = false;
+            --it;
+            const auto dependent = it->index();
+            const Dependency dependency{
+              conflict->participant,
+              conflict->plan,
+              conflict->route,
+              conflict->checkpoint
+            };
+
+            const auto wp = [&]()
+            {
+              assert(!checkpoint_map.empty());
+              // Find the closest route waypoint less than or equal to
+              // `dependent` that is associated with a plan waypoint.
+              const auto c_it = --checkpoint_map.upper_bound(dependent);
+              route.add_dependency(c_it->first, dependency);
+              return c_it->second;
+            } ();
+
+            Plan::Waypoint::Implementation::add_dependency(
+              waypoints[wp], dependency);
+          }
+        }
+      }
+
+      const auto delta_t = initial_time - route.trajectory().front().time();
+      route.trajectory().front().adjust_times(delta_t);
+    }
+  }
 }
 
 //==============================================================================
@@ -1742,6 +1830,8 @@ public:
     _saturation_limit(options.saturation_limit()),
     _maximum_cost_estimate(options.maximum_cost_estimate()),
     _interrupter(options.interrupter()),
+    _dependency_window(options.dependency_window()),
+    _dependency_resolution(options.dependency_resolution()),
     _already_expanded(4093, EntryHash(_supergraph->original().lanes.size()))
   {
     const auto& angular = _supergraph->traits().rotational();
@@ -1926,7 +2016,7 @@ public:
       }
     }
 
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   PlanData make_plan(const SearchNodePtr& solution) const
@@ -1935,6 +2025,11 @@ public:
     auto [routes, index] = reconstruct_routes(nodes);
     auto waypoints = reconstruct_waypoints(
       nodes, index, _supergraph->original());
+
+    find_dependencies(
+      routes, waypoints, _validator,
+      _dependency_window, _dependency_resolution);
+
     auto start = find_start(solution);
 
     return PlanData{
@@ -1959,6 +2054,8 @@ private:
   std::optional<std::size_t> _saturation_limit;
   std::optional<double> _maximum_cost_estimate;
   std::function<bool()> _interrupter;
+  std::optional<Duration> _dependency_window;
+  Duration _dependency_resolution;
   double _w_nom;
   double _alpha_nom;
   double _rotation_threshold;

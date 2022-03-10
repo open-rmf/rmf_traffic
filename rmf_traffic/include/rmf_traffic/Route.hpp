@@ -33,11 +33,23 @@ using ParticipantId = uint64_t;
 using CheckpointId = uint64_t;
 using PlanId = uint64_t;
 
+/// Bundle of integers representing a dependency on a checkpoint within a
+/// specific participant's plan.
+struct Dependency
+{
+  uint64_t on_participant;
+  uint64_t on_plan;
+  uint64_t on_route;
+  uint64_t on_checkpoint;
+};
+
+using Dependencies = std::vector<Dependency>;
+
 /// The checkpoint in the value waits for the checkpoint in the key
-using Dependencies = std::map<CheckpointId, CheckpointId>;
+using DependsOnCheckpoint = std::map<CheckpointId, CheckpointId>;
 
 /// The checkpoint dependencies relate to the route ID of the key
-using DependsOnRoute = std::unordered_map<RouteId, Dependencies>;
+using DependsOnRoute = std::unordered_map<RouteId, DependsOnCheckpoint>;
 
 //==============================================================================
 /// Express a dependency on the plan of another traffic participant
@@ -137,16 +149,6 @@ public:
   /// Get the dependencies of the immutable route
   const DependsOnParticipant& dependencies() const;
 
-  /// Bundle of integers representing a dependency on a checkpoint within a
-  /// specific participant's plan.
-  struct Dependency
-  {
-    uint64_t on_participant;
-    uint64_t on_plan;
-    uint64_t on_route;
-    uint64_t on_checkpoint;
-  };
-
   /// Tell this route that it has a dependency on the checkpoint of another
   /// participant's route.
   ///
@@ -190,7 +192,7 @@ public:
   /// \return A pointer to the relevant dependencies, if any exist. If there is
   /// no dependency relevant to the specified route of the participant, then
   /// this will be a nullptr.
-  const Dependencies* check_dependencies(
+  const DependsOnCheckpoint* check_dependencies(
     ParticipantId on_participant,
     PlanId on_plan,
     RouteId on_route) const;
