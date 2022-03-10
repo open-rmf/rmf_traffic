@@ -65,11 +65,16 @@ public:
   /// Get the routes that there is a dependency on.
   const DependsOnRoute& routes() const;
 
+  struct Dependency
+  {
+    RouteId on_route;
+    CheckpointId on_checkpoint;
+  };
+
   /// Add a dependency
   DependsOnPlan& add_dependency(
     CheckpointId dependent_checkpoint,
-    RouteId on_route,
-    CheckpointId on_checkpoint);
+    Dependency dependency);
 
   class Implementation;
 private:
@@ -132,6 +137,16 @@ public:
   /// Get the dependencies of the immutable route
   const DependsOnParticipant& dependencies() const;
 
+  /// Bundle of integers representing a dependency on a checkpoint within a
+  /// specific participant's plan.
+  struct Dependency
+  {
+    uint64_t on_participant;
+    uint64_t on_plan;
+    uint64_t on_route;
+    uint64_t on_checkpoint;
+  };
+
   /// Tell this route that it has a dependency on the checkpoint of another
   /// participant's route.
   ///
@@ -152,10 +167,7 @@ public:
   ///   The ID of the checkpoint
   Route& add_dependency(
     CheckpointId dependent_checkpoint,
-    ParticipantId on_participant,
-    PlanId on_plan,
-    RouteId on_route,
-    CheckpointId on_checkpoint);
+    Dependency dependency);
 
   /// True if this route should ignore information about the given
   /// (participant, plan) pair. If this route has a dependency on a plan from

@@ -81,11 +81,10 @@ const DependsOnRoute& DependsOnPlan::routes() const
 //==============================================================================
 DependsOnPlan& DependsOnPlan::add_dependency(
   const CheckpointId dependent_checkpoint,
-  const RouteId on_route,
-  const CheckpointId on_checkpoint)
+  const Dependency dep)
 {
-  const auto insertion = _pimpl->routes[on_route]
-    .insert({on_checkpoint, dependent_checkpoint});
+  const auto insertion = _pimpl->routes[dep.on_route]
+    .insert({dep.on_checkpoint, dependent_checkpoint});
 
   if (!insertion.second)
   {
@@ -93,8 +92,10 @@ DependsOnPlan& DependsOnPlan::add_dependency(
     // we should check if the new other_checkpoint is larger than the one that
     // already there.
     auto& prior_checkpoint = insertion.first->second;
-    if (on_checkpoint < prior_checkpoint)
-      prior_checkpoint = on_checkpoint;
+    if (dependent_checkpoint < prior_checkpoint)
+    {
+      prior_checkpoint = dependent_checkpoint;
+    }
   }
 
   return *this;
@@ -187,23 +188,20 @@ const DependsOnParticipant& Route::dependencies() const
 
 //==============================================================================
 Route& Route::add_dependency(
-  CheckpointId dependent_checkpoint,
-  ParticipantId on_participant,
-  PlanId on_plan,
-  RouteId on_route,
-  CheckpointId on_checkpoint)
+  const CheckpointId dependent_checkpoint,
+  const rmf_traffic::Route::Dependency dep)
 {
-  auto& depends_on_plan = _pimpl->dependencies[on_participant];
+  auto& depends_on_plan = _pimpl->dependencies[dep.on_participant];
   if (depends_on_plan.plan().has_value())
   {
     // If the new dependency is for an earlier plan than the current one, we
     // will ignore it.
     // TODO(MXG): Should we consider throwing an exception instead?
-    if (rmf_utils::modular(on_plan).less_than(*depends_on_plan.plan()))
+    if (rmf_utils::modular(dep.on_plan).less_than(*depends_on_plan.plan()))
     {
       return *this;
     }
-    else if (on_plan != *depends_on_plan.plan())
+    else if (dep.on_plan != *depends_on_plan.plan())
     {
       // A newer plan exists for this other participant, so we will clear out
       // the old list of dependencies.
@@ -211,8 +209,9 @@ Route& Route::add_dependency(
     }
   }
 
+  depends_on_plan.plan(dep.on_plan);
   depends_on_plan.add_dependency(
-    dependent_checkpoint, on_route, on_checkpoint);
+    dependent_checkpoint, {dep.on_route, dep.on_checkpoint});
   return *this;
 }
 
@@ -236,20 +235,28 @@ const Dependencies* Route::check_dependencies(ParticipantId on_participant,
 {
   const auto p_it = _pimpl->dependencies.find(on_participant);
   if (p_it == _pimpl->dependencies.end())
+  {
     return nullptr;
+  }
 
   const auto& plan_deps = p_it->second;
   const auto plan_deps_id = plan_deps.plan();
   if (!plan_deps_id.has_value())
+  {
     return nullptr;
+  }
 
   if (*plan_deps_id != on_plan)
+  {
     return nullptr;
+  }
 
   const auto& routes = plan_deps.routes();
   const auto r_it = routes.find(on_route);
   if (r_it == routes.end())
+  {
     return nullptr;
+  }
 
   return &r_it->second;
 }

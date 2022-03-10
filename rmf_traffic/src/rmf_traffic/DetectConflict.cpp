@@ -107,7 +107,9 @@ public:
     _deps(dependencies_on_me)
   {
     if (_deps && _current != _end)
+    {
       _current_dep = _deps->lower_bound(_current->index());
+    }
   }
 
   bool finished() const
@@ -636,49 +638,55 @@ std::optional<rmf_traffic::Time> detect_invasion(
     if (!spline_b)
       spline_b = Spline(crawl_b.current());
 
-    const Time start_time =
-      std::max(spline_a->start_time(), spline_b->start_time());
+    const bool ignore = crawl_a.ignore(crawl_b.current()->index())
+        || crawl_b.ignore(crawl_a.current()->index());
 
-    const Time finish_time =
-      std::min(spline_a->finish_time(), spline_b->finish_time());
-
-    *motion_a = spline_a->to_fcl(start_time, finish_time);
-    *motion_b = spline_b->to_fcl(start_time, finish_time);
-
-    const auto bound_a = get_bounding_profile(*spline_a, profile_a);
-    const auto bound_b = get_bounding_profile(*spline_b, profile_b);
-
-    if (overlap(bound_a.footprint, bound_b.vicinity))
+    if (!ignore)
     {
-      if (const auto collision = check_collision(
-          *profile_a.footprint, motion_a,
-          *profile_b.vicinity, motion_b, request))
-      {
-        const auto time = compute_time(*collision, start_time, finish_time);
-        if (!output_conflicts)
-          return time;
+      const Time start_time =
+        std::max(spline_a->start_time(), spline_b->start_time());
 
-        output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{
-            crawl_a.current(), crawl_b.current(), time
-          });
+      const Time finish_time =
+        std::min(spline_a->finish_time(), spline_b->finish_time());
+
+      *motion_a = spline_a->to_fcl(start_time, finish_time);
+      *motion_b = spline_b->to_fcl(start_time, finish_time);
+
+      const auto bound_a = get_bounding_profile(*spline_a, profile_a);
+      const auto bound_b = get_bounding_profile(*spline_b, profile_b);
+
+      if (overlap(bound_a.footprint, bound_b.vicinity))
+      {
+        if (const auto collision = check_collision(
+            *profile_a.footprint, motion_a,
+            *profile_b.vicinity, motion_b, request))
+        {
+          const auto time = compute_time(*collision, start_time, finish_time);
+          if (!output_conflicts)
+            return time;
+
+          output_conflicts->emplace_back(
+            DetectConflict::Implementation::Conflict{
+              crawl_a.current(), crawl_b.current(), time
+            });
+        }
       }
-    }
 
-    if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
-    {
-      if (const auto collision = check_collision(
-          *profile_a.vicinity, motion_a,
-          *profile_b.footprint, motion_b, request))
+      if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
       {
-        const auto time = compute_time(*collision, start_time, finish_time);
-        if (!output_conflicts)
-          return time;
+        if (const auto collision = check_collision(
+            *profile_a.vicinity, motion_a,
+            *profile_b.footprint, motion_b, request))
+        {
+          const auto time = compute_time(*collision, start_time, finish_time);
+          if (!output_conflicts)
+            return time;
 
-        output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{
-            crawl_a.current(), crawl_b.current(), time
-          });
+          output_conflicts->emplace_back(
+            DetectConflict::Implementation::Conflict{
+              crawl_a.current(), crawl_b.current(), time
+            });
+        }
       }
     }
 
@@ -751,7 +759,10 @@ std::optional<rmf_traffic::Time> detect_approach(
 
     const DistanceDifferential D(*spline_a, *spline_b);
 
-    if (D.initially_approaching())
+    const bool ignore = crawl_a.ignore(crawl_b.current()->index())
+        || crawl_b.ignore(crawl_a.current()->index());
+
+    if (D.initially_approaching() && !ignore)
     {
       const auto time = D.start_time();
       if (!output_conflicts)
@@ -798,15 +809,18 @@ std::optional<rmf_traffic::Time> detect_approach(
           output_conflicts);
       }
 
-      // If one of the vehicles is still inside the vicinity of another during
-      // this approach time, then we consider this to be a conflict.
-      if (!output_conflicts)
-        return t;
+      if (!ignore)
+      {
+        // If one of the vehicles is still inside the vicinity of another during
+        // this approach time, then we consider this to be a conflict.
+        if (!output_conflicts)
+          return t;
 
-      output_conflicts->emplace_back(
-        DetectConflict::Implementation::Conflict{
-          crawl_a.current(), crawl_b.current(), t
-        });
+        output_conflicts->emplace_back(
+          DetectConflict::Implementation::Conflict{
+            crawl_a.current(), crawl_b.current(), t
+          });
+      }
     }
 
     const bool still_close = check_overlap(
