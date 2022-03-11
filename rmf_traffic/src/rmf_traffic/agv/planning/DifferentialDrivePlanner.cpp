@@ -230,19 +230,10 @@ std::vector<Plan::Waypoint> find_dependencies(
   {
     for (const auto& c : candidates[i].waypoint.arrival)
     {
-      const auto insertion =
-        checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
-      if (!insertion.second)
-      {
-        // *INDENT-OFF*
-        throw std::runtime_error(
-          "[rmf_traffic::agv::planning::find_dependencies] INTERNAL BUG: "
-          "Route [" + std::to_string(c.route_id) + "] checkpoint ["
-          + std::to_string(c.checkpoint_id) + "] maps to more than one "
-          "waypoint index: " + std::to_string(insertion.first->second)
-          + " vs " + std::to_string(i));
-        // *INDENT-ON*
-      }
+      // There may be duplicate insertions because of event waypoints, but
+      // that's okay. We just use the first relevant plan waypoint and allow the
+      // insertion to fail for the rest.
+      checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
     }
   }
 
@@ -335,6 +326,7 @@ std::vector<Plan::Waypoint> find_dependencies(
     merge_happened = false;
     std::optional<std::size_t> unnecessary_index_start;
     Plan::Checkpoints progress;
+    std::vector<std::size_t> approach_lanes;
     std::size_t i = 0;
     for (; i < candidates.size(); ++i)
     {
@@ -343,8 +335,11 @@ std::vector<Plan::Waypoint> find_dependencies(
         if (!unnecessary_index_start.has_value())
           unnecessary_index_start = i;
 
-        for (const auto& c : candidates[i].waypoint.arrival)
-          progress.push_back(c);
+        for (const auto& approach : candidates[i].waypoint.approach_lanes)
+          approach_lanes.push_back(approach);
+
+        for (const auto& p : candidates[i].waypoint.arrival)
+          progress.push_back(p);
       }
       else if (unnecessary_index_start.has_value())
       {
@@ -357,6 +352,9 @@ std::vector<Plan::Waypoint> find_dependencies(
       merge_happened = true;
       assert(candidates[i].waypoint.progress.empty());
       candidates[i].waypoint.progress = std::move(progress);
+      candidates[i].waypoint.approach_lanes.insert(
+        candidates[i].waypoint.approach_lanes.begin(),
+        approach_lanes.begin(), approach_lanes.end());
 
       candidates.erase(
         candidates.begin() + *unnecessary_index_start,
@@ -468,7 +466,7 @@ reconstruct_waypoints(
         necessary,
         Plan::Waypoint::Implementation{
           Eigen::Vector3d{p[0], p[1], yaw}, time, wp_index,
-          {lane_index}, {}, {}, nullptr, {}
+          {lane_index}, {}, {}, necessary ? node->event : nullptr, {}
         },
         {v[0], v[1], 0.0}
       });
@@ -510,7 +508,7 @@ reconstruct_waypoints(
       }
 
       candidates.back().waypoint.arrival
-        .push_back({itinerary.size()-1, itinerary.back().trajectory().size()});
+        .push_back({itinerary.size()-1, itinerary.back().trajectory().size()-1});
     }
   }
 

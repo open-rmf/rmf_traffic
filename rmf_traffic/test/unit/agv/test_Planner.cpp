@@ -3453,13 +3453,6 @@ SCENARIO("Test planning with lane closures")
   else
   {
     REQUIRE(result.success());
-
-    std::cout << "Plan:";
-    for (const auto& wp : result->get_waypoints())
-      std::cout << " (" << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
-                << ": " << wp.graph_index().value() << ")";
-    std::cout << std::endl;
-
     std::unordered_set<std::size_t> visited_waypoints;
     for (const auto& wp : result->get_waypoints())
       visited_waypoints.insert(wp.graph_index().value());
@@ -3669,16 +3662,16 @@ SCENARIO("Test dependencies", "[deps]")
 
   const auto result = planner.plan({t0, 0, 0.0}, 5);
   REQUIRE(result);
-  for (const auto& wp : result->get_waypoints())
-  {
-    std::cout << wp.graph_index().value() << " @ "
-              << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
-              << ":";
-    for (const auto& dep : wp.dependencies())
-    {
-      std::cout << " [" << dep.on_participant << " " << dep.on_plan
-                << " " << dep.on_route << " " << dep.on_checkpoint << "]";
-    }
-    std::cout << std::endl;
-  }
+//  for (const auto& wp : result->get_waypoints())
+//  {
+//    std::cout << wp.graph_index().value() << " @ "
+//              << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
+//              << ":";
+//    for (const auto& dep : wp.dependencies())
+//    {
+//      std::cout << " [" << dep.on_participant << " " << dep.on_plan
+//                << " " << dep.on_route << " " << dep.on_checkpoint << "]";
+//    }
+//    std::cout << std::endl;
+//  }
 }
