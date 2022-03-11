@@ -55,7 +55,7 @@ public:
       if (const auto conflict = rmf_traffic::DetectConflict::between(
           _profile,
           route.trajectory(),
-          nullptr,
+          route.check_dependencies(_other_participant, 0, 0),
           _other_profile,
           blocking_route.trajectory(),
           nullptr))

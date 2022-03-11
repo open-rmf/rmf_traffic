@@ -752,7 +752,7 @@ std::optional<DetectConflict::Conflict> detect_invasion(
   if (output_conflicts->empty())
     return std::nullopt;
 
-  std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+  std::cout << "DC " << __LINE__ << std::endl;
   return output_conflicts->front();
 }
 

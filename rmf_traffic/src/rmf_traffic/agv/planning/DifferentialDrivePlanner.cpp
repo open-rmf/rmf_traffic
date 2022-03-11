@@ -263,6 +263,7 @@ std::vector<Plan::Waypoint> find_dependencies(
 
       bool no_conflicts = false;
       std::size_t count = 0;
+      std::unordered_map<CheckpointId, Dependencies> found_dependencies;
       while (!no_conflicts)
       {
         std::cout << "Iteration #" << count++ << std::endl;
@@ -291,6 +292,26 @@ std::vector<Plan::Waypoint> find_dependencies(
                 conflict->route,
                 conflict->checkpoint
               };
+
+              auto& found_deps = found_dependencies[dependent];
+              const auto f_it = std::find(
+                found_deps.begin(), found_deps.end(), dependency);
+
+              if (f_it != found_deps.end())
+              {
+                // *INDENT-OFF*
+                throw std::runtime_error(
+                  "[rmf_traffic::agv::Planner::plan] There is a bug in the "
+                  "route validator that was provided to the planner. It failed "
+                  "to recognize a specified route dependency: "
+                  + std::to_string(dependent) + " on {"
+                  + std::to_string(dependency.on_participant) + " "
+                  + std::to_string(dependency.on_plan) + " "
+                  + std::to_string(dependency.on_route) + " "
+                  + std::to_string(dependency.on_checkpoint) + "}");
+                // *INDENT-ON*
+              }
+              found_deps.push_back(dependency);
 
               std::cout << "t0: " << time::to_seconds(t0.time_since_epoch()) << std::endl;
               std::cout << "Timing:";

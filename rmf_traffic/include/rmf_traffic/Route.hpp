@@ -41,6 +41,9 @@ struct Dependency
   uint64_t on_plan;
   uint64_t on_route;
   uint64_t on_checkpoint;
+
+  /// Equality operator
+  bool operator==(const Dependency& other);
 };
 
 using Dependencies = std::vector<Dependency>;
@@ -63,6 +66,7 @@ public:
   /// There will be a dependency on the specified plan.
   DependsOnPlan(PlanId plan, DependsOnRoute routes);
 
+  /// Set the plan that there is a dependency on.
   DependsOnPlan& plan(std::optional<PlanId> plan);
 
   /// Get the plan that there is a dependency on.

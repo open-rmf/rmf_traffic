@@ -24,6 +24,15 @@
 namespace rmf_traffic {
 
 //==============================================================================
+bool Dependency::operator==(const Dependency& other)
+{
+  return on_participant == other.on_participant
+      && on_plan == other.on_plan
+      && on_route == other.on_route
+      && on_checkpoint == other.on_checkpoint;
+}
+
+//==============================================================================
 class DependsOnPlan::Implementation
 {
 public:
