@@ -3395,7 +3395,7 @@ SCENARIO("Test planning with lane closures")
   };
 
 
-  const auto time = std::chrono::steady_clock::now();
+  const auto time = rmf_traffic::Time(rmf_traffic::Duration(0));
   rmf_traffic::agv::Plan::Start start{time, 0, 0.0};
   rmf_traffic::agv::Plan::Goal goal{1};
 
@@ -3453,6 +3453,12 @@ SCENARIO("Test planning with lane closures")
   else
   {
     REQUIRE(result.success());
+
+    std::cout << "Plan:";
+    for (const auto& wp : result->get_waypoints())
+      std::cout << " (" << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
+                << ": " << wp.graph_index().value() << ")";
+    std::cout << std::endl;
 
     std::unordered_set<std::size_t> visited_waypoints;
     for (const auto& wp : result->get_waypoints())

@@ -111,17 +111,6 @@ public:
     if (_deps && _current != _end)
     {
       _current_dep = _deps->lower_bound(index());
-      assert(_current_dep != _deps->end());
-      if (*_current_dep == _deps->end())
-      {
-        std::cout << "Dep is starting out at the end" << std::endl;
-      }
-      else
-      {
-        std::cout << "Initial dep [" << (*_current_dep)->first << ": "
-                  << (*_current_dep)->second
-                  << "] @ " << index() << std::endl;
-      }
     }
   }
 
@@ -149,19 +138,15 @@ public:
   {
     if (!_current_dep.has_value())
     {
-      std::cout << "No dep" << std::endl;
       return false;
     }
 
     if (*_current_dep == _deps->end())
     {
-      std::cout << "Dep reached end @ " << index() << std::endl;
       return false;
     }
 
     const auto ignore_other_after = (*_current_dep)->second;
-    std::cout << "Comparing " << ignore_other_after << " < " << other
-              << " @ " << index() << std::endl;
     if (ignore_other_after < other)
       return true;
 
@@ -690,17 +675,6 @@ std::optional<DetectConflict::Conflict> detect_invasion(
             *profile_b.vicinity, motion_b, request))
         {
           const auto time = compute_time(*collision, start_time, finish_time);
-          std::cout << "Collision time (scaled): " << *collision
-                    << " | start_time: " << time::to_seconds(start_time.time_since_epoch())
-                    << " | finish_time: " << time::to_seconds(finish_time.time_since_epoch())
-                    << " | conflict time: " << time::to_seconds(time.time_since_epoch())
-                    << std::endl;
-          std::cout << "spline_a start: " << time::to_seconds(spline_a->start_time().time_since_epoch())
-                    << " | finish: " << time::to_seconds(spline_a->finish_time().time_since_epoch())
-                    << "\nspline_b start: " << time::to_seconds(spline_b->start_time().time_since_epoch())
-                    << " | finish: " << time::to_seconds(spline_b->finish_time().time_since_epoch()) << std::endl;
-
-          std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
           auto conflict = Conflict{crawl_a.current(), crawl_b.current(), time};
           if (!output_conflicts)
             return conflict;
@@ -716,7 +690,6 @@ std::optional<DetectConflict::Conflict> detect_invasion(
             *profile_b.footprint, motion_b, request))
         {
           const auto time = compute_time(*collision, start_time, finish_time);
-          std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
           auto conflict = Conflict{crawl_a.current(), crawl_b.current(), time};
           if (!output_conflicts)
             return conflict;
@@ -752,7 +725,6 @@ std::optional<DetectConflict::Conflict> detect_invasion(
   if (output_conflicts->empty())
     return std::nullopt;
 
-  std::cout << "DC " << __LINE__ << std::endl;
   return output_conflicts->front();
 }
 
@@ -806,7 +778,6 @@ std::optional<DetectConflict::Conflict> detect_approach(
       auto conflict = Conflict{crawl_a.current(), crawl_b.current(), time};
       if (!output_conflicts)
       {
-        std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
         return conflict;
       }
 
@@ -857,7 +828,6 @@ std::optional<DetectConflict::Conflict> detect_approach(
         auto conflict = Conflict{crawl_a.current(), crawl_b.current(), t};
         if (!output_conflicts)
         {
-          std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
           return conflict;
         }
 
@@ -902,7 +872,6 @@ std::optional<DetectConflict::Conflict> detect_approach(
   if (output_conflicts->empty())
     return std::nullopt;
 
-  std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
   return output_conflicts->front();
 }
 

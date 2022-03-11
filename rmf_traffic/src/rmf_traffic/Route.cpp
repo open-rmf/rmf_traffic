@@ -19,8 +19,6 @@
 
 #include <rmf_utils/Modular.hpp>
 
-#include <iostream>
-
 namespace rmf_traffic {
 
 //==============================================================================
@@ -94,7 +92,6 @@ DependsOnPlan& DependsOnPlan::add_dependency(
   const CheckpointId dependent_checkpoint,
   const Dependency dep)
 {
-  std::cout << "add_dependency " << __LINE__ << std::endl;
   const auto insertion = _pimpl->routes[dep.on_route]
     .insert({dep.on_checkpoint, dependent_checkpoint});
 
@@ -104,11 +101,8 @@ DependsOnPlan& DependsOnPlan::add_dependency(
     // we should check if the new other_checkpoint is larger than the one that
     // already there.
     auto& prior_checkpoint = insertion.first->second;
-    std::cout << "add_dependency " << __LINE__  << " (prev:" << prior_checkpoint
-              << " vs " << dependent_checkpoint << ")" << std::endl;
     if (dependent_checkpoint < prior_checkpoint)
     {
-      std::cout << "add_dependency " << __LINE__ << std::endl;
       prior_checkpoint = dependent_checkpoint;
     }
   }
@@ -206,7 +200,6 @@ Route& Route::add_dependency(
   const CheckpointId dependent_checkpoint,
   const Dependency dep)
 {
-  std::cout << "add_dependency " << __LINE__ << std::endl;
   auto& depends_on_plan = _pimpl->dependencies[dep.on_participant];
   if (depends_on_plan.plan().has_value())
   {
@@ -215,19 +208,16 @@ Route& Route::add_dependency(
     // TODO(MXG): Should we consider throwing an exception instead?
     if (rmf_utils::modular(dep.on_plan).less_than(*depends_on_plan.plan()))
     {
-      std::cout << "add_dependency " << __LINE__ << std::endl;
       return *this;
     }
     else if (dep.on_plan != *depends_on_plan.plan())
     {
-      std::cout << "add_dependency " << __LINE__ << std::endl;
       // A newer plan exists for this other participant, so we will clear out
       // the old list of dependencies.
       depends_on_plan.routes().clear();
     }
   }
 
-  std::cout << "add_dependency " << __LINE__ << std::endl;
   depends_on_plan.plan(dep.on_plan);
   depends_on_plan.add_dependency(
     dependent_checkpoint, {dep.on_route, dep.on_checkpoint});

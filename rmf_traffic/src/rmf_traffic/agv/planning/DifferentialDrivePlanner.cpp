@@ -255,18 +255,11 @@ std::vector<Plan::Waypoint> find_dependencies(
       assert(route.trajectory().start_time());
       const auto initial_time = *route.trajectory().start_time();
 
-      const auto t0 = *route.trajectory().start_time();
-      std::cout << "Finding dependencies for:";
-      for (const auto& wp : route.trajectory())
-        std::cout << " (" << time::to_seconds(wp.time()-t0) << ": " << wp.position().transpose() << ")";
-      std::cout << std::endl;
-
       bool no_conflicts = false;
       std::size_t count = 0;
       std::unordered_map<CheckpointId, Dependencies> found_dependencies;
       while (!no_conflicts)
       {
-        std::cout << "Iteration #" << count++ << std::endl;
         no_conflicts = true;
 
         for (auto t = dependency_resolution;
@@ -311,34 +304,14 @@ std::vector<Plan::Waypoint> find_dependencies(
                   + std::to_string(dependency.on_checkpoint) + "}");
                 // *INDENT-ON*
               }
+
               found_deps.push_back(dependency);
-
-              std::cout << "t0: " << time::to_seconds(t0.time_since_epoch()) << std::endl;
-              std::cout << "Timing:";
-              for (const auto& wp : route.trajectory())
-//                std::cout << " " << wp.index() << ":" << time::to_seconds(wp.time()-t0);
-                std::cout << " " << wp.index() << ":" << time::to_seconds(wp.time().time_since_epoch());
-              std::cout << std::endl;
-
               const auto wp = [&]()
               {
                 assert(!checkpoint_map.empty());
                 // Find the closest route waypoint less than or equal to
                 // `dependent` that is associated with a plan waypoint.
                 const auto c_it = --checkpoint_map.upper_bound(dependent);
-//                std::cout << "Conflict detected at " << time::to_seconds(conflict->time-t0)
-//                          << " vs dep @ " << time::to_seconds(route.trajectory()[dependent].time()-t0)
-//                          << " {" << conflict->participant << " " << conflict->plan
-//                          << " " << conflict->route << " " << conflict->checkpoint
-//                          << " : " << c_it->first << "}" << std::endl;
-
-                std::cout << "Conflict detected at " << time::to_seconds(conflict->time.time_since_epoch())
-                          << " vs dep @ " << time::to_seconds(route.trajectory()[dependent].time().time_since_epoch())
-                          << " {" << conflict->participant << " " << conflict->plan
-                          << " " << conflict->route << " " << conflict->checkpoint
-                          << " : " << c_it->first << "}" << std::endl;
-
-                std::cout << "About to add dependency @ " << c_it->first << std::endl;
                 route.add_dependency(c_it->first, dependency);
 
                 return c_it->second;
@@ -444,30 +417,36 @@ reconstruct_waypoints(
     return {output, {}};
   }
 
-  const auto start_node_to_wp = [&](const NodePtr& n) -> WaypointCandidate
+  const auto in_place_node_to_wp = [&](const NodePtr& n) -> WaypointCandidate
     {
       const Eigen::Vector2d p = n->waypoint ?
         graph.waypoints[*n->waypoint].get_location() :
         n->route_from_parent.back().trajectory().back().position()
         .template block<2, 1>(0, 0);
-      const Time time = *n->route_from_parent.back().trajectory().finish_time();
       return WaypointCandidate{
         true,
         Plan::Waypoint::Implementation{
-          Eigen::Vector3d{p[0], p[1], n->yaw}, time, n->waypoint,
-          n->approach_lanes, {}, {{0, 0}}, n->event, {}
+          Eigen::Vector3d{p[0], p[1], n->yaw}, n->time, n->waypoint,
+          n->approach_lanes, {}, {}, n->event, {}
         },
         Eigen::Vector3d{0, 0, 0}
       };
     };
 
   std::vector<WaypointCandidate> candidates;
-  candidates.push_back(start_node_to_wp(node_sequence[0]));
+  candidates.push_back(in_place_node_to_wp(node_sequence[0]));
+  candidates.back().waypoint.arrival.push_back({0, 0});
+
   std::vector<Route> itinerary = node_sequence.front()->route_from_parent;
   for (std::size_t i = 1; i < node_sequence.size(); ++i)
   {
     const auto& node = node_sequence.at(i);
     const auto yaw = node->yaw;
+    if (node->approach_lanes.empty())
+    {
+      // This means we are doing an in-place rotation or a wait
+      candidates.push_back(in_place_node_to_wp(node));
+    }
 
     for (std::size_t c = 0; c < node->approach_lanes.size(); ++c)
     {
@@ -513,19 +492,25 @@ reconstruct_waypoints(
         extended_route = &itinerary.back();
       }
 
-      for (std::size_t c = 0; c < node->approach_lanes.size(); ++c)
+      if (!node->approach_lanes.empty())
       {
-        const auto candidate_index =
-          candidates.size() - node->approach_lanes.size() + c;
-        WaypointCandidate& candidate = candidates[candidate_index];
+        for (std::size_t c = 0; c < node->approach_lanes.size() - 1; ++c)
+        {
+          const auto candidate_index =
+            candidates.size() - node->approach_lanes.size() + c;
+          WaypointCandidate& candidate = candidates[candidate_index];
 
-        const auto index = extended_route->trajectory().insert(
-          candidate.waypoint.time,
-          candidate.waypoint.position,
-          candidate.velocity).it->index();
+          const auto index = extended_route->trajectory().insert(
+            candidate.waypoint.time,
+            candidate.waypoint.position,
+            candidate.velocity).it->index();
 
-        candidate.waypoint.arrival.push_back({itinerary.size()-1, index});
+          candidate.waypoint.arrival.push_back({itinerary.size()-1, index});
+        }
       }
+
+      candidates.back().waypoint.arrival
+        .push_back({itinerary.size()-1, itinerary.back().trajectory().size()});
     }
   }
 

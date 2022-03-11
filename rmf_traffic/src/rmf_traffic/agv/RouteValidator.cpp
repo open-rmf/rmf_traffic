@@ -18,8 +18,6 @@
 #include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
-#include <iostream>
-
 namespace rmf_traffic {
 namespace agv {
 
@@ -116,8 +114,6 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
     if (v.participant == _pimpl->participant)
       continue;
 
-    std::cout << "Line " << __LINE__ << " comparing to {"
-              << v.participant << " " << v.plan_id << " " << v.route_id << "}" << std::endl;
     if (const auto conflict = rmf_traffic::DetectConflict::between(
         _pimpl->profile,
         route.trajectory(),
@@ -479,8 +475,6 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 
     // NOTE(MXG): There is no need to check the map, because the query will
     // filter out all itineraries that are not on this map.
-    std::cout << "Line " << __LINE__ << " comparing to {"
-              << v.participant << " " << v.plan_id << " " << v.route_id << "}" << std::endl;
     if (const auto conflict = rmf_traffic::DetectConflict::between(
         _pimpl->data->profile,
         route.trajectory(),
@@ -528,8 +522,6 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         other_wp.position(),
         Eigen::Vector3d::Zero());
 
-      std::cout << "Line " << __LINE__ << " comparing to {"
-                << other.first << " " << ep.plan_id() << " " << ep.route_id() << "}" << std::endl;
       if (const auto conflict = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
@@ -578,8 +570,6 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         other_wp.position(),
         Eigen::Vector3d::Zero());
 
-      std::cout << "Line " << __LINE__ << " comparing to {"
-                << other.first << " " << ep.plan_id() << " " << ep.route_id() << "}" << std::endl;
       if (const auto conflict = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
