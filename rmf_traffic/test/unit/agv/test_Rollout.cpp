@@ -52,7 +52,7 @@ public:
       if (blocking_route.trajectory().size() < 2)
         continue;
 
-      if (const auto time = rmf_traffic::DetectConflict::between(
+      if (const auto conflict = rmf_traffic::DetectConflict::between(
           _profile,
           route.trajectory(),
           nullptr,
@@ -62,13 +62,13 @@ public:
       {
         return Conflict{
           _other_participant, 0, 0,
-          route.trajectory().find(*time)->index(),
-          *time
+          route.trajectory().index_after(conflict->time),
+          conflict->time
         };
       }
     }
 
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   std::unique_ptr<RouteValidator> clone() const final

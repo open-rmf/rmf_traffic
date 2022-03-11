@@ -764,9 +764,13 @@ public:
     /// lanes to reach this Waypoint (e.g. it is simply turning in place).
     const std::vector<std::size_t>& approach_lanes() const;
 
+    /// Points in the itinerary that will be passed along the way to this
+    /// waypoint.
+    const Checkpoints& progress_checkpoints() const;
+
     /// Points in the itinerary that have been reached when the robot arrives at
     /// this waypoint.
-    const Checkpoints& itinerary_checkpoints() const;
+    const Checkpoints& arrival_checkpoints() const;
 
     /// An event that should occur when this waypoint is reached.
     const Graph::Lane::Event* event() const;

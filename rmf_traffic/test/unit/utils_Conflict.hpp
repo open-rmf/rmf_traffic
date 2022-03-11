@@ -24,7 +24,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_utils/catch.hpp>
 
-using ConflictData = rmf_traffic::DetectConflict::Implementation::Conflict;
+using ConflictData = rmf_traffic::DetectConflict::Conflict;
 
 //==============================================================================
 inline std::vector<ConflictData> get_conflicts(

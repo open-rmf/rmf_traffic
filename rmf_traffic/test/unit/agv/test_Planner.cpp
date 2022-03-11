@@ -350,9 +350,9 @@ inline void CHECK_PLAN(
     if (wp.graph_index())
       plan_indices.push_back(*wp.graph_index());
 
-    REQUIRE_FALSE(wp.itinerary_checkpoints().empty());
-    const std::size_t i_itin = wp.itinerary_checkpoints().back().route_id;
-    const std::size_t i_wp = wp.itinerary_checkpoints().back().checkpoint_id;
+    REQUIRE_FALSE(wp.arrival_checkpoints().empty());
+    const std::size_t i_itin = wp.arrival_checkpoints().back().route_id;
+    const std::size_t i_wp = wp.arrival_checkpoints().back().checkpoint_id;
     REQUIRE(i_itin < plan->get_itinerary().size());
     REQUIRE(i_wp < plan->get_itinerary()[i_itin].trajectory().size());
 
@@ -3585,6 +3585,14 @@ SCENARIO("Test dependencies", "[deps]")
   rmf_traffic::agv::VehicleTraits traits(
     {1.0, 100.0}, {M_PI, 100.0}, profile);
   traits.get_differential()->set_reversible(false);
+
+  /*
+   *          p0          ^
+   *          |           |
+   * 0-----1--|--2-----3--|--4-----5
+   *          |           |
+   *          v           p1
+   */
 
   const std::string test_map = "test_map";
   rmf_traffic::agv::Graph graph;

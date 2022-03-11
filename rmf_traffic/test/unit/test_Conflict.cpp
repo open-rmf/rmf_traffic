@@ -723,7 +723,7 @@ SCENARIO("Route dependency conflict tests")
     CHECK(conflict.has_value());
     if (conflict.has_value())
     {
-      const auto t = conflict->time_since_epoch().count();
+      const auto t = conflict->time.time_since_epoch().count();
       CHECK(conflict_range->lower.count() <= t);
       CHECK(t <= conflict_range->upper.count());
     }

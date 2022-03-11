@@ -526,6 +526,19 @@ Trajectory::const_iterator Trajectory::lower_bound(Time time) const
 }
 
 //==============================================================================
+std::size_t Trajectory::index_after(Time time) const
+{
+  const auto it = find(time);
+  if (it == end())
+    return size();
+
+  if (it->time() == time)
+    return it->index()+1;
+
+  return it->index();
+}
+
+//==============================================================================
 Trajectory::iterator Trajectory::erase(iterator waypoint)
 {
   return _pimpl->erase(waypoint);

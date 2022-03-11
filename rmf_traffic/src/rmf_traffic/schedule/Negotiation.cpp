@@ -126,7 +126,6 @@ public:
   ParticipantId participant;
   PlanId plan_id;
   RouteId route_id;
-  CheckpointId checkpoint_id;
   std::shared_ptr<const Route> route;
   std::shared_ptr<const ParticipantDescription> description;
 
@@ -144,7 +143,6 @@ public:
         participant,
         plan_id,
         route_id,
-        0,
         std::move(route),
         std::move(description)
       });
@@ -166,7 +164,6 @@ public:
         participant,
         plan_id,
         route_id,
-        route->trajectory().size(),
         std::move(route),
         std::move(description)
       });
@@ -239,7 +236,7 @@ public:
         {
           participant,
           Endpoint::Implementation::make_initial(
-            participant, plan_id, route_id.value(), initial, description)
+            participant, plan_id, itinerary.size()+1, initial, description)
         });
     }
   }
@@ -270,7 +267,7 @@ public:
         {
           participant,
           Endpoint::Implementation::make_final(
-            participant, plan_id, route_id.value(), final, description)
+            participant, plan_id, itinerary.size()+2, final, description)
         });
     }
   }
@@ -289,7 +286,7 @@ public:
         output,
         key.participant,
         // NOTE(MXG): placeholder value since alt plan_ids don't really matter
-        std::numeric_limits<PlanId>::max(),
+        0,
         description,
         alternatives.at(key.participant)->at(key.version));
     }
@@ -311,7 +308,7 @@ public:
         output,
         key.participant,
         // NOTE(MXG): placeholder value since alt plan_ids don't really matter
-        std::numeric_limits<PlanId>::max(),
+        0,
         description,
         alternatives.at(key.participant)->at(key.version));
     }
@@ -1217,12 +1214,6 @@ PlanId Negotiation::Table::Viewer::Endpoint::plan_id() const
 RouteId Negotiation::Table::Viewer::Endpoint::route_id() const
 {
   return _pimpl->route_id;
-}
-
-//==============================================================================
-CheckpointId Negotiation::Table::Viewer::Endpoint::checkpoint_id() const
-{
-  return _pimpl->checkpoint_id;
 }
 
 //==============================================================================

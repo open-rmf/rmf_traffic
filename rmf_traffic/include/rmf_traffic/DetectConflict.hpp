@@ -53,6 +53,13 @@ public:
     CubicSpline
   };
 
+  struct Conflict
+  {
+    Trajectory::const_iterator a_it;
+    Trajectory::const_iterator b_it;
+    Time time;
+  };
+
   /// Checks if there are any conflicts between the two trajectories.
   ///
   /// \param[in] profile_a
@@ -75,7 +82,7 @@ public:
   ///
   /// \return true if a conflict exists between the trajectories, false
   /// otherwise.
-  static std::optional<rmf_traffic::Time> between(
+  static std::optional<Conflict> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
     const DependsOnCheckpoint* dependencies_of_a_on_b,

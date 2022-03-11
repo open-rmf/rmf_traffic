@@ -1002,9 +1002,15 @@ const std::vector<std::size_t>& Plan::Waypoint::approach_lanes() const
 }
 
 //==============================================================================
-auto Plan::Waypoint::itinerary_checkpoints() const -> const Checkpoints&
+auto Plan::Waypoint::progress_checkpoints() const -> const Checkpoints&
 {
-  return _pimpl->checkpoints;
+  return _pimpl->progress;
+}
+
+//==============================================================================
+auto Plan::Waypoint::arrival_checkpoints() const -> const Checkpoints&
+{
+  return _pimpl->arrival;
 }
 
 //==============================================================================

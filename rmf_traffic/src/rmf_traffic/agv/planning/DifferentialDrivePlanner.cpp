@@ -44,6 +44,7 @@ std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
     node = node->parent;
   }
 
+  std::reverse(node_sequence.begin(), node_sequence.end());
   return node_sequence;
 }
 
@@ -206,11 +207,187 @@ std::vector<NodePtr> reconstruct_nodes(
 }
 
 //==============================================================================
+struct WaypointCandidate
+{
+  bool necessary;
+  Plan::Waypoint::Implementation waypoint;
+  Eigen::Vector3d velocity;
+};
+
+//==============================================================================
+std::vector<Plan::Waypoint> find_dependencies(
+  std::vector<Route>& itinerary,
+  std::vector<WaypointCandidate> candidates,
+  const RouteValidator* validator,
+  const std::optional<Duration> dependency_window,
+  const Duration dependency_resolution)
+{
+  using PlanWaypointId = std::size_t;
+  std::vector<std::map<CheckpointId, PlanWaypointId>> checkpoint_maps;
+  checkpoint_maps.resize(itinerary.size());
+
+  for (std::size_t i = 0; i < candidates.size(); ++i)
+  {
+    for (const auto& c : candidates[i].waypoint.arrival)
+    {
+      const auto insertion =
+        checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
+      if (!insertion.second)
+      {
+        // *INDENT-OFF*
+        throw std::runtime_error(
+          "[rmf_traffic::agv::planning::find_dependencies] INTERNAL BUG: "
+          "Route [" + std::to_string(c.route_id) + "] checkpoint ["
+          + std::to_string(c.checkpoint_id) + "] maps to more than one "
+          "waypoint index: " + std::to_string(insertion.first->second)
+          + " vs " + std::to_string(i));
+        // *INDENT-ON*
+      }
+    }
+  }
+
+  if (validator && dependency_window.has_value())
+  {
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
+    {
+      auto& route = itinerary[i];
+      auto& checkpoint_map = checkpoint_maps[i];
+      assert(route.trajectory().start_time());
+      const auto initial_time = *route.trajectory().start_time();
+
+      const auto t0 = *route.trajectory().start_time();
+      std::cout << "Finding dependencies for:";
+      for (const auto& wp : route.trajectory())
+        std::cout << " (" << time::to_seconds(wp.time()-t0) << ": " << wp.position().transpose() << ")";
+      std::cout << std::endl;
+
+      bool no_conflicts = false;
+      std::size_t count = 0;
+      while (!no_conflicts)
+      {
+        std::cout << "Iteration #" << count++ << std::endl;
+        no_conflicts = true;
+
+        for (auto t = dependency_resolution;
+             t < *dependency_window; t += dependency_resolution)
+        {
+          route.trajectory().front().adjust_times(-dependency_resolution);
+          const auto conflict = validator->find_conflict(route);
+          if (conflict.has_value())
+          {
+            auto it = route.trajectory().lower_bound(conflict->time);
+            if (it != route.trajectory().begin())
+            {
+              // NOTE: If a conflict is detected with the exact start of the
+              // trajectory then we ignore it because it is not physically
+              // meaningful and there isn't anything we could do about it
+              // anyway.
+              no_conflicts = false;
+              --it;
+              const auto dependent = it->index();
+              const Dependency dependency{
+                conflict->participant,
+                conflict->plan,
+                conflict->route,
+                conflict->checkpoint
+              };
+
+              std::cout << "t0: " << time::to_seconds(t0.time_since_epoch()) << std::endl;
+              std::cout << "Timing:";
+              for (const auto& wp : route.trajectory())
+//                std::cout << " " << wp.index() << ":" << time::to_seconds(wp.time()-t0);
+                std::cout << " " << wp.index() << ":" << time::to_seconds(wp.time().time_since_epoch());
+              std::cout << std::endl;
+
+              const auto wp = [&]()
+              {
+                assert(!checkpoint_map.empty());
+                // Find the closest route waypoint less than or equal to
+                // `dependent` that is associated with a plan waypoint.
+                const auto c_it = --checkpoint_map.upper_bound(dependent);
+//                std::cout << "Conflict detected at " << time::to_seconds(conflict->time-t0)
+//                          << " vs dep @ " << time::to_seconds(route.trajectory()[dependent].time()-t0)
+//                          << " {" << conflict->participant << " " << conflict->plan
+//                          << " " << conflict->route << " " << conflict->checkpoint
+//                          << " : " << c_it->first << "}" << std::endl;
+
+                std::cout << "Conflict detected at " << time::to_seconds(conflict->time.time_since_epoch())
+                          << " vs dep @ " << time::to_seconds(route.trajectory()[dependent].time().time_since_epoch())
+                          << " {" << conflict->participant << " " << conflict->plan
+                          << " " << conflict->route << " " << conflict->checkpoint
+                          << " : " << c_it->first << "}" << std::endl;
+
+                std::cout << "About to add dependency @ " << c_it->first << std::endl;
+                route.add_dependency(c_it->first, dependency);
+
+                return c_it->second;
+              } ();
+
+              candidates[wp].waypoint.dependencies.push_back(dependency);
+              candidates[wp].necessary = true;
+            }
+          }
+        }
+
+        const auto delta_t = initial_time - route.trajectory().front().time();
+        route.trajectory().front().adjust_times(delta_t);
+      }
+    }
+  }
+
+  bool merge_happened = true;
+  while (merge_happened)
+  {
+    merge_happened = false;
+    std::optional<std::size_t> unnecessary_index_start;
+    Plan::Checkpoints progress;
+    std::size_t i = 0;
+    for (; i < candidates.size(); ++i)
+    {
+      if (!candidates[i].necessary)
+      {
+        if (!unnecessary_index_start.has_value())
+          unnecessary_index_start = i;
+
+        for (const auto& c : candidates[i].waypoint.arrival)
+          progress.push_back(c);
+      }
+      else if (unnecessary_index_start.has_value())
+      {
+        break;
+      }
+    }
+
+    if (unnecessary_index_start.has_value())
+    {
+      merge_happened = true;
+      assert(candidates[i].waypoint.progress.empty());
+      candidates[i].waypoint.progress = std::move(progress);
+
+      candidates.erase(
+        candidates.begin() + *unnecessary_index_start,
+        candidates.begin() + i);
+    }
+  }
+
+  std::vector<Plan::Waypoint> waypoints;
+  waypoints.reserve(candidates.size());
+  for (const auto& c : candidates)
+    waypoints.push_back(Plan::Waypoint::Implementation::make(c.waypoint));
+
+  return waypoints;
+}
+
+//==============================================================================
 template<typename NodePtr>
-std::pair<std::vector<Route>, std::vector<Plan::Checkpoints>>
-reconstruct_routes(
+std::pair<std::vector<Route>, std::vector<Plan::Waypoint>>
+reconstruct_waypoints(
   const std::vector<NodePtr>& node_sequence,
-  std::optional<rmf_traffic::Duration> span = std::nullopt)
+  const Graph::Implementation& graph,
+  const RouteValidator* validator,
+  const std::optional<Duration> dependency_window,
+  const Duration dependency_resolution,
+  const std::optional<rmf_traffic::Duration> span = std::nullopt)
 {
   if (node_sequence.size() == 1)
   {
@@ -246,25 +423,64 @@ reconstruct_routes(
     return {output, {}};
   }
 
-  std::vector<Plan::Checkpoints> indexing;
-  indexing.resize(node_sequence.size());
+  const auto start_node_to_wp = [&](const NodePtr& n) -> WaypointCandidate
+    {
+      const Eigen::Vector2d p = n->waypoint ?
+        graph.waypoints[*n->waypoint].get_location() :
+        n->route_from_parent.back().trajectory().back().position()
+        .template block<2, 1>(0, 0);
+      const Time time = *n->route_from_parent.back().trajectory().finish_time();
+      return WaypointCandidate{
+        true,
+        Plan::Waypoint::Implementation{
+          Eigen::Vector3d{p[0], p[1], n->yaw}, time, n->waypoint,
+          n->approach_lanes, {}, {{0, 0}}, n->event, {}
+        },
+        Eigen::Vector3d{0, 0, 0}
+      };
+    };
 
-  assert(node_sequence.back()->start.has_value());
-
-  std::vector<Route> routes = node_sequence.back()->route_from_parent;
-  const std::size_t N = node_sequence.size();
-  const std::size_t stop = node_sequence.size()-1;
-  for (std::size_t i = 0; i < stop; ++i)
+  std::vector<WaypointCandidate> candidates;
+  candidates.push_back(start_node_to_wp(node_sequence[0]));
+  std::vector<Route> itinerary = node_sequence.front()->route_from_parent;
+  for (std::size_t i = 1; i < node_sequence.size(); ++i)
   {
-    const std::size_t n = N-2-i;
-    const auto& node = node_sequence.at(n);
-    auto& checkpoints = indexing.at(n);
+    const auto& node = node_sequence.at(i);
+    const auto yaw = node->yaw;
+
+    for (std::size_t c = 0; c < node->approach_lanes.size(); ++c)
+    {
+      const auto lane_index = node->approach_lanes[c];
+      const auto wp_index = graph.lanes[lane_index].exit().waypoint_index();
+      const Graph::Waypoint& g_wp = graph.waypoints[wp_index];
+      const auto& p = g_wp.get_location();
+      const bool necessary = (c == node->approach_lanes.size()-1);
+      const auto [time, v] = [&]() -> internal::TimeVelocity
+        {
+          if (necessary)
+            return {node->time, {0, 0}};
+
+          return internal::interpolate_time_along_quadratic_straight_line(
+            node->route_from_parent.back().trajectory(), p);
+        } ();
+
+      candidates.push_back({
+        necessary,
+        Plan::Waypoint::Implementation{
+          Eigen::Vector3d{p[0], p[1], yaw}, time, wp_index,
+          {lane_index}, {}, {}, nullptr, {}
+        },
+        {v[0], v[1], 0.0}
+      });
+    }
 
     for (const Route& next_route : node->route_from_parent)
     {
-      Route& last_route = routes.back();
+      Route* extended_route = nullptr;
+      Route& last_route = itinerary.back();
       if (next_route.map() == last_route.map())
       {
+        extended_route = &last_route;
         for (const auto& waypoint : next_route.trajectory())
         {
           last_route.trajectory().insert(waypoint);
@@ -272,163 +488,31 @@ reconstruct_routes(
       }
       else
       {
-        routes.push_back(next_route);
+        itinerary.push_back(next_route);
+        extended_route = &itinerary.back();
       }
 
-      // We will take note of the itinerary and trajectory indices here
-      assert(!routes.back().trajectory().empty());
-      checkpoints.push_back({
-        routes.size()-1,
-        routes.back().trajectory().size()-1
-      });
-
-      routes.back().checkpoints().insert(routes.size()-1);
-    }
-
-    assert(routes.back().trajectory().back().time() == node->time);
-  }
-
-  // The first plan waypoint is indexed to the 0th checkpoint of the 0th route
-  indexing.at(stop).push_back({0, 0});
-
-  // Throw away any routes that have less than two waypoints.
-  const auto r_it = std::remove_if(
-    routes.begin(), routes.end(),
-    [](const auto& r) { return r.trajectory().size() < 2; });
-  routes.erase(r_it, routes.end());
-
-  return {routes, indexing};
-}
-
-//==============================================================================
-template<typename NodePtr>
-std::vector<Plan::Waypoint> reconstruct_waypoints(
-  const std::vector<NodePtr>& node_sequence,
-  const std::vector<Plan::Checkpoints>& indexing,
-  const Graph::Implementation& graph)
-{
-  if (node_sequence.size() == 1)
-  {
-    // If there is only one node in the sequence, then it is a start node, and
-    // it implies that no plan is actually needed.
-    assert(node_sequence.front()->start.has_value());
-    return {};
-  }
-
-  assert(node_sequence.size() == indexing.size());
-  const std::size_t N = node_sequence.size();
-
-  std::vector<agv::Plan::Waypoint> waypoints;
-  for (std::size_t i = 0; i < N; ++i)
-  {
-    const auto& n = node_sequence[N-1-i];
-    const auto& checkpoints = indexing[N-1-i];
-
-    const Eigen::Vector2d p = n->waypoint ?
-      graph.waypoints[*n->waypoint].get_location() :
-      n->route_from_parent.back().trajectory().back().position()
-      .template block<2, 1>(0, 0);
-    const Time time{*n->route_from_parent.back().trajectory().finish_time()};
-    waypoints.emplace_back(
-      Plan::Waypoint::Implementation::make(
-        Eigen::Vector3d{p[0], p[1], n->yaw}, time, n->waypoint,
-        n->approach_lanes, checkpoints, n->event));
-  }
-
-  return waypoints;
-}
-
-//==============================================================================
-void find_dependencies(
-  std::vector<Route>& itinerary,
-  std::vector<Plan::Waypoint>& waypoints,
-  const RouteValidator* validator,
-  const std::optional<Duration> dependency_window,
-  const Duration dependency_resolution)
-{
-  if (!validator || !dependency_window.has_value())
-  {
-    return;
-  }
-
-  using PlanWaypointId = std::size_t;
-  std::vector<std::map<CheckpointId, PlanWaypointId>> checkpoint_maps;
-  checkpoint_maps.resize(itinerary.size());
-
-  for (std::size_t i = 0; i < waypoints.size(); ++i)
-  {
-    for (const auto& c : waypoints[i].itinerary_checkpoints())
-    {
-      const auto insertion =
-        checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
-      if (!insertion.second)
+      for (std::size_t c = 0; c < node->approach_lanes.size(); ++c)
       {
-        // *INDENT-OFF*
-        throw std::runtime_error(
-          "[rmf_traffic::agv::planning::find_dependencies] INTERNAL BUG: "
-          "Route [" + std::to_string(c.route_id) + "] checkpoint ["
-          + std::to_string(c.checkpoint_id) + "] maps to more than one "
-          "waypoint index: " + std::to_string(insertion.first->second)
-          + " vs " + std::to_string(i));
-        // *INDENT-ON*
+        const auto candidate_index =
+          candidates.size() - node->approach_lanes.size() + c;
+        WaypointCandidate& candidate = candidates[candidate_index];
+
+        const auto index = extended_route->trajectory().insert(
+          candidate.waypoint.time,
+          candidate.waypoint.position,
+          candidate.velocity).it->index();
+
+        candidate.waypoint.arrival.push_back({itinerary.size()-1, index});
       }
     }
   }
 
-  for (std::size_t i = 0; i < itinerary.size(); ++i)
-  {
-    auto& route = itinerary[i];
-    auto& checkpoint_map = checkpoint_maps[i];
-    assert(route.trajectory().start_time());
-    const auto initial_time = *route.trajectory().start_time();
-    bool no_conflicts = false;
-    while (!no_conflicts)
-    {
-      no_conflicts = true;
+  auto plan_waypoints = find_dependencies(
+      itinerary, candidates, validator,
+      dependency_window, dependency_resolution);
 
-      for (auto t = dependency_resolution;
-           t < *dependency_window; t += dependency_resolution)
-      {
-        route.trajectory().front().adjust_times(-dependency_resolution);
-        const auto conflict = validator->find_conflict(route);
-        if (conflict.has_value())
-        {
-          auto it = route.trajectory().find(conflict->time);
-          if (it != route.trajectory().begin())
-          {
-            // NOTE: If a conflict is detected with the exact start of the
-            // trajectory then we ignore it because it is not physically
-            // meaningful and there isn't anything we could do about it anyway.
-            no_conflicts = false;
-            --it;
-            const auto dependent = it->index();
-            const Dependency dependency{
-              conflict->participant,
-              conflict->plan,
-              conflict->route,
-              conflict->checkpoint
-            };
-
-            const auto wp = [&]()
-            {
-              assert(!checkpoint_map.empty());
-              // Find the closest route waypoint less than or equal to
-              // `dependent` that is associated with a plan waypoint.
-              const auto c_it = --checkpoint_map.upper_bound(dependent);
-              route.add_dependency(c_it->first, dependency);
-              return c_it->second;
-            } ();
-
-            Plan::Waypoint::Implementation::add_dependency(
-              waypoints[wp], dependency);
-          }
-        }
-      }
-
-      const auto delta_t = initial_time - route.trajectory().front().time();
-      route.trajectory().front().adjust_times(delta_t);
-    }
-  }
+  return {itinerary, plan_waypoints};
 }
 
 //==============================================================================
@@ -440,10 +524,12 @@ Plan::Start find_start(NodePtr node)
 
   if (!node->start.has_value())
   {
+    // *INDENT-OFF*
     throw std::runtime_error(
-            "[rmf_traffic::agv::Planner::plan] The root node of a solved plan is "
-            "missing its Start information. This should not happen. Please report "
-            "this critical bug to the maintainers of rmf_traffic.");
+      "[rmf_traffic::agv::Planner::plan] The root node of a solved plan is "
+      "missing its Start information. This should not happen. Please report "
+      "this critical bug to the maintainers of rmf_traffic.");
+    // *INDENT-ON*
   }
 
   return node->start.value();
@@ -1802,7 +1888,13 @@ public:
       auto node = finished_rollouts.top();
       finished_rollouts.pop();
 
-      auto [routes, _] = reconstruct_routes(reconstruct_nodes(node), max_span);
+      auto [routes, _] = reconstruct_waypoints(
+        reconstruct_nodes(node),
+        _supergraph->original(),
+        nullptr,
+        std::nullopt,
+        Duration(0),
+        max_span);
       assert(!routes.empty());
       alternatives.emplace_back(std::move(routes));
     }
@@ -2022,13 +2114,12 @@ public:
   PlanData make_plan(const SearchNodePtr& solution) const
   {
     auto nodes = reconstruct_nodes(solution, _validator);
-    auto [routes, index] = reconstruct_routes(nodes);
-    auto waypoints = reconstruct_waypoints(
-      nodes, index, _supergraph->original());
-
-    find_dependencies(
-      routes, waypoints, _validator,
-      _dependency_window, _dependency_resolution);
+    auto [routes, waypoints] = reconstruct_waypoints(
+      nodes,
+      _supergraph->original(),
+      _validator,
+      _dependency_window,
+      _dependency_resolution);
 
     auto start = find_start(solution);
 

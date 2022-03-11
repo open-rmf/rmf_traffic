@@ -257,7 +257,7 @@ SCENARIO("Test difficult 3-way scenarios")
 
   GIVEN("Case 1")
   {
-    const auto time = std::chrono::steady_clock::now();
+    const auto time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
     auto a0_starts = rmf_traffic::agv::compute_plan_starts(
       graph_a, test_map_name, {14.006982, -15.530105, -3.137865}, time);
@@ -419,7 +419,7 @@ SCENARIO("Test cycling through all negotiation alternatives")
 
   const auto table = negotiation.table(0, {});
 
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = rmf_traffic::Time(rmf_traffic::Duration(0));
   const auto start_1 = rmf_traffic::agv::Plan::Start(now, 5, 0.0);
   const auto goal_1 = rmf_traffic::agv::Plan::Goal(0);
 
@@ -501,7 +501,7 @@ SCENARIO("Test empty proposal")
   const auto empty_route = rmf_traffic::Route("test_map", {});
 
   using namespace std::chrono_literals;
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = rmf_traffic::Time(rmf_traffic::Duration(0));
   rmf_traffic::Trajectory not_empty_trajectory;
   not_empty_trajectory.insert(now, {0, 0, 0}, {0, 0, 0});
   not_empty_trajectory.insert(now + 10s, {0, 0, 0}, {0, 0, 0});

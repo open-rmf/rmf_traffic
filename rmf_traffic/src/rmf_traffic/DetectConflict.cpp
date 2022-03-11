@@ -99,16 +99,29 @@ class Crawler
 public:
 
   Crawler(
+    std::size_t index_offset,
     Trajectory::const_iterator current,
     Trajectory::const_iterator end,
     const DependsOnCheckpoint* dependencies_on_me)
-  : _current(std::move(current)),
+  : _index_offset(index_offset),
+    _current(std::move(current)),
     _end(std::move(end)),
     _deps(dependencies_on_me)
   {
     if (_deps && _current != _end)
     {
-      _current_dep = _deps->lower_bound(_current->index());
+      _current_dep = _deps->lower_bound(index());
+      assert(_current_dep != _deps->end());
+      if (*_current_dep == _deps->end())
+      {
+        std::cout << "Dep is starting out at the end" << std::endl;
+      }
+      else
+      {
+        std::cout << "Initial dep [" << (*_current_dep)->first << ": "
+                  << (*_current_dep)->second
+                  << "] @ " << index() << std::endl;
+      }
     }
   }
 
@@ -127,15 +140,28 @@ public:
     return _end;
   }
 
+  std::size_t index() const
+  {
+    return _current->index() + _index_offset;
+  }
+
   bool ignore(std::size_t other)
   {
     if (!_current_dep.has_value())
+    {
+      std::cout << "No dep" << std::endl;
       return false;
+    }
 
     if (*_current_dep == _deps->end())
+    {
+      std::cout << "Dep reached end @ " << index() << std::endl;
       return false;
+    }
 
     const auto ignore_other_after = (*_current_dep)->second;
+    std::cout << "Comparing " << ignore_other_after << " < " << other
+              << " @ " << index() << std::endl;
     if (ignore_other_after < other)
       return true;
 
@@ -146,7 +172,7 @@ public:
   {
     if (_current_dep.has_value() && *_current_dep != _deps->end())
     {
-      if ((*_current_dep)->first == _current->index())
+      if ((*_current_dep)->first == index())
         ++(*_current_dep);
     }
 
@@ -159,6 +185,7 @@ public:
   }
 
 private:
+  std::size_t _index_offset;
   Trajectory::const_iterator _current;
   Trajectory::const_iterator _end;
   const DependsOnCheckpoint* _deps;
@@ -494,7 +521,7 @@ Time compute_time(
 } // anonymous namespace
 
 //==============================================================================
-std::optional<rmf_traffic::Time> DetectConflict::between(
+std::optional<rmf_traffic::DetectConflict::Conflict> DetectConflict::between(
   const Profile& profile_a,
   const Trajectory& trajectory_a,
   const DependsOnCheckpoint* dependencies_of_a_on_b,
@@ -604,13 +631,14 @@ bool close_start(
 }
 
 //==============================================================================
-std::optional<rmf_traffic::Time> detect_invasion(
+std::optional<DetectConflict::Conflict> detect_invasion(
   const Profile::Implementation& profile_a,
   Crawler crawl_a,
   const Profile::Implementation& profile_b,
   Crawler crawl_b,
-  std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
+  std::vector<DetectConflict::Conflict>* output_conflicts)
 {
+  using Conflict = DetectConflict::Conflict;
   std::optional<Spline> spline_a;
   std::optional<Spline> spline_b;
 
@@ -638,8 +666,8 @@ std::optional<rmf_traffic::Time> detect_invasion(
     if (!spline_b)
       spline_b = Spline(crawl_b.current());
 
-    const bool ignore = crawl_a.ignore(crawl_b.current()->index())
-        || crawl_b.ignore(crawl_a.current()->index());
+    const bool ignore = crawl_a.ignore(crawl_b.index())
+        || crawl_b.ignore(crawl_a.index());
 
     if (!ignore)
     {
@@ -662,13 +690,22 @@ std::optional<rmf_traffic::Time> detect_invasion(
             *profile_b.vicinity, motion_b, request))
         {
           const auto time = compute_time(*collision, start_time, finish_time);
-          if (!output_conflicts)
-            return time;
+          std::cout << "Collision time (scaled): " << *collision
+                    << " | start_time: " << time::to_seconds(start_time.time_since_epoch())
+                    << " | finish_time: " << time::to_seconds(finish_time.time_since_epoch())
+                    << " | conflict time: " << time::to_seconds(time.time_since_epoch())
+                    << std::endl;
+          std::cout << "spline_a start: " << time::to_seconds(spline_a->start_time().time_since_epoch())
+                    << " | finish: " << time::to_seconds(spline_a->finish_time().time_since_epoch())
+                    << "\nspline_b start: " << time::to_seconds(spline_b->start_time().time_since_epoch())
+                    << " | finish: " << time::to_seconds(spline_b->finish_time().time_since_epoch()) << std::endl;
 
-          output_conflicts->emplace_back(
-            DetectConflict::Implementation::Conflict{
-              crawl_a.current(), crawl_b.current(), time
-            });
+          std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+          auto conflict = Conflict{crawl_a.current(), crawl_b.current(), time};
+          if (!output_conflicts)
+            return conflict;
+
+          output_conflicts->emplace_back(std::move(conflict));
         }
       }
 
@@ -679,13 +716,12 @@ std::optional<rmf_traffic::Time> detect_invasion(
             *profile_b.footprint, motion_b, request))
         {
           const auto time = compute_time(*collision, start_time, finish_time);
+          std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+          auto conflict = Conflict{crawl_a.current(), crawl_b.current(), time};
           if (!output_conflicts)
-            return time;
+            return conflict;
 
-          output_conflicts->emplace_back(
-            DetectConflict::Implementation::Conflict{
-              crawl_a.current(), crawl_b.current(), time
-            });
+          output_conflicts->emplace_back(conflict);
         }
       }
     }
@@ -716,7 +752,8 @@ std::optional<rmf_traffic::Time> detect_invasion(
   if (output_conflicts->empty())
     return std::nullopt;
 
-  return output_conflicts->front().time;
+  std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+  return output_conflicts->front();
 }
 
 //==============================================================================
@@ -739,13 +776,14 @@ Trajectory slice_trajectory(
 }
 
 //==============================================================================
-std::optional<rmf_traffic::Time> detect_approach(
+std::optional<DetectConflict::Conflict> detect_approach(
   const Profile::Implementation& profile_a,
   Crawler crawl_a,
   const Profile::Implementation& profile_b,
   Crawler crawl_b,
-  std::vector<DetectConflict::Implementation::Conflict>* output_conflicts)
+  std::vector<DetectConflict::Conflict>* output_conflicts)
 {
+  using Conflict = DetectConflict::Conflict;
   std::optional<Spline> spline_a;
   std::optional<Spline> spline_b;
 
@@ -759,19 +797,20 @@ std::optional<rmf_traffic::Time> detect_approach(
 
     const DistanceDifferential D(*spline_a, *spline_b);
 
-    const bool ignore = crawl_a.ignore(crawl_b.current()->index())
-        || crawl_b.ignore(crawl_a.current()->index());
+    const bool ignore = crawl_a.ignore(crawl_b.index())
+        || crawl_b.ignore(crawl_a.index());
 
     if (D.initially_approaching() && !ignore)
     {
       const auto time = D.start_time();
+      auto conflict = Conflict{crawl_a.current(), crawl_b.current(), time};
       if (!output_conflicts)
-        return time;
+      {
+        std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+        return conflict;
+      }
 
-      output_conflicts->emplace_back(
-        DetectConflict::Implementation::Conflict{
-          crawl_a.current(), crawl_b.current(), time
-        });
+      output_conflicts->emplace_back(std::move(conflict));
     }
 
     const auto approach_times = D.approach_times();
@@ -792,12 +831,14 @@ std::optional<rmf_traffic::Time> detect_approach(
           slice_trajectory(t, *spline_b, crawl_b.current(), crawl_b.end());
 
         Crawler sliced_crawl_a{
+          crawl_a.index() - 1,
           ++sliced_trajectory_a.begin(),
           sliced_trajectory_a.end(),
           crawl_a.deps()
         };
 
         Crawler sliced_crawl_b{
+          crawl_b.index() - 1,
           ++sliced_trajectory_b.begin(),
           sliced_trajectory_b.end(),
           crawl_b.deps()
@@ -813,13 +854,14 @@ std::optional<rmf_traffic::Time> detect_approach(
       {
         // If one of the vehicles is still inside the vicinity of another during
         // this approach time, then we consider this to be a conflict.
+        auto conflict = Conflict{crawl_a.current(), crawl_b.current(), t};
         if (!output_conflicts)
-          return t;
+        {
+          std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+          return conflict;
+        }
 
-        output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{
-            crawl_a.current(), crawl_b.current(), t
-          });
+        output_conflicts->emplace_back(std::move(conflict));
       }
     }
 
@@ -860,13 +902,14 @@ std::optional<rmf_traffic::Time> detect_approach(
   if (output_conflicts->empty())
     return std::nullopt;
 
-  return output_conflicts->front().time;
+  std::cout << "DC " << __LINE__ << ": " << crawl_a.index() << " " << crawl_b.index() << std::endl;
+  return output_conflicts->front();
 }
 
 } // anonymous namespace
 
 //==============================================================================
-std::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
+std::optional<DetectConflict::Conflict> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
   const Trajectory& trajectory_a,
   const DependsOnCheckpoint* deps_a_on_b,
@@ -916,8 +959,8 @@ std::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
 
   // NOTE: The deps are intentionally swapped here because passing them to the
   // opposite crawler makes them more efficient to crawl through.
-  Crawler crawl_a(std::move(a_it), trajectory_a.end(), deps_b_on_a);
-  Crawler crawl_b(std::move(b_it), trajectory_b.end(), deps_a_on_b);
+  Crawler crawl_a(0, std::move(a_it), trajectory_a.end(), deps_b_on_a);
+  Crawler crawl_b(0, std::move(b_it), trajectory_b.end(), deps_a_on_b);
 
   if (close_start(profile_a, crawl_a.current(), profile_b, crawl_b.current()))
   {
@@ -1052,7 +1095,7 @@ bool detect_conflicts(
           return true;
 
         output_conflicts->emplace_back(
-          DetectConflict::Implementation::Conflict{
+          DetectConflict::Conflict{
             it, it,
             compute_time(
               result.time_of_contact,

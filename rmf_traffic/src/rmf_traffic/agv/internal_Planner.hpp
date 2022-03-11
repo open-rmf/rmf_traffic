@@ -32,13 +32,15 @@ public:
 
   Eigen::Vector3d position;
 
-  rmf_traffic::Time time;
+  Time time;
 
-  rmf_utils::optional<std::size_t> graph_index;
+  std::optional<std::size_t> graph_index;
 
   std::vector<std::size_t> approach_lanes;
 
-  Checkpoints checkpoints;
+  Checkpoints progress;
+
+  Checkpoints arrival;
 
   Graph::Lane::EventPtr event;
 
@@ -53,6 +55,13 @@ public:
 
     return wp;
   }
+
+//  static Waypoint copy(const Implementation& impl)
+//  {
+//    Waypoint wp;
+//    wp._pimpl = rmf_utils::make_impl<Implementation>(std::move(impl));
+//    return wp;
+//  }
 
   static void add_dependency(Waypoint& waypoint, const Dependency dep)
   {
