@@ -22,7 +22,7 @@
 namespace rmf_traffic {
 
 //==============================================================================
-bool Dependency::operator==(const Dependency& other)
+bool Dependency::operator==(const Dependency& other) const
 {
   return on_participant == other.on_participant
       && on_plan == other.on_plan

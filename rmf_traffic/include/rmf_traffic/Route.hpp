@@ -43,7 +43,7 @@ struct Dependency
   uint64_t on_checkpoint;
 
   /// Equality operator
-  bool operator==(const Dependency& other);
+  bool operator==(const Dependency& other) const;
 };
 
 using Dependencies = std::vector<Dependency>;

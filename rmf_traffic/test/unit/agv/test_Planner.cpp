@@ -3662,16 +3662,29 @@ SCENARIO("Test dependencies", "[deps]")
 
   const auto result = planner.plan({t0, 0, 0.0}, 5);
   REQUIRE(result);
-//  for (const auto& wp : result->get_waypoints())
-//  {
-//    std::cout << wp.graph_index().value() << " @ "
-//              << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
-//              << ":";
-//    for (const auto& dep : wp.dependencies())
-//    {
-//      std::cout << " [" << dep.on_participant << " " << dep.on_plan
-//                << " " << dep.on_route << " " << dep.on_checkpoint << "]";
-//    }
-//    std::cout << std::endl;
-//  }
+  bool found_waypoint_on_1 = false;
+  bool found_waypoint_on_3 = false;
+  for (const auto& wp : result->get_waypoints())
+  {
+    if (!wp.graph_index().has_value())
+      continue;
+
+    const auto index = *wp.graph_index();
+    if (index == 1)
+    {
+      found_waypoint_on_1 = true;
+      REQUIRE(wp.dependencies().size() == 1);
+      CHECK(wp.dependencies().back() == rmf_traffic::Dependency{0, 5, 0, 1});
+    }
+
+    if (index == 3)
+    {
+      found_waypoint_on_3 = true;
+      REQUIRE(wp.dependencies().size() == 1);
+      CHECK(wp.dependencies().back() == rmf_traffic::Dependency{1, 3, 0, 1});
+    }
+  }
+
+  CHECK(found_waypoint_on_1);
+  CHECK(found_waypoint_on_3);
 }

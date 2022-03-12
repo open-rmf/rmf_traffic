@@ -150,7 +150,7 @@ public:
   std::shared_ptr<const std::atomic_bool> interrupt_flag = nullptr;
 
   std::optional<Duration> dependency_window = std::chrono::seconds(30);
-  Duration dependency_resolution = std::chrono::milliseconds(100);
+  Duration dependency_resolution = std::chrono::milliseconds(1000);
 
 };
 
