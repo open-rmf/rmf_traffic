@@ -38,7 +38,7 @@ public:
 
   std::vector<std::size_t> approach_lanes;
 
-  Checkpoints progress;
+  std::vector<Progress> progress;
 
   Checkpoints arrival;
 

@@ -728,6 +728,12 @@ public:
   };
   using Checkpoints = std::vector<Checkpoint>;
 
+  struct Progress
+  {
+    std::size_t graph_index;
+    Checkpoints checkpoints;
+  };
+
   /// A Waypoint within a Plan.
   ///
   /// This class helps to discretize a Plan based on the Waypoints belonging to
@@ -764,9 +770,8 @@ public:
     /// lanes to reach this Waypoint (e.g. it is simply turning in place).
     const std::vector<std::size_t>& approach_lanes() const;
 
-    /// Points in the itinerary that will be passed along the way to this
-    /// waypoint.
-    const Checkpoints& progress_checkpoints() const;
+    /// Points on the graph that will be passed along the way to this waypoint.
+    const std::vector<Progress>& progress_checkpoints() const;
 
     /// Points in the itinerary that have been reached when the robot arrives at
     /// this waypoint.

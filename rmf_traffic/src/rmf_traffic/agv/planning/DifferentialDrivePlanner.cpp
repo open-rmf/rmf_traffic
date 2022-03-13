@@ -335,7 +335,7 @@ std::vector<Plan::Waypoint> find_dependencies(
   {
     merge_happened = false;
     std::optional<std::size_t> unnecessary_index_start;
-    Plan::Checkpoints progress;
+    std::vector<Plan::Progress> progress;
     std::vector<std::size_t> approach_lanes;
     std::size_t i = 0;
     for (; i < candidates.size(); ++i)
@@ -348,8 +348,11 @@ std::vector<Plan::Waypoint> find_dependencies(
         for (const auto& approach : candidates[i].waypoint.approach_lanes)
           approach_lanes.push_back(approach);
 
-        for (const auto& p : candidates[i].waypoint.arrival)
-          progress.push_back(p);
+        progress.push_back(
+          Plan::Progress{
+            candidates[i].waypoint.graph_index.value(),
+            candidates[i].waypoint.arrival
+          });
       }
       else if (unnecessary_index_start.has_value())
       {
