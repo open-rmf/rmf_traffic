@@ -23,7 +23,7 @@
 #include <rmf_utils/Modular.hpp>
 #include <rmf_utils/RateLimiter.hpp>
 
-#include <map>
+#include "internal_Progress.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -53,11 +53,14 @@ public:
 
     void delay(Duration delay);
 
+    void reached(PlanId plan, RouteId route, CheckpointId checkpoint);
+
     void clear();
 
     void retransmit(
       const std::vector<Rectifier::Range>& from,
-      ItineraryVersion last_known);
+      ItineraryVersion last_known_itinerary,
+      ProgressVersion last_known_progress);
 
     ItineraryVersion current_version() const;
 
@@ -88,7 +91,10 @@ public:
     Itinerary _current_itinerary;
 
     ChangeHistory _change_history;
-    rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
+    Duration _cumulative_delay = std::chrono::seconds(0);
+
+    Progress _progress;
+    ProgressBuffer _buffered_progress;
 
     rmf_utils::RateLimiter _version_mismatch_limiter;
 

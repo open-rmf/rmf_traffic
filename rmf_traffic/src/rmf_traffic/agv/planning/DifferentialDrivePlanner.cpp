@@ -251,6 +251,16 @@ std::vector<Plan::Waypoint> find_dependencies(
       std::unordered_map<CheckpointId, Dependencies> found_dependencies;
       while (!no_conflicts)
       {
+        if (++count > 10000)
+        {
+          // This almost certainly means there's a bug causing an infinite loop.
+          // A normal value would be less than 10.
+          throw std::runtime_error(
+            "[rmf_traffic::agv::Planner::plan] Excessive iterating while "
+            "searching for plan dependencies. This likely indicates a bug in "
+            "the RouteValidator that was provided.");
+        }
+
         no_conflicts = true;
 
         for (auto t = dependency_resolution;

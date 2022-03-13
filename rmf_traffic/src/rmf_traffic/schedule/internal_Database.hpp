@@ -45,7 +45,9 @@ void set_participant_state(
   PlanId plan,
   std::vector<RouteStorageInfo> routes,
   StorageId storage_base,
-  ItineraryVersion itinerary_version);
+  ItineraryVersion itinerary_version,
+  std::vector<CheckpointId> progress,
+  ProgressVersion progress_version);
 
 //==============================================================================
 void set_initial_fork_version(

@@ -68,6 +68,12 @@ public:
   // TODO(MXG): Should extend() also reset this value? Currently it does not.
   Duration delay() const;
 
+  /// Notify the schedule that a checkpoint within a plan has been reached
+  void reached(PlanId plan, RouteId route, CheckpointId checkpoint);
+
+  /// The last set of checkpoints that were reached for this plan.
+  const std::vector<CheckpointId>& reached() const;
+
   /// Clear all routes from the itinerary.
   void clear();
 

@@ -108,6 +108,26 @@ public:
   };
 
   //============================================================================
+  /// A class that provides an update on itinerary progression.
+  class Progress
+  {
+  public:
+
+    /// Constructor
+    Progress(
+      ProgressVersion version,
+      std::vector<CheckpointId> checkpoints);
+
+    ProgressVersion version() const;
+
+    const std::vector<CheckpointId>& checkpoints() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  //============================================================================
   /// A class that describes a participant registration.
   class RegisterParticipant
   {

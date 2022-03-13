@@ -558,6 +558,19 @@ public:
     _mirror.update(_database->changes(_all, _mirror.latest_version()));
   }
 
+  void reached(
+    ParticipantId participant,
+    PlanId plan,
+    const std::vector<CheckpointId>& reached_checkpoints,
+    ProgressVersion version) final
+  {
+    if (drop_packets)
+      return;
+
+    _database->reached(participant, plan, reached_checkpoints, version);
+    _mirror.update(_database->changes(_all, _mirror.latest_version()));
+  }
+
   void clear(ParticipantId participant, ItineraryVersion version) final
   {
     if (drop_packets)

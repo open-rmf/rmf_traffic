@@ -37,9 +37,11 @@ public:
   using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
   using Itinerary = rmf_traffic::schedule::Itinerary;
   using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
+  using ProgressVersion = rmf_traffic::schedule::ProgressVersion;
   using PlanId = rmf_traffic::PlanId;
   using Duration = rmf_traffic::Duration;
   using RouteId = rmf_traffic::RouteId;
+  using CheckpointId = rmf_traffic::CheckpointId;
   using StorageId = uint64_t;
 
   /// Set a brand new itinerary for a participant. This will replace any
@@ -105,6 +107,27 @@ public:
     ParticipantId participant,
     Duration delay,
     ItineraryVersion version) = 0;
+
+  /// Indicate that a participant has reached certain checkpoints.
+  ///
+  /// \param[in] participant
+  ///   The ID of the participant whose progress is being set.
+  ///
+  /// \param[in] plan
+  ///   The ID of the plan which progress has been made for.
+  ///
+  /// \param[in] reached_checkpoints
+  ///   The set of checkpoints that have been reached. The indices in the vector
+  ///   must correspond to the RouteIds of the plan.
+  ///
+  /// \param[in] version
+  ///   The version number for this progress.
+  ///
+  virtual void reached(
+    ParticipantId participant,
+    PlanId plan,
+    const std::vector<CheckpointId>& reached_checkpoints,
+    ProgressVersion version) = 0;
 
   /// Erase an itinerary from this database.
   ///

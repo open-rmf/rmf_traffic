@@ -24,6 +24,8 @@
 #include "ViewerInternal.hpp"
 #include "internal_Snapshot.hpp"
 #include "internal_Database.hpp"
+#include "internal_Progress.hpp"
+#include "DependencyTracker.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -51,6 +53,7 @@ public:
     ItineraryVersion itinerary_version;
     PlanId current_plan_id = std::numeric_limits<PlanId>::max();
     std::optional<StorageId> highest_storage;
+    Progress progress;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
@@ -67,6 +70,8 @@ public:
   std::unordered_set<ParticipantId> participant_ids;
 
   Version latest_version = 0;
+
+  mutable DependencyTracker dependencies;
 
   static void erase_routes(
     const ParticipantId participant,
@@ -263,6 +268,12 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
 }
 
 //==============================================================================
+Version Mirror::latest_version() const
+{
+  return _pimpl->latest_version;
+}
+
+//==============================================================================
 std::optional<ItineraryView> Mirror::get_itinerary(
   const std::size_t participant_id) const
 {
@@ -299,16 +310,79 @@ std::optional<PlanId> Mirror::get_current_plan_id(
 }
 
 //==============================================================================
-Version Mirror::latest_version() const
+const std::vector<CheckpointId>* Mirror::get_current_progress(
+  ParticipantId participant_id) const
 {
-  return _pimpl->latest_version;
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return nullptr;
+
+  return &p->second.progress.reached_checkpoints;
+}
+
+//==============================================================================
+auto Mirror::watch_dependency(
+  Dependency dep,
+  std::function<void()> on_reached,
+  std::function<void()> on_deprecated) const -> DependencySubscription
+{
+  auto subscription = DependencySubscription::Implementation::make(
+    dep, std::move(on_reached), std::move(on_deprecated));
+
+  auto shared =
+    DependencySubscription::Implementation::get_shared(subscription);
+
+  const auto p_it = _pimpl->states.find(dep.on_participant);
+  if (p_it == _pimpl->states.end())
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  const auto& state = p_it->second;
+  if (rmf_utils::modular(state.current_plan_id).less_than(dep.on_plan))
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  if (state.current_plan_id == dep.on_plan)
+  {
+    if (dep.on_route < state.progress.reached_checkpoints.size())
+    {
+      const auto latest_checkpoint =
+        state.progress.reached_checkpoints[dep.on_route];
+
+      if (dep.on_checkpoint <= latest_checkpoint)
+      {
+        shared->reach();
+        return subscription;
+      }
+    }
+  }
+
+  _pimpl->dependencies.add(dep, std::move(shared));
+
+  return subscription;
+}
+
+//==============================================================================
+ProgressVersion Mirror::get_current_progress_version(
+  ParticipantId participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return 0;
+
+  return p->second.progress.version;
 }
 
 //==============================================================================
 std::shared_ptr<const Snapshot> Mirror::snapshot() const
 {
   using SnapshotType =
-    SnapshotImplementation<Implementation::RouteEntry,
+    SnapshotImplementation<
+      Implementation::RouteEntry,
       MirrorViewRelevanceInspector
     >;
 
@@ -444,8 +518,18 @@ bool Mirror::update(const Patch& patch)
     for (const auto& delay : p.delays())
       _pimpl->apply_delay(state, delay);
 
+    if (state.current_plan_id != p.additions().plan_id())
+      state.progress = Progress();
+
     state.current_plan_id = p.additions().plan_id();
     _pimpl->add_routes(participant, state, p.additions());
+    state.progress.resize(state.storage.size());
+
+    if (p.progress().has_value())
+    {
+      state.progress.reached_checkpoints = p.progress()->checkpoints();
+      state.progress.version = p.progress()->version();
+    }
   }
 
   if (const Change::Cull* cull = patch.cull())
@@ -474,6 +558,28 @@ bool Mirror::update(const Patch& patch)
   }
 
   _pimpl->latest_version = patch.latest_version();
+
+  for (const auto& p : patch)
+  {
+    _pimpl->dependencies.deprecate_dependencies_before(
+      p.participant_id(), p.additions().plan_id());
+
+    if (p.progress().has_value())
+    {
+      _pimpl->dependencies.reached(
+        p.participant_id(), p.additions().plan_id(),
+        p.progress()->checkpoints());
+    }
+
+    // This is a hacky way of recognizing if a clear() has happened
+    const auto& state = _pimpl->states[p.participant_id()];
+    if (state.storage.empty())
+    {
+      _pimpl->dependencies.deprecate_dependencies_before(
+        p.participant_id(), p.additions().plan_id()+1);
+    }
+  }
+
   return true;
 }
 
@@ -518,7 +624,9 @@ Database Mirror::fork() const
         state.current_plan_id,
         routes,
         next_storage_id,
-        state.itinerary_version);
+        state.itinerary_version,
+        state.progress.reached_checkpoints,
+        state.progress.version);
     }
 
     set_initial_fork_version(output, _pimpl->latest_version);

@@ -32,7 +32,6 @@ namespace schedule {
 //==============================================================================
 /// A class that maintains a database of scheduled Trajectories. This class is
 /// intended to be used only for the canonical RMF traffic schedule database.
-/// All local mirror copy
 ///
 /// The Viewer API can be queried to find Trajectories that match certain
 /// criteria.
@@ -40,10 +39,7 @@ namespace schedule {
 /// You can also retrieve update patches from a database. To apply those patches
 /// to a downstream Viewer, it is strongly advised to use the
 /// rmf_traffic::schedule::Mirror class.
-class Database :
-  public ItineraryViewer,
-  public Writer,
-  public Snappable
+class Database : public ItineraryViewer, public Writer, public Snappable
 {
 public:
 
@@ -70,6 +66,13 @@ public:
     ParticipantId participant,
     Duration delay,
     ItineraryVersion version) final;
+
+  // Documentation inherited from Writer
+  void reached(
+    ParticipantId participant,
+    PlanId plan,
+    const std::vector<CheckpointId>& reached_checkpoints,
+    ProgressVersion version) final;
 
   // Documentation inherited from Writer
   void clear(
@@ -113,15 +116,34 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
+  Version latest_version() const final;
+
+
+  //============================================================================
+  // ItineraryViewer API
+  //============================================================================
+
+  // Documentation inherited from ItineraryViewer
   std::optional<ItineraryView> get_itinerary(
     std::size_t participant_id) const final;
 
-  // Documentation inherited from Viewer
+  // Documentation inherited from ItineraryViewer
   std::optional<PlanId> get_current_plan_id(
     std::size_t participant_id) const final;
 
-  // Documentation inherited from Viewer
-  Version latest_version() const final;
+  // Documentation inherited from ItineraryViewer
+  const std::vector<CheckpointId>* get_current_progress(
+    ParticipantId participant_id) const final;
+
+  // Documentation inherited from ItineraryViewer
+  ProgressVersion get_current_progress_version(
+    ParticipantId participant_id) const final;
+
+  // Documentation inherited from ItineraryViewer
+  DependencySubscription watch_dependency(
+    Dependency dependency,
+    std::function<void()> on_reached,
+    std::function<void()> on_deprecated) const final;
 
 
   //============================================================================
@@ -168,7 +190,7 @@ public:
   /// query parameters.
   Patch changes(
     const Query& parameters,
-    rmf_utils::optional<Version> after) const;
+    std::optional<Version> after) const;
 
   /// View the routes that match the parameters and have changed (been added or
   /// delayed) since the specified version. This is useful for viewing

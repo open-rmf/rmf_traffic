@@ -92,6 +92,7 @@ void Participant::Implementation::Shared::set(
   _next_storage_base += itinerary.size();
   _assign_plan_id->fast_forward_to(plan+1);
   _current_itinerary = std::move(itinerary);
+  _progress = _buffered_progress.pull(plan, _current_itinerary.size());
 
   const ItineraryVersion itinerary_version = get_next_version();
   const ParticipantId id = _id;
@@ -111,6 +112,12 @@ void Participant::Implementation::Shared::set(
 
   _change_history[itinerary_version] = change;
   change();
+
+  if (_progress.version > 0)
+  {
+    _writer->reached(
+      _id, plan, _progress.reached_checkpoints, _progress.version);
+  }
 }
 
 //==============================================================================
@@ -140,6 +147,8 @@ void Participant::Implementation::Shared::extend(
 
   for (const auto& item : additional_routes)
     _current_itinerary.push_back(item);
+
+  _progress.resize(_current_itinerary.size());
 
   const ItineraryVersion itinerary_version = get_next_version();
   const ParticipantId id = _id;
@@ -186,6 +195,26 @@ void Participant::Implementation::Shared::delay(Duration delay)
 
   _change_history[itinerary_version] = change;
   change();
+}
+
+//==============================================================================
+void Participant::Implementation::Shared::reached(
+  PlanId plan, RouteId route, CheckpointId checkpoint)
+{
+  if (plan != _current_plan_id)
+  {
+    if (rmf_utils::modular(plan).less_than(_current_plan_id))
+      return;
+
+    _buffered_progress.buff(plan, route, checkpoint);
+    return;
+  }
+
+  if (_progress.update(route, checkpoint))
+  {
+    _writer->reached(
+      _id, plan, _progress.reached_checkpoints, _progress.version);
+  }
 }
 
 //==============================================================================
@@ -238,9 +267,10 @@ Participant Participant::Implementation::make(
 //==============================================================================
 void Participant::Implementation::Shared::retransmit(
   const std::vector<Rectifier::Range>& ranges,
-  const ItineraryVersion last_known_version)
+  const ItineraryVersion last_known_itinerary,
+  const ProgressVersion last_known_progress)
 {
-  if (rmf_utils::modular(current_version()).less_than(last_known_version))
+  if (rmf_utils::modular(current_version()).less_than(last_known_itinerary))
   {
     if (_version_mismatch_limiter.reached_limit())
     {
@@ -249,7 +279,7 @@ void Participant::Implementation::Shared::retransmit(
       // set a logger?
       std::cerr
         << "[Participant::Implementation::retransmit] Remote database has a "
-        << "higher version number [" << last_known_version << "] than ["
+        << "higher version number [" << last_known_itinerary << "] than ["
         << current_version() << "] the version number of the local "
         << "participant [" << _id << ":" << _description.owner() << "/"
         << _description.name() << "]. This may indicate that the remote "
@@ -260,7 +290,7 @@ void Participant::Implementation::Shared::retransmit(
     {
       // Remake the routes to send as a new message with a higher version than
       // the previous
-      _version = last_known_version+1;
+      _version = last_known_itinerary+1;
       set(_current_plan_id, _current_itinerary);
     }
 
@@ -296,9 +326,25 @@ void Participant::Implementation::Shared::retransmit(
 
   // In case the database doesn't have the most recent changes, we will
   // retransmit them.
-  const auto tail_begin = _change_history.upper_bound(last_known_version);
+  const auto tail_begin = _change_history.upper_bound(last_known_itinerary);
   for (auto it = tail_begin; it != _change_history.end(); ++it)
     it->second();
+
+  bool resend_progress = last_known_progress < _progress.version;
+  if (!_change_history.empty())
+  {
+    // If the last known itinerary predates the current history then that
+    // itinerary belonged to a different plan, so that is another case where
+    // we should resend the current progress.
+    resend_progress |= rmf_utils::modular(
+      last_known_itinerary).less_than(_change_history.begin()->first);
+  }
+
+  if (resend_progress)
+  {
+    _writer->reached(
+      _id, _current_plan_id, _progress.reached_checkpoints, _progress.version);
+  }
 }
 
 //==============================================================================
@@ -376,6 +422,18 @@ void Participant::delay(Duration delay)
 rmf_traffic::Duration Participant::delay() const
 {
   return _pimpl->_shared->_cumulative_delay;
+}
+
+//==============================================================================
+void Participant::reached(PlanId plan, RouteId route, CheckpointId checkpoint)
+{
+  return _pimpl->_shared->reached(plan, route, checkpoint);
+}
+
+//==============================================================================
+const std::vector<CheckpointId>& Participant::reached() const
+{
+  return _pimpl->_shared->_progress.reached_checkpoints;
 }
 
 //==============================================================================

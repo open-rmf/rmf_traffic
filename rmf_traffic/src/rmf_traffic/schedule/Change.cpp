@@ -104,6 +104,36 @@ const std::vector<RouteId>& Change::Erase::ids() const
 }
 
 //==============================================================================
+class Change::Progress::Implementation
+{
+public:
+  ProgressVersion version;
+  std::vector<CheckpointId> checkpoints;
+};
+
+//==============================================================================
+Change::Progress::Progress(
+  ProgressVersion version,
+  std::vector<CheckpointId> checkpoints)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{version, std::move(checkpoints)}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+ProgressVersion Change::Progress::version() const
+{
+  return _pimpl->version;
+}
+
+//==============================================================================
+const std::vector<CheckpointId>& Change::Progress::checkpoints() const
+{
+  return _pimpl->checkpoints;
+}
+
+//==============================================================================
 class Change::RegisterParticipant::Implementation
 {
 public:

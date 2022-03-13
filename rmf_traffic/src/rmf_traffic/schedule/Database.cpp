@@ -24,12 +24,14 @@
 #include "internal_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
+#include "internal_Progress.hpp"
+#include "internal_Viewer.hpp"
+#include "DependencyTracker.hpp"
 
 #include <rmf_utils/Modular.hpp>
 
 #include <algorithm>
 #include <list>
-
 namespace rmf_traffic {
 namespace schedule {
 
@@ -113,6 +115,10 @@ public:
     Version last_updated;
     StorageId next_storage_id = 0;
     PlanId latest_plan_id = std::numeric_limits<RouteId>::max();
+
+    Progress progress = {};
+    std::optional<Version> schedule_version_of_progress = std::nullopt;
+    ProgressBuffer buffered_progress = {};
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
@@ -180,6 +186,8 @@ public:
   /// The current time is used to know when participants can be culled after
   /// getting unregistered
   rmf_traffic::Time current_time = rmf_traffic::Time(rmf_traffic::Duration(0));
+
+  mutable DependencyTracker dependencies;
 
   /// This function is used to insert routes into the Database.
   void insert_items(
@@ -345,6 +353,7 @@ public:
     }
 
     state.active_routes.clear();
+    state.progress.reached_checkpoints.clear();
   }
 
   ParticipantId get_next_participant_id()
@@ -475,10 +484,19 @@ void Database::set(
   // Erase the routes that are currently active
   _pimpl->clear(participant, state);
 
+  // Reset the current progress of the state
+  state.progress = state.buffered_progress.pull(plan, itinerary.size());
+  state.schedule_version_of_progress = _pimpl->schedule_version;
+
   // Insert the new routes into the current itinerary
   state.latest_plan_id = plan;
   state.next_storage_id = storage_base;
   _pimpl->insert_items(participant, state, itinerary);
+
+  // Deprecate all dependencies on earlier plans
+  _pimpl->dependencies.deprecate_dependencies_before(participant, plan);
+  _pimpl->dependencies.reached(
+    participant, plan, state.progress.reached_checkpoints);
 }
 
 //==============================================================================
@@ -519,6 +537,10 @@ void Database::extend(
   ++_pimpl->schedule_version;
 
   _pimpl->insert_items(participant, state, itinerary);
+
+  // Update the progress tracker with the new routes
+  state.progress.resize(state.active_routes.size());
+  state.schedule_version_of_progress = _pimpl->schedule_version;
 }
 
 //==============================================================================
@@ -558,6 +580,46 @@ void Database::delay(
 }
 
 //==============================================================================
+void Database::reached(
+  ParticipantId participant,
+  PlanId plan,
+  const std::vector<CheckpointId>& reached_checkpoints,
+  ProgressVersion version)
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "[Database::reached] No participant with ID ["
+      + std::to_string(participant) + "]");
+    // *INDENT-ON*
+  }
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (plan != state.latest_plan_id)
+  {
+    if (rmf_utils::modular(plan).less_than(state.latest_plan_id))
+      return;
+
+    for (std::size_t i = 0; i < reached_checkpoints.size(); ++i)
+      state.buffered_progress.buff(plan, i, reached_checkpoints[i], version);
+
+    return;
+  }
+
+  for (std::size_t i = 0; i < reached_checkpoints.size(); ++i)
+    state.progress.update(i, reached_checkpoints[i], version);
+
+  state.schedule_version_of_progress = ++_pimpl->schedule_version;
+
+  // Update relevant dependencies
+  _pimpl->dependencies.reached(
+    participant, plan, state.progress.reached_checkpoints);
+}
+
+//==============================================================================
 void Database::clear(
   ParticipantId participant,
   ItineraryVersion version)
@@ -590,6 +652,8 @@ void Database::clear(
 
   ++_pimpl->schedule_version;
   _pimpl->clear(participant, state);
+  _pimpl->dependencies.deprecate_dependencies_before(
+    participant, state.latest_plan_id+1);
 }
 
 //==============================================================================
@@ -660,7 +724,9 @@ void set_participant_state(
   PlanId plan,
   std::vector<RouteStorageInfo> routes,
   StorageId storage_base,
-  ItineraryVersion itinerary_version)
+  ItineraryVersion itinerary_version,
+  std::vector<CheckpointId> progress,
+  ProgressVersion progress_version)
 {
   using RouteEntry = Database::Implementation::RouteEntry;
   using RouteEntryPtr = Database::Implementation::RouteEntryPtr;
@@ -694,6 +760,8 @@ void set_participant_state(
   state.active_routes.clear();
   state.latest_plan_id = plan;
   state.next_storage_id = storage_base;
+  state.progress.reached_checkpoints = std::move(progress);
+  state.progress.version = progress_version;
   auto& storage = state.storage;
 
   for (std::size_t i = 0; i < routes.size(); ++i)
@@ -732,7 +800,7 @@ void set_initial_fork_version(
   impl.schedule_version = version;
 
   std::optional<Time> maximum_time;
-  for (const auto& [_, state] : impl.states)
+  for (auto& [_, state] : impl.states)
   {
     for (const auto& [_, storage] : state.storage)
     {
@@ -744,6 +812,8 @@ void set_initial_fork_version(
           maximum_time = *finish;
       }
     }
+
+    state.schedule_version_of_progress = version;
   }
 
   if (maximum_time.has_value())
@@ -821,6 +891,9 @@ void Database::unregister_participant(
   const Version version = ++_pimpl->schedule_version;
   _pimpl->remove_participant_version[version] = {participant, initial_version};
   _pimpl->remove_participant_time[_pimpl->current_time] = version;
+
+  // Deprecate all dependencies for this participant
+  _pimpl->dependencies.deprecate_dependencies_on(participant);
 }
 
 //==============================================================================
@@ -1181,6 +1254,12 @@ std::shared_ptr<const ParticipantDescription> Database::get_participant(
 }
 
 //==============================================================================
+Version Database::latest_version() const
+{
+  return _pimpl->schedule_version;
+}
+
+//==============================================================================
 std::optional<ItineraryView> Database::get_itinerary(
   const std::size_t participant_id) const
 {
@@ -1211,9 +1290,71 @@ std::optional<PlanId> Database::get_current_plan_id(
 }
 
 //==============================================================================
-Version Database::latest_version() const
+const std::vector<CheckpointId>* Database::get_current_progress(
+  ParticipantId participant_id) const
 {
-  return _pimpl->schedule_version;
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return nullptr;
+
+  return &p->second.progress.reached_checkpoints;
+}
+
+//==============================================================================
+ProgressVersion Database::get_current_progress_version(
+  ParticipantId participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return 0;
+
+  return p->second.progress.version;
+}
+
+//==============================================================================
+auto Database::watch_dependency(
+  Dependency dep,
+  std::function<void()> on_reached,
+  std::function<void()> on_deprecated) const -> DependencySubscription
+{
+  auto subscription = DependencySubscription::Implementation::make(
+    dep, std::move(on_reached), std::move(on_deprecated));
+
+  auto shared =
+    DependencySubscription::Implementation::get_shared(subscription);
+
+  const auto p_it = _pimpl->states.find(dep.on_participant);
+  if (p_it == _pimpl->states.end())
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  const auto& state = p_it->second;
+  if (rmf_utils::modular(dep.on_plan).less_than(state.latest_plan_id))
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  if (state.latest_plan_id == dep.on_plan)
+  {
+    if (dep.on_route < state.progress.reached_checkpoints.size())
+    {
+      const auto latest_checkpoint =
+        state.progress.reached_checkpoints[dep.on_route];
+
+      if (dep.on_checkpoint <= latest_checkpoint)
+      {
+        shared->reach();
+        return subscription;
+      }
+    }
+  }
+
+  _pimpl->dependencies.add(dep, std::move(shared));
+
+  return subscription;
 }
 
 //==============================================================================
@@ -1251,7 +1392,7 @@ const Inconsistencies& Database::inconsistencies() const
 //==============================================================================
 auto Database::changes(
   const Query& parameters,
-  rmf_utils::optional<Version> after) const -> Patch
+  std::optional<Version> after) const -> Patch
 {
   if (after.has_value() && _pimpl->fork_info.has_value())
   {
@@ -1305,13 +1446,25 @@ auto Database::changes(
       continue;
     }
 
+    std::optional<Change::Progress> progress;
+    if (state.schedule_version_of_progress.has_value())
+    {
+      if (!after.has_value() || *after < *state.schedule_version_of_progress)
+      {
+        progress = Change::Progress(
+            state.progress.version,
+            state.progress.reached_checkpoints);
+      }
+    }
+
     part_patches.emplace_back(
       Patch::Participant{
         p.first,
         state.tracker->last_known_version(),
         Change::Erase(std::move(p.second.erasures)),
         std::move(delays),
-        Change::Add(state.latest_plan_id, std::move(p.second.additions))
+        Change::Add(state.latest_plan_id, std::move(p.second.additions)),
+        std::move(progress)
       });
   }
 
