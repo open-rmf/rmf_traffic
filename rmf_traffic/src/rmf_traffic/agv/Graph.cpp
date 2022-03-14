@@ -933,6 +933,12 @@ const std::vector<std::size_t>& Graph::lanes_from(std::size_t wp_index) const
 }
 
 //==============================================================================
+const std::vector<std::size_t>& Graph::lanes_into(std::size_t wp_index) const
+{
+  return _pimpl->lanes_into.at(wp_index);
+}
+
+//==============================================================================
 auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) -> Lane*
 {
   const auto& lanes = _pimpl->lane_between.at(from_wp);

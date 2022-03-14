@@ -110,11 +110,15 @@ SCENARIO("Tests for Graph API")
     CHECK(exit_node.orientation_constraint() != nullptr);
 
     auto& lane1 = graph.add_lane(entry_node, exit_node);
+    CHECK(graph.lanes_from(0).size() == 1);
+    CHECK(graph.lanes_into(0).size() == 0);
     CHECK(graph.num_lanes() == 1);
     CHECK_LANE(lane1, 0, entry_node, exit_node);
     CHECK_LANE(graph.get_lane(0), 0, entry_node, exit_node);
 
     auto& lane2 = graph.add_lane(exit_node, entry_node);
+    CHECK(graph.lanes_from(0).size() == 1);
+    CHECK(graph.lanes_into(0).size() == 1);
     CHECK(graph.num_lanes() == 2);
     CHECK_LANE(lane2, 1, exit_node, entry_node);
     CHECK_LANE(graph.get_lane(1), 1, exit_node, entry_node);

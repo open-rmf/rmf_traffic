@@ -577,6 +577,9 @@ public:
   /// Get the indices of lanes that come out of the given Waypoint index
   const std::vector<std::size_t>& lanes_from(std::size_t wp_index) const;
 
+  /// Get the indices of lanes that arrive into the given Waypoint index
+  const std::vector<std::size_t>& lanes_into(std::size_t wp_index) const;
+
   /// Get a reference to the lane that goes from from_wp to to_wp if such a lane
   /// exists. If no such lane exists, this will return a nullptr. If multiple
   /// exist, this will return the one that was added most recently.
