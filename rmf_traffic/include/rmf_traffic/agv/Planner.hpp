@@ -777,6 +777,12 @@ public:
     /// this waypoint.
     const Checkpoints& arrival_checkpoints() const;
 
+    [[deprecated("Use arrival_checkpoints().back().route_id instead")]]
+    std::size_t itinerary_index() const;
+
+    [[deprecated("Use arrival_checkpoints().back().checkpoint_id instead")]]
+    std::size_t trajectory_index() const;
+
     /// An event that should occur when this waypoint is reached.
     const Graph::Lane::Event* event() const;
 

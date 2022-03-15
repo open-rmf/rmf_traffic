@@ -1015,6 +1015,18 @@ auto Plan::Waypoint::arrival_checkpoints() const -> const Checkpoints&
 }
 
 //==============================================================================
+std::size_t Plan::Waypoint::itinerary_index() const
+{
+  return _pimpl->arrival.back().route_id;
+}
+
+//==============================================================================
+std::size_t Plan::Waypoint::trajectory_index() const
+{
+  return _pimpl->arrival.back().checkpoint_id;
+}
+
+//==============================================================================
 const Graph::Lane::Event* Plan::Waypoint::event() const
 {
   return _pimpl->event.get();
