@@ -351,7 +351,8 @@ std::vector<Plan::Waypoint> find_dependencies(
         progress.push_back(
           Plan::Progress{
             candidates[i].waypoint.graph_index.value(),
-            candidates[i].waypoint.arrival
+            candidates[i].waypoint.arrival,
+            candidates[i].waypoint.time
           });
       }
       else if (unnecessary_index_start.has_value())
@@ -466,13 +467,13 @@ reconstruct_waypoints(
       const Graph::Waypoint& g_wp = graph.waypoints[wp_index];
       const auto& p = g_wp.get_location();
       const bool necessary = (c == node->approach_lanes.size()-1);
-      const auto [time, v] = [&]() -> internal::TimeVelocity
+      const auto [time, v] = [&]() -> TimeVelocity
         {
           if (necessary)
             return {node->time, {0, 0}};
 
-          return internal::interpolate_time_along_quadratic_straight_line(
-            node->route_from_parent.back().trajectory(), p);
+          return interpolate_time_along_quadratic_straight_line(
+            node->route_from_parent.back().trajectory(), p, 0.0);
         } ();
 
       candidates.push_back({

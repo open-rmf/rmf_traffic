@@ -101,14 +101,11 @@ public:
       RouteStorage& entry_storage = s.second;
       assert(entry_storage.entry);
       assert(entry_storage.entry->route);
-      auto delayed = schedule::apply_delay(
-        entry_storage.entry->route->trajectory(), delay.duration());
-
-      if (!delayed)
+      if (entry_storage.entry->route->trajectory().empty())
         continue;
 
-      auto new_route = std::make_shared<Route>(
-        entry_storage.entry->route->map(), std::move(*delayed));
+      auto new_route = std::make_shared<Route>(*entry_storage.entry->route);
+      new_route->trajectory().front().adjust_times(delay.duration());
 
       // We create a new entry because
       auto new_entry = std::make_shared<RouteEntry>(*entry_storage.entry);
@@ -340,7 +337,7 @@ auto Mirror::watch_dependency(
   }
 
   const auto& state = p_it->second;
-  if (rmf_utils::modular(state.current_plan_id).less_than(dep.on_plan))
+  if (rmf_utils::modular(dep.on_plan).less_than(state.current_plan_id))
   {
     shared->deprecate();
     return subscription;

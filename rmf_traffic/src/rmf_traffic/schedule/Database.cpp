@@ -237,16 +237,14 @@ public:
       auto& entry_storage = storage.at(storage_id);
       const auto& route_entry = entry_storage.entry;
       const auto route_id = route_entry->route_id;
+
       const Trajectory& old_trajectory = route_entry->route->trajectory();
-
       assert(old_trajectory.start_time());
-
-      auto delayed = schedule::apply_delay(old_trajectory, delay);
-      if (!delayed)
+      if (old_trajectory.empty())
         continue;
 
-      auto new_route = std::make_shared<Route>(
-        entry_storage.entry->route->map(), std::move(*delayed));
+      auto new_route = std::make_shared<Route>(*route_entry->route);
+      new_route->trajectory().front().adjust_times(delay);
 
       auto transition = std::make_unique<Transition>(
         Transition{
@@ -494,7 +492,8 @@ void Database::set(
   _pimpl->insert_items(participant, state, itinerary);
 
   // Deprecate all dependencies on earlier plans
-  _pimpl->dependencies.deprecate_dependencies_before(participant, plan);
+  _pimpl->dependencies.deprecate_dependencies_before(
+        participant, plan);
   _pimpl->dependencies.reached(
     participant, plan, state.progress.reached_checkpoints);
 }

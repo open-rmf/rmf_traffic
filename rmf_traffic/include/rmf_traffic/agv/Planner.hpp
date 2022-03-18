@@ -732,6 +732,7 @@ public:
   {
     std::size_t graph_index;
     Checkpoints checkpoints;
+    rmf_traffic::Time time;
   };
 
   /// A Waypoint within a Plan.

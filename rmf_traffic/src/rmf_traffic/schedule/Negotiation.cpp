@@ -1327,6 +1327,48 @@ const Itinerary* Negotiation::Table::Viewer::submission() const
 }
 
 //==============================================================================
+std::optional<rmf_traffic::Time>
+Negotiation::Table::Viewer::earliest_base_proposal_time() const
+{
+  std::optional<rmf_traffic::Time> earliest;
+  for (const auto& proposal : *_pimpl->base_proposals)
+  {
+    for (const auto& route : proposal.itinerary)
+    {
+      const auto* t = route.trajectory().start_time();
+      if (!t)
+        continue;
+
+      if (!earliest.has_value() || *t < *earliest)
+        earliest = *t;
+    }
+  }
+
+  return earliest;
+}
+
+//==============================================================================
+std::optional<rmf_traffic::Time>
+Negotiation::Table::Viewer::latest_base_proposal_time() const
+{
+  std::optional<rmf_traffic::Time> latest;
+  for (const auto& proposal : *_pimpl->base_proposals)
+  {
+    for (const auto& route : proposal.itinerary)
+    {
+      const auto* t = route.trajectory().finish_time();
+      if (!t)
+        continue;
+
+      if (!latest.has_value() || *latest < *t)
+        latest = *t;
+    }
+  }
+
+  return latest;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing

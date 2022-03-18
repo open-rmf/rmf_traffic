@@ -240,6 +240,12 @@ public:
       /// Return the submission on this Negotiation Table if it has one.
       const Itinerary* submission() const;
 
+      /// The earliest start time of any of the proposals in the table
+      std::optional<rmf_traffic::Time> earliest_base_proposal_time() const;
+
+      /// The latest finish time of any of the proposals in the table
+      std::optional<rmf_traffic::Time> latest_base_proposal_time() const;
+
       class Implementation;
     private:
       Viewer();

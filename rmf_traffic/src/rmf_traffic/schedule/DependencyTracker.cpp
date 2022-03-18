@@ -43,6 +43,9 @@ void DependencyTracker::reached(
   {
     for (auto& [r, checkpoints] : r_it->second)
     {
+      if (r >= reached_checkpoints.size())
+        continue;
+
       auto c_it = checkpoints.begin();
       const auto c_end = checkpoints.upper_bound(reached_checkpoints[r]);
       while (c_it != c_end)
@@ -86,7 +89,9 @@ void DependencyTracker::deprecate_dependencies_before(
             for (const auto& w : c)
             {
               if (const auto dep = w.lock())
+              {
                 dep->deprecate();
+              }
             }
           }
         }

@@ -23,20 +23,6 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-rmf_utils::optional<Trajectory> apply_delay(
-  const Trajectory& old_trajectory,
-  Duration delay)
-{
-  if (old_trajectory.size() == 0)
-    return old_trajectory;
-
-  Trajectory new_trajectory = old_trajectory;
-  new_trajectory.front().adjust_times(delay);
-
-  return new_trajectory;
-}
-
-//==============================================================================
 class Change::Add::Implementation
 {
 public:

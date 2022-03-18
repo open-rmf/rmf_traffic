@@ -179,88 +179,6 @@ bool interpolate_rotation(
 
   return true;
 }
-
-//==============================================================================
-TimeVelocity interpolate_time_along_quadratic_straight_line(
-  const Trajectory& trajectory, const Eigen::Vector2d& p)
-{
-  if (trajectory.size() < 2)
-  {
-    // *INDENT-OFF*
-    throw std::runtime_error(
-      "[rmf_traffic::agv::internal::"
-      "interpolate_time_along_quadratic_straight_line] "
-      "Invalid size for trajectory: " + std::to_string(trajectory.size()));
-    // INDENT-ON*
-  }
-
-  const Eigen::Vector2d p0 = trajectory.front().position().block<2, 1>(0, 0);
-  const Eigen::Vector2d p1 = trajectory.back().position().block<2, 1>(0, 0);
-  const Eigen::Vector2d n = (p1 - p0).normalized();
-  const double s = n.dot(p - p0);
-
-  const auto choose = [](const double tau, const double tau_f)
-    -> bool
-    {
-      if (tau_f + 1e-8 < tau)
-        return false;
-
-      if (tau < -1e-8)
-        return false;
-
-      return true;
-    };
-
-  const auto convert = [](
-    const double tau,
-    const double t0,
-    const double v0,
-    const double a,
-    const Eigen::Vector2d n) -> TimeVelocity
-    {
-      return {Time(time::from_seconds(tau + t0)), n*(v0 + a*tau)};
-    };
-
-  for (std::size_t i = 1; i < trajectory.size(); ++i)
-  {
-    const auto& wp0 = trajectory[i-1];
-    const auto& wp1 = trajectory[i];
-    const double s0 = n.dot(wp0.position().block<2, 1>(0, 0) - p0);
-    const double v0 = n.dot(wp0.velocity().block<2, 1>(0, 0));
-    const double sf = n.dot(wp1.position().block<2, 1>(0, 0) - p0);
-    const double t0 = time::to_seconds(wp0.time().time_since_epoch());
-    const double tau_f = time::to_seconds(wp1.time().time_since_epoch()) - t0;
-
-    const double a = 2*(sf-s0-v0*tau_f)/pow(tau_f, 2);
-    if (a > 1e-16)
-    {
-      const double tau_m = (-v0 - std::sqrt(v0*v0 + 2*a*(s-s0)))/a;
-      if (choose(tau_m, tau_f))
-        return convert(tau_m, t0, v0, a, n);
-
-      const double tau_p = (-v0 + std::sqrt(v0*v0 + 2*a*(s-s0)))/a;
-      if (choose(tau_p, tau_f))
-        return convert(tau_p, t0, v0, a, n);
-    }
-    else
-    {
-      const double tau = (s - s0)/v0;
-      if (choose(tau, tau_f))
-        return convert(tau, t0, v0, a, n);
-    }
-  }
-
-  std::stringstream ss;
-  ss << "[rmf_traffic::agv::internal::"
-     << "interpolate_time_along_quadratic_straight_line] Position ("
-     << p.block<2, 1>(0, 0).transpose() << ") does not lie along the "
-     << "trajectory:";
-
-  for (const auto& wp : trajectory)
-    ss << " (" << wp.position().block<2, 1>(0, 0).transpose() << ")";
-
-  throw std::runtime_error(ss.str());
-}
 } // namespace internal
 
 //==============================================================================
@@ -490,6 +408,104 @@ Trajectory Interpolate::positions(
   }
 
   return trajectory;
+}
+
+//==============================================================================
+TimeVelocity interpolate_time_along_quadratic_straight_line(
+  const Trajectory& trajectory,
+  const Eigen::Vector2d& p,
+  double holding_point_tolerance)
+{
+  if (trajectory.size() < 2)
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "[rmf_traffic::agv::internal::"
+      "interpolate_time_along_quadratic_straight_line] "
+      "Invalid size for trajectory: " + std::to_string(trajectory.size()));
+    // INDENT-ON*
+  }
+
+  const Eigen::Vector2d p0 = trajectory.front().position().block<2, 1>(0, 0);
+  const Eigen::Vector2d p1 = trajectory.back().position().block<2, 1>(0, 0);
+  const Eigen::Vector2d n = (p1 - p0).normalized();
+  const double s = n.dot(p - p0);
+
+  const auto choose = [](const double tau, const double tau_f)
+    -> bool
+    {
+      if (tau_f + 1e-8 < tau)
+        return false;
+
+      if (tau < -1e-8)
+        return false;
+
+      return true;
+    };
+
+  const auto convert = [](
+    const double tau,
+    const double t0,
+    const double v0,
+    const double a,
+    const Eigen::Vector2d n) -> TimeVelocity
+    {
+      return {Time(time::from_seconds(tau + t0)), n*(v0 + a*tau)};
+    };
+
+  for (std::size_t i = 1; i < trajectory.size(); ++i)
+  {
+    const auto& wp0 = trajectory[i-1];
+    const auto& wp1 = trajectory[i];
+    const double s0 = n.dot(wp0.position().block<2, 1>(0, 0) - p0);
+    const double v0 = n.dot(wp0.velocity().block<2, 1>(0, 0));
+    const double sf = n.dot(wp1.position().block<2, 1>(0, 0) - p0);
+    const double t0 = time::to_seconds(wp0.time().time_since_epoch());
+    const double tau_f = time::to_seconds(wp1.time().time_since_epoch()) - t0;
+
+    const double a = 2*(sf-s0-v0*tau_f)/pow(tau_f, 2);
+    const double radicand = v0*v0 + 2*a*(s-s0);
+    if (std::abs(a) > 1e-16 && radicand >= 0.0)
+    {
+      const double tau_m = (-v0 - std::sqrt(radicand))/a;
+      if (choose(tau_m, tau_f))
+      {
+        return convert(tau_m, t0, v0, a, n);
+      }
+
+      const double tau_p = (-v0 + std::sqrt(radicand))/a;
+      if (choose(tau_p, tau_f))
+      {
+        return convert(tau_p, t0, v0, a, n);
+      }
+    }
+    else if (std::abs(v0) > 1e-16)
+    {
+      const double tau = (s - s0)/v0;
+      if (choose(tau, tau_f))
+      {
+        return convert(tau, t0, v0, a, n);
+      }
+    }
+    else if (std::abs(s - s0) < holding_point_tolerance)
+    {
+      return TimeVelocity{
+        Time(time::from_seconds(t0)),
+        Eigen::Vector2d::Zero()
+      };
+    }
+  }
+
+  std::stringstream ss;
+  ss << "[rmf_traffic::agv::internal::"
+     << "interpolate_time_along_quadratic_straight_line] Position ("
+     << p.block<2, 1>(0, 0).transpose() << ") does not lie along the "
+     << "trajectory:";
+
+  for (const auto& wp : trajectory)
+    ss << " (" << wp.position().block<2, 1>(0, 0).transpose() << ")";
+
+  throw std::runtime_error(ss.str());
 }
 
 } // namespace agv

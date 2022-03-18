@@ -225,7 +225,9 @@ Route& Route::add_dependency(
 }
 
 //==============================================================================
-bool Route::should_ignore(ParticipantId participant, PlanId plan) const
+bool Route::should_ignore(
+  const ParticipantId participant,
+  const PlanId plan) const
 {
   const auto p_it = _pimpl->dependencies.find(participant);
   if (p_it == _pimpl->dependencies.end())
@@ -238,9 +240,10 @@ bool Route::should_ignore(ParticipantId participant, PlanId plan) const
 }
 
 //==============================================================================
-const DependsOnCheckpoint* Route::check_dependencies(ParticipantId on_participant,
-  PlanId on_plan,
-  RouteId on_route) const
+const DependsOnCheckpoint* Route::check_dependencies(
+  const ParticipantId on_participant,
+  const PlanId on_plan,
+  const RouteId on_route) const
 {
   const auto p_it = _pimpl->dependencies.find(on_participant);
   if (p_it == _pimpl->dependencies.end())

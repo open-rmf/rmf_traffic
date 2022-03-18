@@ -96,21 +96,6 @@ bool interpolate_rotation(
   const Eigen::Vector3d& finish,
   const double threshold);
 
-//==============================================================================
-struct TimeVelocity
-{
-  Time time;
-  Eigen::Vector2d velocity;
-};
-
-//==============================================================================
-/// This function only works correctly if the trajectory follows a straight line
-/// trajectory with zero jerk (cubic coefficient) and the position lies along
-/// the trajectory.
-TimeVelocity interpolate_time_along_quadratic_straight_line(
-  const Trajectory& trajectory,
-  const Eigen::Vector2d& position);
-
 } // namespace internal
 } // namespace agv
 } // namespace rmf_traffic
