@@ -181,7 +181,10 @@ struct OrientationTimeMap
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
   const NodePtr& finish_node,
-  const agv::RouteValidator* validator)
+  const agv::RouteValidator* validator,
+  const double w_nom,
+  const double alpha_nom,
+  const double rotational_threshold)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
 
@@ -192,13 +195,38 @@ std::vector<NodePtr> reconstruct_nodes(
     OrientationTimeMap<NodePtr>
   > cruft_map;
 
+  NodePtr first_midlane_node;
+  NodePtr last_midlane_node;
+
   for (const auto& node : node_sequence)
   {
     if (!node->waypoint)
-      continue;
+    {
+      if (!first_midlane_node)
+        first_midlane_node = node;
+      else
+        last_midlane_node = node;
+    }
 
     const auto wp = *node->waypoint;
     cruft_map[wp].insert(node);
+  }
+
+  if (first_midlane_node && last_midlane_node)
+  {
+    // There are multiple midlane nodes. We can ensure they are reduced to just
+    // two by squashing them here. We do not have to check this against the
+    // validator because the only way a robot is allowed to have multiple
+    // midlane nodes is if it was able to sit in place.
+    last_midlane_node->parent = first_midlane_node;
+
+    rmf_traffic::Trajectory holding;
+    const Eigen::Vector2d x = first_midlane_node->position;
+    Eigen::Vector3d p0{x[0], x[1], first_midlane_node->yaw};
+    Eigen::Vector3d p1{x[0], x[1], last_midlane_node->yaw};
+    internal::interpolate_rotation(
+        holding, w_nom, alpha_nom, first_midlane_node->time,
+        p0, p1, rotational_threshold);
   }
 
   for (auto& cruft : cruft_map)
@@ -2150,7 +2178,9 @@ public:
 
   PlanData make_plan(const SearchNodePtr& solution) const
   {
-    auto nodes = reconstruct_nodes(solution, _validator);
+    auto nodes = reconstruct_nodes(
+      solution, _validator, _w_nom, _alpha_nom, _rotation_threshold);
+
     auto [routes, waypoints] = reconstruct_waypoints(
       nodes,
       _supergraph->original(),

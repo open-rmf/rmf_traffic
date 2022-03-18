@@ -3574,6 +3574,86 @@ SCENARIO("Test speed limits")
   }
 }
 
+SCENARIO("Test midlane cruft", "[cruft]")
+{
+  using namespace std::chrono_literals;
+  const rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<rmf_traffic::geometry::Circle>(0.2)
+  };
+
+  rmf_traffic::agv::VehicleTraits traits(
+    {1.0, 100.0}, {M_PI, 100.0}, profile);
+  traits.get_differential()->set_reversible(false);
+
+  /*
+   *
+   *
+   * 0--(p0)---(p1)---1-------------2----------------3
+   *
+   *
+   */
+
+  const std::string test_map = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map, {0, 0}); // 0
+  graph.add_waypoint(test_map, {5, 0}); // 1
+  graph.add_waypoint(test_map, {10, 0}); // 2
+  graph.add_waypoint(test_map, {15, 0}); // 3
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 1);
+  add_bidir_lane(1, 2);
+  add_bidir_lane(2, 3);
+
+  const auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
+  auto p0 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 0",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  auto p1 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 1",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  const auto t0 = rmf_traffic::Time(rmf_traffic::Duration(0));
+
+  rmf_traffic::Trajectory trajectory;
+  trajectory.insert(t0, {4, 0, 0}, {0, 0, 0});
+  trajectory.insert(t0 + 15s, {4, 0, 0}, {0, 0, 0});
+
+  p1.set(p1.assign_plan_id(), {{test_map, trajectory}});
+
+
+  rmf_traffic::agv::Plan::Options options{
+    rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+          database, p0.id(), profile)
+  };
+  options.minimum_holding_time(1s);
+
+  rmf_traffic::agv::Planner planner{
+    rmf_traffic::agv::Planner::Configuration{graph, traits}, options
+  };
+
+  const auto result = planner.plan({t0, 0, 0.0, Eigen::Vector2d{1.0, 0.0}}, 3);
+  REQUIRE(result.success());
+  CHECK(result->get_waypoints().size() == 3);
+}
+
 SCENARIO("Test dependencies", "[deps]")
 {
   using namespace std::chrono_literals;
