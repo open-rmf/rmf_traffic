@@ -38,6 +38,7 @@ public:
   VehicleTraits traits;
   Interpolate::Options interpolation;
   LaneClosure lane_closures;
+  double traversal_cost_per_meter = 5.0;
 
 };
 
@@ -134,6 +135,19 @@ LaneClosure& Planner::Configuration::lane_closures()
 const LaneClosure& Planner::Configuration::lane_closures() const
 {
   return _pimpl->lane_closures;
+}
+
+//==============================================================================
+auto Planner::Configuration::traversal_cost_per_meter(double per_meter) ->Configuration&
+{
+  _pimpl->traversal_cost_per_meter = per_meter;
+  return *this;
+}
+
+//==============================================================================
+double Planner::Configuration::traversal_cost_per_meter() const
+{
+  return _pimpl->traversal_cost_per_meter;
 }
 
 //==============================================================================

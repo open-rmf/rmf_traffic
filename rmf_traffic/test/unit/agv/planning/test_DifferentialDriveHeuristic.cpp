@@ -256,7 +256,7 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, {}, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options(), 0.1);
 
   auto diff_drive_cache =
     rmf_traffic::agv::planning
@@ -439,7 +439,7 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, {}, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options(), 0.1);
 
   // TODO(MXG): Make a cleaner way to instantiate these caches
   using DifferentialDriveCache =

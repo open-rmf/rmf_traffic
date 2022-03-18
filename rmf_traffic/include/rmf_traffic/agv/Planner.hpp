@@ -104,6 +104,13 @@ public:
     /// Get a const reference to the LaneClosure setting
     const LaneClosure& lane_closures() const;
 
+    /// How much the cost should increase per meter travelled. Besides this,
+    /// cost is measured by the number of seconds spent travelling.
+    Configuration& traversal_cost_per_meter(double value);
+
+    /// Get the traversal cost.
+    double traversal_cost_per_meter() const;
+
     // TODO(MXG): Add a field to specify whether multi-start planning problems
     // should choose the plan that takes the least amount of time (according to
     // plan duration) or the plan that finishes the earliest (according to the
@@ -120,7 +127,7 @@ public:
   {
   public:
 
-    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(5);
+    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(1);
 
     /// Constructor
     ///

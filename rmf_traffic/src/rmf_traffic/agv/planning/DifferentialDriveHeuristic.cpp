@@ -180,7 +180,7 @@ public:
 
         const SearchNodePtr oriented_top = prepare_traversal(
           top, initial_lane_index, orientation, alt->yaw,
-          alt->time + *remaining_cost_estimate + exit_event_duration,
+          alt->cost + *remaining_cost_estimate + exit_event_duration,
           traversal.entry_event, traversal.maps, queue);
 
         if (!oriented_top)
@@ -215,10 +215,10 @@ public:
               next_position,
               target_yaw,
               *remaining_cost_estimate + exit_event_duration,
-              alt->time,
+              alt->cost,
               traversal.exit_event
             },
-            oriented_top->current_cost + alt->time,
+            oriented_top->current_cost + alt->cost,
             alt->routes,
             oriented_top
           });

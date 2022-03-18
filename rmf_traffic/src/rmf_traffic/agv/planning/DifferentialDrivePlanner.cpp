@@ -60,6 +60,10 @@ void reparent_node_for_holding(
   // be const-qualified.
   high_node->parent = low_node;
   high_node->route_from_parent = {std::move(route)};
+
+  // Clear any approach lanes that the parent had, because now the robot will
+  // simply be sitting in place.
+  high_node->approach_lanes.clear();
 }
 
 //==============================================================================
@@ -472,8 +476,26 @@ reconstruct_waypoints(
           if (necessary)
             return {node->time, {0, 0}};
 
-          return interpolate_time_along_quadratic_straight_line(
-            node->route_from_parent.back().trajectory(), p, 0.0);
+          try
+          {
+            return interpolate_time_along_quadratic_straight_line(
+              node->route_from_parent.back().trajectory(), p, 0.0);
+          }
+          catch(const std::runtime_error& e)
+          {
+            std::cout << e.what() << std::endl;
+            std::cout << "Entire trajectory:";
+            for (const rmf_traffic::Trajectory::Waypoint& wp : node->route_from_parent.back().trajectory())
+            {
+              std::cout << " t=" << time::to_seconds(wp.time().time_since_epoch())
+                        << " p=(" << wp.position().transpose()
+                        << ") v=<" << wp.velocity().transpose()
+                        << "> -->";
+            }
+            std::cout << std::endl;
+
+            throw std::runtime_error(e.what());
+          }
         } ();
 
       candidates.push_back({
@@ -875,8 +897,7 @@ public:
           continue;
       }
 
-      const double approach_cost = time::to_seconds(
-        approach_trajectory.duration());
+      const double approach_cost = calculate_cost(approach_trajectory);
       const double approach_yaw = approach_trajectory.back().position()[2];
       const auto approach_time = *approach_trajectory.finish_time();
 
@@ -1040,7 +1061,7 @@ public:
     assert(trajectory.size() >= 2);
 
     const auto finish_time = *trajectory.finish_time();
-    const double cost = time::to_seconds(trajectory.duration());
+    const double cost = calculate_cost(trajectory);
     Route route{map_name, std::move(trajectory)};
     if (_validator && !is_valid(top, route))
       return nullptr;
@@ -1150,7 +1171,7 @@ public:
           start, finish, _rotation_threshold);
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
-        approach_cost = time::to_seconds(approach_trajectory.duration());
+        approach_cost = calculate_cost(approach_trajectory);
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       }
 
@@ -1287,8 +1308,7 @@ public:
       auto node = top;
       if (approach_route.trajectory().size() >= 2 || traversal.entry_event)
       {
-        const double cost =
-          time::to_seconds(approach_route.trajectory().duration());
+        const double cost = calculate_cost(approach_route.trajectory());
         const double yaw = approach_wp.position()[2];
         const auto time = approach_wp.time();
 
@@ -1305,7 +1325,7 @@ public:
             yaw,
             time,
             *remaining_cost_estimate
-            + entry_event_cost + alt->time + exit_event_cost,
+            + entry_event_cost + alt->cost + exit_event_cost,
             {std::move(approach_route)},
             traversal.entry_event,
             node->current_cost + cost,
@@ -1347,7 +1367,7 @@ public:
           *remaining_cost_estimate + exit_event_cost,
           std::move(traversal_result.routes),
           traversal.exit_event,
-          node->current_cost + entry_event_cost + alt->time,
+          node->current_cost + entry_event_cost + alt->cost,
           std::nullopt,
           node
         });
@@ -1404,10 +1424,6 @@ public:
       if (approach_info.routes.back().trajectory().size() >= 2
         || solution_root->info.event)
       {
-        // TODO(MXG): Refactor this logic into a conversion function
-        const auto cost =
-          time::to_seconds(approach_info.finish_time - top->time);
-
         search_node = std::make_shared<SearchNode>(
           SearchNode{
             solution_root->info.entry,
@@ -1419,7 +1435,7 @@ public:
             solution_root->info.remaining_cost_estimate,
             std::move(approach_info.routes),
             solution_root->info.event,
-            search_node->current_cost + cost,
+            search_node->current_cost + approach_info.cost,
             std::nullopt,
             search_node
           });
@@ -1691,7 +1707,7 @@ public:
       for (const auto& approach : approach_info.trajectories)
       {
         const double yaw = approach.back().position()[2];
-        double cost = time::to_seconds(approach.duration());
+        double cost = calculate_cost(approach);
         const auto heuristic_cost_estimate =
           _heuristic.compute(initial_waypoint_index, yaw);
 
@@ -1926,7 +1942,8 @@ public:
     std::shared_ptr<const Supergraph> supergraph,
     DifferentialDriveHeuristicAdapter heuristic,
     const Planner::Goal& goal,
-    const Planner::Options& options)
+    const Planner::Options& options,
+    double traversal_cost_per_meter)
   : _internal(static_cast<InternalState*>(internal)),
     _issues(&issues),
     _supergraph(std::move(supergraph)),
@@ -1942,6 +1959,7 @@ public:
     _interrupter(options.interrupter()),
     _dependency_window(options.dependency_window()),
     _dependency_resolution(options.dependency_resolution()),
+    _traversal_cost_per_meter(traversal_cost_per_meter),
     _already_expanded(4093, EntryHash(_supergraph->original().lanes.size()))
   {
     const auto& angular = _supergraph->traits().rotational();
@@ -2065,7 +2083,8 @@ public:
           rmf_utils::pointer_to_opt(goal_.orientation())
         },
         goal_,
-        options_
+        options_,
+        supergraph->traversal_cost_per_meter()
       };
 
       return expander.debug_step(*this);
@@ -2149,6 +2168,11 @@ public:
     };
   }
 
+  double calculate_cost(const rmf_traffic::Trajectory& traj) const
+  {
+    return planning::calculate_cost(traj, _traversal_cost_per_meter);
+  }
+
 private:
   InternalState* _internal;
   Issues* _issues;
@@ -2168,6 +2192,7 @@ private:
   double _w_nom;
   double _alpha_nom;
   double _rotation_threshold;
+  double _traversal_cost_per_meter;
 
   using TimeSet = std::set<rmf_traffic::Time>;
   using VisitMap = std::unordered_map<
@@ -2267,7 +2292,8 @@ DifferentialDrivePlanner::DifferentialDrivePlanner(
     Graph::Implementation::get(_config.graph()),
     _config.vehicle_traits(),
     _config.lane_closures(),
-    _config.interpolation());
+    _config.interpolation(),
+    _config.traversal_cost_per_meter());
 
   _cache = DifferentialDriveHeuristic::make_manager(_supergraph);
 }
@@ -2305,7 +2331,8 @@ State DifferentialDrivePlanner::initiate(
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     goal,
-    state.conditions.options
+    state.conditions.options,
+    _supergraph->traversal_cost_per_meter()
   };
 
   for (const auto& start : starts)
@@ -2343,7 +2370,8 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(State& state) const
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     state.conditions.goal,
-    state.conditions.options
+    state.conditions.options,
+    _supergraph->traversal_cost_per_meter()
   };
 
   using InternalState = ScheduledDifferentialDriveExpander::InternalState;
@@ -2380,7 +2408,8 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
       rmf_utils::pointer_to_opt(goal.orientation()),
     },
     goal,
-    options
+    options,
+    _supergraph->traversal_cost_per_meter()
   };
 
   return expander.rollout(span, nodes, max_rollouts);
@@ -2414,7 +2443,8 @@ auto DifferentialDrivePlanner::debug_begin(
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     goal,
-    options
+    options,
+    _supergraph->traversal_cost_per_meter()
   };
 
   return expander.debug_begin(starts, goal, options);
