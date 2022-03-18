@@ -1,5 +1,9 @@
 ## Changelog for package rmf_traffic
 
+2.0.0 (2022-03-18)
+------------------
+* Introduce traffic dependency system: Add PR Here
+
 1.5.0 (2022-02-14)
 ------------------
 * Support lane speed limits: [#44](https://github.com/open-rmf/rmf_traffic/pull/44)

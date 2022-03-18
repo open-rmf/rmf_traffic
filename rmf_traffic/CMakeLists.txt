@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_traffic VERSION 1.5.0)
+project(rmf_traffic VERSION 2.0.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
@@ -123,7 +123,7 @@ configure_package_config_file(
 
 write_basic_package_version_file(
   ${PACKAGE_CONFIG_VERSION_FILE}
-  COMPATIBILITY ExactVersion
+  COMPATIBILITY SameMajorVersion
 )
 
 install(
