@@ -81,9 +81,7 @@ public:
     {
       assert(s.route);
       elements.emplace_back(
-        Element{
-          s.participant, s.plan_id, s.route_id, *s.route, *s.description
-        });
+        Element{s.participant, s.plan_id, s.route_id, s.route, *s.description});
     }
   }
 };

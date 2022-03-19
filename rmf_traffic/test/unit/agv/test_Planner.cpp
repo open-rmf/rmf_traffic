@@ -197,7 +197,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   {
     const auto& p_obs = database.get_participant(entry.participant)->profile();
     CHECK(!rmf_traffic::DetectConflict::between(
-        profile, t_obs, nullptr, p_obs, entry.route.trajectory(), nullptr));
+        profile, t_obs, nullptr, p_obs, entry.route->trajectory(), nullptr));
   }
 
   // Confirm that the vehicle pulled into holding point in order to avoid
@@ -1503,7 +1503,7 @@ SCENARIO("DP1 Graph")
         {
           REQUIRE_FALSE(DetectConflict::between(
               profile, obstacle_2, nullptr,
-              profile, _t.route.trajectory(), nullptr));
+              profile, _t.route->trajectory(), nullptr));
         }
 
         REQUIRE_FALSE(DetectConflict::between(
@@ -1533,7 +1533,7 @@ SCENARIO("DP1 Graph")
           {
             REQUIRE_FALSE(DetectConflict::between(
                 profile, obstacle_3, nullptr,
-                profile, _t.route.trajectory(), nullptr));
+                profile, _t.route->trajectory(), nullptr));
           }
 
           REQUIRE_FALSE(DetectConflict::between(
@@ -1563,7 +1563,7 @@ SCENARIO("DP1 Graph")
             for (const auto& _t : view)
               REQUIRE_FALSE(DetectConflict::between(
                   profile, obstacle_4, nullptr,
-                  profile, _t.route.trajectory(), nullptr));
+                  profile, _t.route->trajectory(), nullptr));
 
             REQUIRE_FALSE(DetectConflict::between(
                 profile, obstacle_4, nullptr, profile, t, nullptr));
@@ -1584,7 +1584,7 @@ SCENARIO("DP1 Graph")
             {
               REQUIRE_FALSE(DetectConflict::between(
                   profile, obstacle_5, nullptr,
-                  profile, _t.route.trajectory(), nullptr));
+                  profile, _t.route->trajectory(), nullptr));
             }
 
             REQUIRE_FALSE(DetectConflict::between(
@@ -1605,7 +1605,7 @@ SCENARIO("DP1 Graph")
             {
               REQUIRE_FALSE(DetectConflict::between(
                   profile, obstacle_6, nullptr,
-                  profile, _t.route.trajectory(), nullptr));
+                  profile, _t.route->trajectory(), nullptr));
             }
 
             REQUIRE_FALSE(DetectConflict::between(
@@ -1696,7 +1696,7 @@ SCENARIO("DP1 Graph")
         {
           REQUIRE_FALSE(DetectConflict::between(
               profile, obstacle_2, nullptr,
-              profile, _t.route.trajectory(), nullptr));
+              profile, _t.route->trajectory(), nullptr));
         }
 
         REQUIRE_FALSE(DetectConflict::between(
@@ -1724,7 +1724,7 @@ SCENARIO("DP1 Graph")
           {
             REQUIRE_FALSE(DetectConflict::between(
                 profile, obstacle_3, nullptr,
-                profile, _t.route.trajectory(), nullptr));
+                profile, _t.route->trajectory(), nullptr));
           }
 
           REQUIRE_FALSE(DetectConflict::between(
@@ -1755,7 +1755,7 @@ SCENARIO("DP1 Graph")
             {
               REQUIRE_FALSE(DetectConflict::between(
                   profile, obstacle_4, nullptr,
-                  profile, _t.route.trajectory(), nullptr));
+                  profile, _t.route->trajectory(), nullptr));
             }
 
             REQUIRE_FALSE(DetectConflict::between(
@@ -1776,7 +1776,7 @@ SCENARIO("DP1 Graph")
             {
               REQUIRE_FALSE(DetectConflict::between(
                   profile, obstacle_5, nullptr,
-                  profile, _t.route.trajectory(), nullptr));
+                  profile, _t.route->trajectory(), nullptr));
             }
 
             REQUIRE_FALSE(DetectConflict::between(
@@ -1797,7 +1797,7 @@ SCENARIO("DP1 Graph")
             {
               REQUIRE_FALSE(DetectConflict::between(
                   profile, obstacle_6, nullptr,
-                  profile, _t.route.trajectory(), nullptr));
+                  profile, _t.route->trajectory(), nullptr));
             }
 
             REQUIRE_FALSE(DetectConflict::between(

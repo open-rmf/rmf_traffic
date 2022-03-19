@@ -60,7 +60,7 @@ public:
       const ParticipantId participant;
       const PlanId plan_id;
       const RouteId route_id;
-      const Route& route;
+      const std::shared_ptr<const Route> route;
       const ParticipantDescription& description;
     };
 

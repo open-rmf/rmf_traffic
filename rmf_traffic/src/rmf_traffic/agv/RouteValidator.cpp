@@ -119,15 +119,18 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
         route.trajectory(),
         route.check_dependencies(v.participant, v.plan_id, v.route_id),
         v.description.profile(),
-        v.route.trajectory(),
+        v.route->trajectory(),
         nullptr))
     {
       return Conflict{
-        v.participant,
-        v.plan_id,
-        v.route_id,
-        v.route.trajectory().index_after(conflict->time),
-        conflict->time
+        Dependency{
+          v.participant,
+          v.plan_id,
+          v.route_id,
+          v.route->trajectory().index_after(conflict->time)
+        },
+        conflict->time,
+        v.route
       };
     }
   }
@@ -480,15 +483,18 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         route.trajectory(),
         route.check_dependencies(v.participant, v.plan_id, v.route_id),
         v.description.profile(),
-        v.route.trajectory(),
+        v.route->trajectory(),
         nullptr))
     {
       return Conflict{
-        v.participant,
-        v.plan_id,
-        v.route_id,
-        v.route.trajectory().index_after(conflict->time),
-        conflict->time
+        Dependency{
+          v.participant,
+          v.plan_id,
+          v.route_id,
+          v.route->trajectory().index_after(conflict->time)
+        },
+        conflict->time,
+        v.route
       };
     }
   }
@@ -522,7 +528,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         other_wp.position(),
         Eigen::Vector3d::Zero());
 
-      if (const auto conflict = rmf_traffic::DetectConflict::between(
+      if (const auto conflict = DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
           route.check_dependencies(other.first, ep.plan_id(), ep.route_id()),
@@ -531,11 +537,14 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
           nullptr))
       {
         return Conflict{
-          other.first,
-          ep.plan_id(),
-          ep.route_id(),
-          other_start.index_after(conflict->time),
-          conflict->time
+          Dependency{
+            other.first,
+            ep.plan_id(),
+            ep.route_id(),
+            other_start.index_after(conflict->time)
+          },
+          conflict->time,
+          std::make_shared<Route>(route.map(), std::move(other_start))
         };
       }
     }
@@ -570,7 +579,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         other_wp.position(),
         Eigen::Vector3d::Zero());
 
-      if (const auto conflict = rmf_traffic::DetectConflict::between(
+      if (const auto conflict = DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
           route.check_dependencies(other.first, ep.plan_id(), ep.route_id()),
@@ -579,11 +588,14 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
           nullptr))
       {
         return Conflict{
-          other.first,
-          ep.plan_id(),
-          ep.route_id(),
-          other_finish.index_after(conflict->time),
-          conflict->time
+          Dependency{
+            other.first,
+            ep.plan_id(),
+            ep.route_id(),
+            other_finish.index_after(conflict->time)
+          },
+          conflict->time,
+          std::make_shared<Route>(route.map(), std::move(other_finish))
         };
       }
     }

@@ -38,11 +38,9 @@ public:
 
   struct Conflict
   {
-    ParticipantId participant;
-    PlanId plan;
-    RouteId route;
-    CheckpointId checkpoint;
+    Dependency dependency;
     Time time;
+    std::shared_ptr<const rmf_traffic::Route> route;
   };
 
   /// If the specified route has a conflict with another participant, this will

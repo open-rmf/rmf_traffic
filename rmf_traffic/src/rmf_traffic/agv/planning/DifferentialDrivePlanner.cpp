@@ -247,6 +247,20 @@ struct WaypointCandidate
 };
 
 //==============================================================================
+void stream_trajectory(
+  std::ostream& ss,
+  const Trajectory& traj)
+{
+  for (const auto& wp : traj)
+  {
+    ss << wp.index() << ". t=" << time::to_seconds(wp.time().time_since_epoch())
+              << " p=(" << wp.position().transpose()
+              << ") v=<" << wp.velocity().transpose() << "> --> ";
+  }
+  ss << "(finished)\n";
+}
+
+//==============================================================================
 std::vector<Plan::Waypoint> find_dependencies(
   std::vector<Route>& itinerary,
   std::vector<WaypointCandidate> candidates,
@@ -279,6 +293,7 @@ std::vector<Plan::Waypoint> find_dependencies(
       const auto initial_time = *route.trajectory().start_time();
 
       bool no_conflicts = false;
+      bool anomaly_happened = false;
       std::size_t count = 0;
       std::unordered_map<CheckpointId, Dependencies> found_dependencies;
       while (!no_conflicts)
@@ -309,15 +324,9 @@ std::vector<Plan::Waypoint> find_dependencies(
               // trajectory then we ignore it because it is not physically
               // meaningful and there isn't anything we could do about it
               // anyway.
-              no_conflicts = false;
               --it;
               const auto dependent = it->index();
-              const Dependency dependency{
-                conflict->participant,
-                conflict->plan,
-                conflict->route,
-                conflict->checkpoint
-              };
+              const Dependency dependency = conflict->dependency;
 
               auto& found_deps = found_dependencies[dependent];
               const auto f_it = std::find(
@@ -325,19 +334,28 @@ std::vector<Plan::Waypoint> find_dependencies(
 
               if (f_it != found_deps.end())
               {
-                // *INDENT-OFF*
-                throw std::runtime_error(
-                  "[rmf_traffic::agv::Planner::plan] There is a bug in the "
-                  "route validator that was provided to the planner. It failed "
-                  "to recognize a specified route dependency: "
-                  + std::to_string(dependent) + " on {"
-                  + std::to_string(dependency.on_participant) + " "
-                  + std::to_string(dependency.on_plan) + " "
-                  + std::to_string(dependency.on_route) + " "
-                  + std::to_string(dependency.on_checkpoint) + "}");
-                // *INDENT-ON*
+                std::stringstream ss;
+                ss << "-------------------------------------------------"
+                   << "\n[rmf_traffic::agv::Planner::plan] WARNING: "
+                   << "A rare anomaly has occurred in the planner. The Route "
+                   << "Validator has failed o recognize a specified route "
+                   << "dependency: " << dependent << " on {"
+                   << dependency.on_participant << " " << dependency.on_plan
+                   << " " << dependency.on_route << " "
+                   << dependency.on_checkpoint << "}. These are the "
+                   << "trajectories:\n";
+                stream_trajectory(ss, route.trajectory());
+                ss << "vs\n";
+                stream_trajectory(ss, conflict->route->trajectory());
+                ss << "Please provide this information to the RMF developers "
+                   << "for debugging.\n"
+                   << "-------------------------------------------------\n";
+                std::cerr << ss.str() << std::endl;
+                anomaly_happened = true;
+                break;
               }
 
+              no_conflicts = false;
               found_deps.push_back(dependency);
               const auto wp = [&]()
               {
@@ -355,6 +373,9 @@ std::vector<Plan::Waypoint> find_dependencies(
             }
           }
         }
+
+        if (anomaly_happened)
+          break;
 
         const auto delta_t = initial_time - route.trajectory().front().time();
         route.trajectory().front().adjust_times(delta_t);
@@ -1122,7 +1143,7 @@ public:
       if (conflict)
       {
         auto time_it =
-          _issues->blocked_nodes[conflict->participant]
+          _issues->blocked_nodes[conflict->dependency.on_participant]
           .insert({parent, conflict->time});
 
         if (!time_it.second)
