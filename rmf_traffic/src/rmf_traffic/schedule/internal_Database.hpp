@@ -27,7 +27,27 @@ namespace schedule {
 void internal_register_participant(
   Database& database,
   ParticipantId id,
+  ItineraryVersion last_known_version,
   ParticipantDescription description);
+
+//==============================================================================
+struct RouteStorageInfo
+{
+  RouteId route_id;
+  StorageId storage_id;
+  std::shared_ptr<const Route> route;
+};
+
+//==============================================================================
+void set_participant_state(
+  Database& database,
+  ParticipantId participant,
+  PlanId plan,
+  std::vector<RouteStorageInfo> routes,
+  StorageId storage_base,
+  ItineraryVersion itinerary_version,
+  std::vector<CheckpointId> progress,
+  ProgressVersion progress_version);
 
 //==============================================================================
 void set_initial_fork_version(

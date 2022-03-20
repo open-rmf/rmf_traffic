@@ -65,7 +65,7 @@ SCENARIO("Negotiation Unit Tests")
       database, {0, 1, 2});
 
     auto parent = negotiation.table(0, {});
-    parent->submit({}, 1);
+    parent->submit(0, {}, 1);
 
     table = negotiation.table(1, {0});
     CHECK_FALSE(table->defunct());
@@ -77,7 +77,7 @@ SCENARIO("Negotiation Unit Tests")
     CHECK(table->defunct());
     CHECK(viewer->defunct());
 
-    negotiation.table(1, {})->submit({}, 1);
+    negotiation.table(1, {})->submit(0, {}, 1);
 
     table = negotiation.table(2, {1});
     CHECK_FALSE(table->defunct());

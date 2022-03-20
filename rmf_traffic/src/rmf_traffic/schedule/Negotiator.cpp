@@ -79,13 +79,14 @@ SimpleResponder::SimpleResponder(
 
 //==============================================================================
 void SimpleResponder::submit(
+  PlanId plan_id,
   std::vector<Route> itinerary,
   std::function<UpdateVersion()> approval_callback) const
 {
   if (_pimpl->approval_map)
     (*_pimpl->approval_map)[_pimpl->table] = std::move(approval_callback);
 
-  _pimpl->table->submit(std::move(itinerary), _pimpl->table_version+1);
+  _pimpl->table->submit(plan_id, std::move(itinerary), _pimpl->table_version+1);
 }
 
 //==============================================================================

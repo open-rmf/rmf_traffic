@@ -101,6 +101,22 @@ public:
 
 };
 
+//==============================================================================
+struct TimeVelocity
+{
+  Time time;
+  Eigen::Vector2d velocity;
+};
+
+//==============================================================================
+/// This function only works correctly if the trajectory follows a straight line
+/// trajectory with zero jerk (cubic coefficient) and the position lies along
+/// the trajectory.
+TimeVelocity interpolate_time_along_quadratic_straight_line(
+  const Trajectory& trajectory,
+  const Eigen::Vector2d& position,
+  double holding_point_tolerance = 0.05);
+
 } // namespace agv
 } // namespace rmf_traffic
 

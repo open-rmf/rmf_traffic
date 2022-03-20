@@ -24,7 +24,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_utils/catch.hpp>
 
-using ConflictData = rmf_traffic::DetectConflict::Implementation::Conflict;
+using ConflictData = rmf_traffic::DetectConflict::Conflict;
 
 //==============================================================================
 inline std::vector<ConflictData> get_conflicts(
@@ -35,7 +35,8 @@ inline std::vector<ConflictData> get_conflicts(
 {
   rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
   rmf_traffic::DetectConflict::Implementation::between(
-    p1, t1, p2, t2, rmf_traffic::DetectConflict::Interpolate::CubicSpline,
+    p1, t1, nullptr, p2, t2, nullptr,
+    rmf_traffic::DetectConflict::Interpolate::CubicSpline,
     &conflicts);
 
   return conflicts;

@@ -121,6 +121,9 @@ public:
 
   /// Constructor
   ///
+  /// \param[in] assign_id
+  ///   The ID assignment tool for the participant
+  ///
   /// \param[in] start
   ///   The desired start for the plan.
   ///
@@ -134,12 +137,16 @@ public:
   /// \param[in] options
   ///   Additional options that will be used by the Negotiator.
   SimpleNegotiator(
+    schedule::Participant::AssignIDPtr assign_id,
     Planner::Start start,
     Planner::Goal goal,
     Planner::Configuration planner_configuration,
     Options options = Options());
 
   /// Constructor
+  ///
+  /// \param[in] assign_id
+  ///   The ID assignment tool for the participant
   ///
   /// \param[in] start
   ///   A set of starts that can be used.
@@ -154,12 +161,16 @@ public:
   /// \param[in] options
   ///   Additional options that will be used by the Negotiator.
   SimpleNegotiator(
+    schedule::Participant::AssignIDPtr assign_id,
     std::vector<Planner::Start> starts,
     Planner::Goal goal,
     Planner::Configuration planner_configuration,
     Options options = Options());
 
   /// Constructor
+  ///
+  /// \param[in] assign_id
+  ///   The ID assignment tool for the participant
   ///
   /// \param[in] starts
   ///   A set of starts that can be used.
@@ -173,6 +184,7 @@ public:
   /// \param[in] options
   ///   Additional options that will be used by the negotiator
   SimpleNegotiator(
+    schedule::Participant::AssignIDPtr assign_id,
     std::vector<Planner::Start> starts,
     Planner::Goal goal,
     std::shared_ptr<const Planner> planner,

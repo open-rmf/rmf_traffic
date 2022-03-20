@@ -94,7 +94,7 @@ schedule::ParticipantId ScheduleRouteValidator::participant() const
 }
 
 //==============================================================================
-rmf_utils::optional<RouteValidator::Conflict>
+std::optional<RouteValidator::Conflict>
 ScheduleRouteValidator::find_conflict(const Route& route) const
 {
   // TODO(MXG): Should we use a mutable Spacetime instance to avoid the
@@ -114,17 +114,28 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
     if (v.participant == _pimpl->participant)
       continue;
 
-    if (const auto time = rmf_traffic::DetectConflict::between(
+    if (const auto conflict = rmf_traffic::DetectConflict::between(
         _pimpl->profile,
         route.trajectory(),
+        route.check_dependencies(v.participant, v.plan_id, v.route_id),
         v.description.profile(),
-        v.route.trajectory()))
+        v.route->trajectory(),
+        nullptr))
     {
-      return Conflict{v.participant, *time};
+      return Conflict{
+        Dependency{
+          v.participant,
+          v.plan_id,
+          v.route_id,
+          v.route->trajectory().index_after(conflict->time)
+        },
+        conflict->time,
+        v.route
+      };
     }
   }
 
-  return rmf_utils::nullopt;
+  return std::nullopt;
 }
 
 //==============================================================================
@@ -185,7 +196,7 @@ public:
 
   std::shared_ptr<const Generator::Implementation::Data> data;
   schedule::Negotiation::VersionedKeySequence rollouts;
-  rmf_utils::optional<schedule::ParticipantId> masked = rmf_utils::nullopt;
+  std::optional<schedule::ParticipantId> masked = std::nullopt;
 
   static NegotiatingRouteValidator make(
     std::shared_ptr<const Generator::Implementation::Data> data,
@@ -345,7 +356,7 @@ NegotiatingRouteValidator& NegotiatingRouteValidator::mask(
 //==============================================================================
 NegotiatingRouteValidator& NegotiatingRouteValidator::remove_mask()
 {
-  _pimpl->masked = rmf_utils::nullopt;
+  _pimpl->masked = std::nullopt;
   return *this;
 }
 
@@ -408,7 +419,7 @@ bool NegotiatingRouteValidator::end() const
 }
 
 //==============================================================================
-rmf_utils::optional<RouteValidator::Conflict>
+std::optional<RouteValidator::Conflict>
 NegotiatingRouteValidator::find_conflict(const Route& route) const
 {
   using namespace std::chrono_literals;
@@ -467,13 +478,24 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 
     // NOTE(MXG): There is no need to check the map, because the query will
     // filter out all itineraries that are not on this map.
-    if (const auto time = rmf_traffic::DetectConflict::between(
+    if (const auto conflict = rmf_traffic::DetectConflict::between(
         _pimpl->data->profile,
         route.trajectory(),
+        route.check_dependencies(v.participant, v.plan_id, v.route_id),
         v.description.profile(),
-        v.route.trajectory()))
+        v.route->trajectory(),
+        nullptr))
     {
-      return Conflict{v.participant, *time};
+      return Conflict{
+        Dependency{
+          v.participant,
+          v.plan_id,
+          v.route_id,
+          v.route->trajectory().index_after(conflict->time)
+        },
+        conflict->time,
+        v.route
+      };
     }
   }
 
@@ -506,13 +528,24 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         other_wp.position(),
         Eigen::Vector3d::Zero());
 
-      if (const auto time = rmf_traffic::DetectConflict::between(
+      if (const auto conflict = DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
+          route.check_dependencies(other.first, ep.plan_id(), ep.route_id()),
           ep.description().profile(),
-          other_start))
+          other_start,
+          nullptr))
       {
-        return Conflict{other.first, *time};
+        return Conflict{
+          Dependency{
+            other.first,
+            ep.plan_id(),
+            ep.route_id(),
+            other_start.index_after(conflict->time)
+          },
+          conflict->time,
+          std::make_shared<Route>(route.map(), std::move(other_start))
+        };
       }
     }
   }
@@ -546,18 +579,29 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         other_wp.position(),
         Eigen::Vector3d::Zero());
 
-      if (const auto time = rmf_traffic::DetectConflict::between(
+      if (const auto conflict = DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
+          route.check_dependencies(other.first, ep.plan_id(), ep.route_id()),
           ep.description().profile(),
-          other_finish))
+          other_finish,
+          nullptr))
       {
-        return Conflict{other.first, *time};
+        return Conflict{
+          Dependency{
+            other.first,
+            ep.plan_id(),
+            ep.route_id(),
+            other_finish.index_after(conflict->time)
+          },
+          conflict->time,
+          std::make_shared<Route>(route.map(), std::move(other_finish))
+        };
       }
     }
   }
 
-  return rmf_utils::nullopt;
+  return std::nullopt;
 }
 
 //==============================================================================

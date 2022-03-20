@@ -114,6 +114,7 @@ public:
   struct Submission
   {
     ParticipantId participant;
+    PlanId plan;
     Itinerary itinerary;
   };
 
@@ -166,6 +167,12 @@ public:
 
         /// The ID of the participant
         ParticipantId participant() const;
+
+        /// The ID of the plan for this endpoint
+        PlanId plan_id() const;
+
+        /// The ID of the route for this endpoint
+        RouteId route_id() const;
 
         /// The first or last (depending on context) waypoint
         const rmf_traffic::Trajectory::Waypoint& waypoint() const;
@@ -233,6 +240,12 @@ public:
       /// Return the submission on this Negotiation Table if it has one.
       const Itinerary* submission() const;
 
+      /// The earliest start time of any of the proposals in the table
+      std::optional<rmf_traffic::Time> earliest_base_proposal_time() const;
+
+      /// The latest finish time of any of the proposals in the table
+      std::optional<rmf_traffic::Time> latest_base_proposal_time() const;
+
       class Implementation;
     private:
       Viewer();
@@ -272,6 +285,11 @@ public:
     /// participants in the negotiation (or none if an empty vector is given for
     /// the to_accommodate argument).
     ///
+    /// \param[in] plan_id
+    ///   A unique identifier for this plan. If this plan is selected by the
+    ///   negotiation, then this ID will be submitted to the traffic schedule
+    ///   as the PlanId for this participant.
+    ///
     /// \param[in] itinerary
     ///   The itinerary that is being submitted by this participant.
     ///
@@ -282,6 +300,7 @@ public:
     /// \return True if the submission was accepted. False if the version was
     /// out of date and nothing changed in the negotiation.
     bool submit(
+      PlanId plan_id,
       std::vector<Route> itinerary,
       Version version);
 

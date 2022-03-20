@@ -36,10 +36,11 @@ Rectifier Rectifier::Implementation::make(
 //==============================================================================
 void Rectifier::retransmit(
   const std::vector<Range>& ranges,
-  ItineraryVersion last_known_version)
+  ItineraryVersion last_known_itinerary,
+  ProgressVersion last_known_progress)
 {
   if (const auto shared = _pimpl->participant.lock())
-    shared->retransmit(ranges, last_known_version);
+    shared->retransmit(ranges, last_known_itinerary, last_known_progress);
 }
 
 //==============================================================================
@@ -123,13 +124,18 @@ public:
       if (p.participant != _participant_id)
         continue;
 
-      const ItineraryVersion last_known_version = p.ranges.last_known_version();
+      const ItineraryVersion last_known_itinerary =
+        p.ranges.last_known_version();
+
+      const ProgressVersion last_known_progress =
+        (*_database)->get_current_progress_version(p.participant);
+
       std::vector<Rectifier::Range> ranges;
       ranges.reserve(p.ranges.size());
       for (const auto& r : p.ranges)
         ranges.push_back({r.lower, r.upper});
 
-      _rectifier.retransmit(ranges, last_known_version);
+      _rectifier.retransmit(ranges, last_known_itinerary, last_known_progress);
 
       // We don't need to look through any more of the ranges, so we can break
       // here.

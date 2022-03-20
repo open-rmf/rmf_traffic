@@ -18,6 +18,7 @@
 #include <rmf_utils/math.hpp>
 
 #include "DifferentialDriveMap.hpp"
+#include "Supergraph.hpp"
 
 #include "../internal_Interpolate.hpp"
 
@@ -29,10 +30,12 @@ namespace planning {
 DifferentialDriveMapTypes::RouteInfo::RouteInfo(
   rmf_traffic::Time finish_time_,
   double finish_yaw_,
-  std::vector<Route> routes_)
+  std::vector<Route> routes_,
+  double cost_)
 : finish_time(finish_time_),
   finish_yaw(finish_yaw_),
-  routes(std::move(routes_))
+  routes(std::move(routes_)),
+  cost(cost_)
 {
   // Do nothing
 }
@@ -44,6 +47,7 @@ FactoryInfo make_differential_drive_translate_factory(
   KinematicLimits limits,
   double translation_thresh,
   double rotation_thresh,
+  double traversal_cost_per_meter,
   std::vector<std::string> maps)
 {
   const auto dummy_start_time = rmf_traffic::Time(rmf_traffic::Duration(0));
@@ -54,7 +58,7 @@ FactoryInfo make_differential_drive_translate_factory(
     dummy_start_time, start, finish, translation_thresh);
 
   const double minimal_cost =
-    rmf_traffic::time::to_seconds(trajectory.duration());
+    calculate_cost(trajectory, traversal_cost_per_meter);
 
   auto factory =
     [start,
@@ -62,6 +66,7 @@ FactoryInfo make_differential_drive_translate_factory(
       limits,
       translation_thresh,
       rotation_thresh,
+      traversal_cost_per_meter,
       maps = std::move(maps)](
     rmf_traffic::Time start_time,
     double initial_yaw)
@@ -84,7 +89,8 @@ FactoryInfo make_differential_drive_translate_factory(
       for (const auto& map : maps)
         routes.push_back({map, trajectory});
 
-      return {*trajectory.finish_time(), finish[2], routes};
+      const auto cost = calculate_cost(trajectory, traversal_cost_per_meter);
+      return {*trajectory.finish_time(), finish[2], routes, cost};
     };
 
   auto factory_factory = [factory = std::move(factory)](
@@ -170,7 +176,8 @@ std::optional<FactoryInfo> make_rotate_factory(
 
       const auto finish_time = *trajectory.finish_time();
       const auto finish_yaw = trajectory.back().position()[2];
-      return {finish_time, finish_yaw, {{map, std::move(trajectory)}}};
+      const auto cost = calculate_cost(trajectory, 0.0);
+      return {finish_time, finish_yaw, {{map, std::move(trajectory)}}, cost};
     };
 
   auto factory_factory = [factory = std::move(factory)](
@@ -251,7 +258,8 @@ make_hold_factory(
 
       const auto finish_time = *trajectory.finish_time();
       const auto finish_yaw = trajectory.back().position()[2];
-      return {finish_time, finish_yaw, std::move(routes)};
+      const auto cost = calculate_cost(trajectory, 0.0);
+      return {finish_time, finish_yaw, std::move(routes), cost};
     };
 
   return [factory = std::move(factory)](std::optional<double> child_yaw)
@@ -312,7 +320,8 @@ make_start_factory(
 
       const auto finish_time = *trajectory.finish_time();
       const auto finish_yaw = trajectory.back().position()[2];
-      return {finish_time, finish_yaw, std::move(routes)};
+      const auto cost = calculate_cost(trajectory, 0.0);
+      return {finish_time, finish_yaw, std::move(routes), cost};
     };
 
   return [factory = std::move(factory)](

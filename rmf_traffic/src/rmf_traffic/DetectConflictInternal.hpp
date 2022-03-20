@@ -33,20 +33,15 @@ class DetectConflict::Implementation
 {
 public:
 
-  struct Conflict
-  {
-    Trajectory::const_iterator a_it;
-    Trajectory::const_iterator b_it;
-    Time time;
-  };
-
   using Conflicts = std::vector<Conflict>;
 
-  static rmf_utils::optional<Time> between(
+  static std::optional<Conflict> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
+    const DependsOnCheckpoint* deps_a,
     const Profile& profile_b,
     const Trajectory& trajectory_b,
+    const DependsOnCheckpoint* deps_b,
     Interpolate interpolation,
     std::vector<Conflict>* output_conflicts = nullptr);
 

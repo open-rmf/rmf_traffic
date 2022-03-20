@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_traffic VERSION 1.5.0)
+project(rmf_traffic VERSION 2.0.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
@@ -20,7 +20,10 @@ endif()
 
 include(GNUInstallDirs)
 
-find_package(fcl 0.6 QUIET)
+# We need to use the internal version of FCL because the upstream version has
+# bugs that are not yet fixed.
+#find_package(fcl 0.6 QUIET)
+
 if(fcl_FOUND)
   message(STATUS "Using installed FCL version: ${FCL_VERSION}")
 else()
@@ -76,11 +79,15 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND ament_cmake_uncrustify_FOUND)
     NAMES "rmf_code_style.cfg"
     PATHS "${rmf_utils_DIR}/../../../share/rmf_utils/")
 
-  ament_uncrustify(
-    ARGN include src test
-    CONFIG_FILE ${uncrustify_config_file}
-    MAX_LINE_LENGTH 80
-  )
+  # Uncrustify is bugging out, giving nonsense false positives for the file
+  # rmf_traffic/src/rmf_traffic/agv/Interpolate.cpp which have no apparent
+  # solution. We will disable uncrustify until this big is fixed or a workaround
+  # can be found.
+#  ament_uncrustify(
+#    ARGN include src test
+#    CONFIG_FILE ${uncrustify_config_file}
+#    MAX_LINE_LENGTH 80
+#  )
 endif()
 
 if(using_new_fcl)
@@ -116,7 +123,7 @@ configure_package_config_file(
 
 write_basic_package_version_file(
   ${PACKAGE_CONFIG_VERSION_FILE}
-  COMPATIBILITY ExactVersion
+  COMPATIBILITY SameMajorVersion
 )
 
 install(

@@ -73,25 +73,13 @@ void check_start_compatibility(
       b_traj.insert(b.time() + 10s, p_b, zero);
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-          profile_a, a_traj,
-          profile_b, b_traj))
+          profile_a, a_traj, nullptr,
+          profile_b, b_traj, nullptr))
       {
         std::cout << "CONFLICT FOUND" << std::endl;
       }
     }
   }
-}
-
-//==============================================================================
-rmf_traffic::schedule::Itinerary convert(
-  const std::vector<rmf_traffic::Route>& itinerary)
-{
-  rmf_traffic::schedule::Itinerary output;
-  output.reserve(itinerary.size());
-  for (const auto& it : itinerary)
-    output.push_back(std::make_shared<rmf_traffic::Route>(it));
-
-  return output;
 }
 
 //==============================================================================
@@ -269,7 +257,7 @@ SCENARIO("Test difficult 3-way scenarios")
 
   GIVEN("Case 1")
   {
-    const auto time = std::chrono::steady_clock::now();
+    const auto time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
     auto a0_starts = rmf_traffic::agv::compute_plan_starts(
       graph_a, test_map_name, {14.006982, -15.530105, -3.137865}, time);
@@ -431,7 +419,7 @@ SCENARIO("Test cycling through all negotiation alternatives")
 
   const auto table = negotiation.table(0, {});
 
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = rmf_traffic::Time(rmf_traffic::Duration(0));
   const auto start_1 = rmf_traffic::agv::Plan::Start(now, 5, 0.0);
   const auto goal_1 = rmf_traffic::agv::Plan::Goal(0);
 
@@ -441,8 +429,8 @@ SCENARIO("Test cycling through all negotiation alternatives")
   const auto plan_1 = planner.plan(start_1, goal_1);
   const auto plan_2 = planner.plan(start_2, goal_2);
 
-  const auto alt_1 = multiply(convert(plan_1->get_itinerary()));
-  const auto alt_2 = multiply(convert(plan_2->get_itinerary()));
+  const auto alt_1 = multiply(plan_1->get_itinerary());
+  const auto alt_2 = multiply(plan_2->get_itinerary());
   const auto alt_3 = alt_2;
 
   WHEN("One rejects")
@@ -513,17 +501,17 @@ SCENARIO("Test empty proposal")
   const auto empty_route = rmf_traffic::Route("test_map", {});
 
   using namespace std::chrono_literals;
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = rmf_traffic::Time(rmf_traffic::Duration(0));
   rmf_traffic::Trajectory not_empty_trajectory;
   not_empty_trajectory.insert(now, {0, 0, 0}, {0, 0, 0});
   not_empty_trajectory.insert(now + 10s, {0, 0, 0}, {0, 0, 0});
   const auto not_empty_route =
     rmf_traffic::Route("test_map", not_empty_trajectory);
 
-  negotiation.table(0, {})->submit({}, 1);
-  negotiation.table(1, {})->submit({not_empty_route}, 1);
-  negotiation.table(1, {0})->submit({not_empty_route}, 1);
-  negotiation.table(0, {1})->submit({not_empty_route}, 1);
+  negotiation.table(0, {})->submit(0, {}, 1);
+  negotiation.table(1, {})->submit(0, {not_empty_route}, 1);
+  negotiation.table(1, {0})->submit(0, {not_empty_route}, 1);
+  negotiation.table(0, {1})->submit(0, {not_empty_route}, 1);
 
   const auto quickest_finish =
     negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());

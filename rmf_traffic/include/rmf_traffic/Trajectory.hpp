@@ -84,6 +84,12 @@ public:
     /// Get the time that the trajectory will reach this Waypoint.
     Time time() const;
 
+    /// The index of this waypoint within its trajectory. Waypoints are indexed
+    /// according to their chronological order. Adjusting the time of any
+    /// waypoint in a trajectory could change its index and/or the index of
+    /// other waypoints.
+    std::size_t index() const;
+
     /// Change the timing of this Trajectory Waypoint. Note that this function
     /// will only affect this waypoint, and may cause this waypoint to be
     /// reordered within the Trajectory.
@@ -221,7 +227,7 @@ public:
   /// before the start of the Trajectory.
   ///
   /// \param[in] time
-  ///   The lower bound on the time of interest.
+  ///   The inclusive lower bound on the time of interest.
   ///
   /// \return an iterator to the first Waypoint that occurs at a time on or
   /// after the given time, or Trajectory::end() if the time is after the end
@@ -230,6 +236,11 @@ public:
 
   /// const-qualified version of lower_bound()
   const_iterator lower_bound(Time time) const;
+
+  /// Get the index of first waypoint that comes after the specified time. If
+  /// the last waypoint in the trajectory comes before the specified time then
+  /// size() will be returned.
+  std::size_t index_after(Time time) const;
 
   /// Erase the specified waypoint.
   ///

@@ -245,13 +245,10 @@ std::string display_itinerary(const schedule::Itinerary& itinerary)
   std::stringstream ss;
   for (const auto& r : itinerary)
   {
-    if (!r)
-      continue;
-
-    ss << "\n" << r->map() << ": ";
-    for (std::size_t i = 0; i < r->trajectory().size(); ++i)
+    ss << "\n" << r.map() << ": ";
+    for (std::size_t i = 0; i < r.trajectory().size(); ++i)
     {
-      const auto& wp = r->trajectory()[i];
+      const auto& wp = r.trajectory()[i];
       if (wp.velocity().norm() > 1e-2)
         continue;
 
@@ -298,7 +295,9 @@ auto CentralizedNegotiation::solve(const std::vector<Agent>& agents) const
     const auto inserted = negotiators.insert(
       {
         a.id(),
-        SimpleNegotiator(a.starts(), a.goal(), a.planner(), std::move(options))
+        SimpleNegotiator(
+          std::make_shared<schedule::Participant::AssignIDPtr::element_type>(),
+          a.starts(), a.goal(), a.planner(), std::move(options))
       }).second;
 
     if (!inserted)

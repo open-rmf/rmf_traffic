@@ -58,8 +58,9 @@ public:
     struct Element
     {
       const ParticipantId participant;
+      const PlanId plan_id;
       const RouteId route_id;
-      const Route& route;
+      const std::shared_ptr<const Route> route;
       const ParticipantDescription& description;
     };
 
@@ -130,8 +131,77 @@ public:
   /// Get the itinerary of a specific participant if it is available. If a
   /// participant with the specified ID is not registered with the schedule or
   /// has never submitted an itinerary, then this will return a nullopt.
-  virtual rmf_utils::optional<Itinerary> get_itinerary(
-    std::size_t participant_id) const = 0;
+  virtual std::optional<ItineraryView> get_itinerary(
+    ParticipantId participant_id) const = 0;
+
+  /// Get the current plan ID of a specific participant if it is available. If
+  /// a participant with the specified ID is not registered with the schedule,
+  /// then this will return a nullopt.
+  virtual std::optional<PlanId> get_current_plan_id(
+    ParticipantId participant_id) const = 0;
+
+  /// Get the current progress of a specific participant. If a participant with
+  /// the specified ID is not registered with the schedule or has never made
+  /// progress, then this will return a nullptr.
+  virtual const std::vector<CheckpointId>* get_current_progress(
+    ParticipantId participant_id) const = 0;
+
+  /// Get the current known progress of a specific participant along its current
+  /// plan. If no progress has been made, this will have a value of 0.
+  virtual ProgressVersion get_current_progress_version(
+    ParticipantId participant_id) const = 0;
+
+  /// A handle for maintaining a dependency on the progress of an itinerary.
+  class DependencySubscription
+  {
+  public:
+
+    /// The dependency was reached by the participant
+    bool reached() const;
+
+    /// The plan of the participant changed before it ever reached the
+    /// dependency
+    bool deprecated() const;
+
+    /// Equivalent to reached() || deprecated()
+    bool finished() const;
+
+    /// Check what dependency this is subscribed to
+    Dependency dependency() const;
+
+    // TODO(MXG): Should this class allow the user to change the callbacks for
+    // on_reached and on_changed? I'm concerned that could lead to race
+    // conditions or confusing behavior.
+
+    class Implementation;
+  private:
+    DependencySubscription();
+    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+  };
+
+  /// Watch a traffic dependency. When a relevant event happens for the
+  /// dependency, the on_reached or on_deprecated will be triggered. If the
+  /// event had already come to pass before this function is called, then the
+  /// relevant callback will be triggered right away, within the scope of this
+  /// function.
+  ///
+  /// Only one of the callbacks will ever be triggered, and it will only be
+  /// triggered at most once.
+  ///
+  /// \param[in] on_reached
+  ///   If the dependency is reached, this will be triggered. on_changed will
+  ///   never be triggered afterwards.
+  ///
+  /// \param[in] on_deprecated
+  ///   If the plan of the participant changed before it reached this dependency
+  ///   then the dependency is deprecated and this callback will be triggered.
+  ///   on_reached will never be triggered afterwards.
+  ///
+  /// \return an object that maintains the dependency for the viewer.
+  virtual DependencySubscription watch_dependency(
+    Dependency dependency,
+    std::function<void()> on_reached,
+    std::function<void()> on_deprecated) const = 0;
 
   // Virtual destructor
   virtual ~ItineraryViewer() = default;

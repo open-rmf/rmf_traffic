@@ -35,7 +35,8 @@ public:
 
   static std::unique_ptr<InconsistencyTracker> register_participant(
     Inconsistencies& inconsistencies,
-    ParticipantId id);
+    ParticipantId id,
+    ItineraryVersion last_known_version);
 
   void unregister_participant(ParticipantId id);
 

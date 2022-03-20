@@ -23,32 +23,21 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-rmf_utils::optional<Trajectory> apply_delay(
-  const Trajectory& old_trajectory,
-  Duration delay)
-{
-  if (old_trajectory.size() == 0)
-    return old_trajectory;
-
-  Trajectory new_trajectory = old_trajectory;
-  new_trajectory.front().adjust_times(delay);
-
-  return new_trajectory;
-}
-
-//==============================================================================
 class Change::Add::Implementation
 {
 public:
 
+  PlanId plan;
   std::vector<Item> additions;
 
 };
 
 //==============================================================================
-Change::Add::Add(std::vector<Item> additions)
+Change::Add::Add(
+  rmf_traffic::PlanId plan,
+  std::vector<Item> additions)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(additions)}))
+      Implementation{plan, std::move(additions)}))
 {
   // Do nothing
 }
@@ -57,6 +46,12 @@ Change::Add::Add(std::vector<Item> additions)
 auto Change::Add::items() const -> const std::vector<Item>&
 {
   return _pimpl->additions;
+}
+
+//==============================================================================
+PlanId Change::Add::plan_id() const
+{
+  return _pimpl->plan;
 }
 
 //==============================================================================
@@ -77,12 +72,12 @@ class Change::Erase::Implementation
 {
 public:
 
-  std::vector<RouteId> ids;
+  std::vector<StorageId> ids;
 
 };
 
 //==============================================================================
-Change::Erase::Erase(std::vector<RouteId> ids)
+Change::Erase::Erase(std::vector<StorageId> ids)
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{std::move(ids)}))
 {
   // Do nothing
@@ -92,6 +87,36 @@ Change::Erase::Erase(std::vector<RouteId> ids)
 const std::vector<RouteId>& Change::Erase::ids() const
 {
   return _pimpl->ids;
+}
+
+//==============================================================================
+class Change::Progress::Implementation
+{
+public:
+  ProgressVersion version;
+  std::vector<CheckpointId> checkpoints;
+};
+
+//==============================================================================
+Change::Progress::Progress(
+  ProgressVersion version,
+  std::vector<CheckpointId> checkpoints)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{version, std::move(checkpoints)}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+ProgressVersion Change::Progress::version() const
+{
+  return _pimpl->version;
+}
+
+//==============================================================================
+const std::vector<CheckpointId>& Change::Progress::checkpoints() const
+{
+  return _pimpl->checkpoints;
 }
 
 //==============================================================================

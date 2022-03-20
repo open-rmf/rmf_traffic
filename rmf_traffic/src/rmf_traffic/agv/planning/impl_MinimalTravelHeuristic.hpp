@@ -99,9 +99,9 @@ void expand_traversals(
       std::make_shared<typename NodePtrT::element_type>(
         typename NodePtrT::element_type{
           next_lane,
-          top->current_cost + traversal.best_time + rotational_cost,
+          top->current_cost + traversal.best_cost + rotational_cost,
           heuristic(next_waypoint),
-          traversal.best_time,
+          traversal.best_cost,
           next_waypoint,
           traversal.*get_complement_waypoint,
           next_orientation,
@@ -138,9 +138,9 @@ void initialize_traversals(
       std::make_shared<typename NodePtrT::element_type>(
         typename NodePtrT::element_type{
           traversal.*get_next_lane,
-          traversal.best_time,
+          traversal.best_cost,
           heuristic(next_waypoint),
-          traversal.best_time,
+          traversal.best_cost,
           next_waypoint,
           traversal.*get_complement_waypoint,
           orientation,
