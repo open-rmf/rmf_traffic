@@ -3574,7 +3574,7 @@ SCENARIO("Test speed limits")
   }
 }
 
-#ifdef NDEBUG
+#ifndef NDEBUG
 // This test is failing for no apparent reason in tsan and asan. We'll suppress
 // it for now by skipping it when compiled in debug.
 SCENARIO("Test midlane cruft", "[cruft]")
