@@ -513,6 +513,7 @@ reconstruct_waypoints(
       candidates.push_back(in_place_node_to_wp(node));
     }
 
+    std::vector<std::size_t> skipped_lanes;
     for (std::size_t c = 0; c < node->approach_lanes.size(); ++c)
     {
       const auto lane_index = node->approach_lanes[c];
@@ -520,10 +521,10 @@ reconstruct_waypoints(
       const Graph::Waypoint& g_wp = graph.waypoints[wp_index];
       const auto& p = g_wp.get_location();
       const bool necessary = (c == node->approach_lanes.size()-1);
-      const auto [time, v] = [&]() -> TimeVelocity
+      const auto opt_tv = [&]() -> std::optional<TimeVelocity>
         {
           if (necessary)
-            return {node->time, {0, 0}};
+            return TimeVelocity{node->time, {0, 0}};
 
           try
           {
@@ -532,20 +533,48 @@ reconstruct_waypoints(
           }
           catch(const std::runtime_error& e)
           {
-            std::cout << e.what() << std::endl;
-            std::cout << "Entire trajectory:";
-            for (const rmf_traffic::Trajectory::Waypoint& wp : node->route_from_parent.back().trajectory())
+            std::stringstream ss;
+            ss << e.what()
+               << "\nError triggered in [rmf_traffic::agv::Planner::plan]\n";
+            if (node->route_from_parent.empty())
             {
-              std::cout << " t=" << time::to_seconds(wp.time().time_since_epoch())
-                        << " p=(" << wp.position().transpose()
-                        << ") v=<" << wp.velocity().transpose()
-                        << "> -->";
+              ss << "No trajectory in the node!";
             }
-            std::cout << std::endl;
+            else
+            {
+              ss << "Entire trajectory:";
+              for (const rmf_traffic::Trajectory::Waypoint& wp : node->route_from_parent.back().trajectory())
+              {
+                ss << " t=" << time::to_seconds(wp.time().time_since_epoch())
+                   << " p=(" << wp.position().transpose()
+                   << ") v=<" << wp.velocity().transpose()
+                   << "> -->";
+              }
+            }
+            std::cerr << ss.str() << std::endl;
 
-            throw std::runtime_error(e.what());
+            return std::nullopt;
           }
         } ();
+      if (!opt_tv.has_value())
+      {
+        std::stringstream ss;
+        ss << "Failed to calculate the (time, velocity) of a midpoint moving "
+           << "towards waypoint [";
+        if (node->waypoint.has_value())
+          ss << *node->waypoint;
+        else
+          ss << "undefined";
+        ss << "]. Approach lanes include:";
+        for (const auto& a_wp : node->approach_lanes)
+          ss << " " << a_wp;
+        ss << ". Failed on lane " << lane_index << ".";
+        std::cerr << ss.str() << ss.str() << std::endl;
+        skipped_lanes.push_back(lane_index);
+        continue;
+      }
+
+      const auto [time, v] = *opt_tv;
 
       candidates.push_back({
         necessary,
@@ -555,6 +584,18 @@ reconstruct_waypoints(
         },
         {v[0], v[1], 0.0}
       });
+    }
+
+    for (const auto& skipped : skipped_lanes)
+    {
+      if (candidates.empty())
+      {
+        std::cerr << "No candidates were produced for the node!" << std::endl;
+      }
+      else
+      {
+        candidates.back().waypoint.approach_lanes.push_back(skipped);
+      }
     }
 
     for (const Route& next_route : node->route_from_parent)
