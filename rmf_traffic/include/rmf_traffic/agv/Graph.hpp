@@ -588,6 +588,12 @@ public:
   /// const-qualified lane_from()
   const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
 
+  /// Find the closest waypoint to provided location on map_name
+  /// return nullptr if waypoint doesn't exist on map
+  Waypoint* find_closest_waypoint(
+    const std::string& map_name,
+    const Eigen::Vector2d& location);
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;

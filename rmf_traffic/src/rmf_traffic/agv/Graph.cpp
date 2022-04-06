@@ -956,5 +956,32 @@ auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) const
   return const_cast<Graph&>(*this).lane_from(from_wp, to_wp);
 }
 
+//==============================================================================
+auto Graph::find_closest_waypoint(
+    const std::string& map_name,
+    const Eigen::Vector2d& location) -> Waypoint*
+{
+  std::size_t closest_idx = 0;
+  double closest_dist_sq = std::numeric_limits<double>::infinity();
+  for(const auto wp : _pimpl->waypoints)
+  {
+    if (wp.get_map_name() != map_name)
+      continue;
+    const auto pos = wp.get_location();
+    const double dist_sq =
+      std::pow(location[0] - pos[0], 2) + std::pow(location[1] - pos[1], 2);
+    if (dist_sq < closest_dist_sq)
+    {
+      closest_idx = wp.index();
+      closest_dist_sq = dist_sq;
+    }
+  }
+
+  if (std::isinf(closest_dist_sq))
+    return nullptr;
+  else
+    return &get_waypoint(closest_idx);
+}
+
 } // namespace avg
 } // namespace rmf_traffic
