@@ -23,7 +23,7 @@
 #include <rmf_utils/Modular.hpp>
 #include <rmf_utils/RateLimiter.hpp>
 
-#include <map>
+#include "internal_Progress.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -47,13 +47,20 @@ public:
       ParticipantDescription description,
       std::shared_ptr<Writer> writer);
 
-    RouteId set(std::vector<Route> itinerary);
+    void set(PlanId plan, std::vector<Route> itinerary);
+
+    void extend(std::vector<Route> additional_routes);
+
+    void delay(Duration delay);
+
+    void reached(PlanId plan, RouteId route, CheckpointId checkpoint);
 
     void clear();
 
     void retransmit(
       const std::vector<Rectifier::Range>& from,
-      ItineraryVersion last_known);
+      ItineraryVersion last_known_itinerary,
+      ProgressVersion last_known_progress);
 
     ItineraryVersion current_version() const;
 
@@ -68,12 +75,10 @@ public:
   private:
     friend class Participant;
 
-    Writer::Input make_input(std::vector<Route> itinerary);
     ItineraryVersion get_next_version();
 
     ParticipantId _id;
     ItineraryVersion _version;
-    RouteId _last_route_id;
     const ParticipantDescription _description;
     std::shared_ptr<Writer> _writer;
     std::unique_ptr<RectificationRequester> _rectification;
@@ -81,12 +86,19 @@ public:
     using ChangeHistory =
       std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
 
-    Writer::Input _current_itinerary;
+    PlanId _current_plan_id;
+    Writer::StorageId _next_storage_base;
+    Itinerary _current_itinerary;
 
     ChangeHistory _change_history;
-    rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
+    Duration _cumulative_delay = std::chrono::seconds(0);
+
+    Progress _progress;
+    ProgressBuffer _buffered_progress;
 
     rmf_utils::RateLimiter _version_mismatch_limiter;
+
+    AssignIDPtr _assign_plan_id;
   };
 
   // Note: It would be better if this constructor were private, but we need to

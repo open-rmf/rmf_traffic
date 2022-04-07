@@ -1,5 +1,5 @@
 name: tsan
-on: 
+on:
   pull_request:
   schedule:
     - cron: '36 0 * * *'
@@ -34,6 +34,12 @@ jobs:
               }
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
+      - name: Upload failed test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: test-results
+          path: ros_ws/build/*/test_results/*/*.catch2.xml
       - name: upload_test_stream
         uses: actions/upload-artifact@v2
         with:

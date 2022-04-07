@@ -1,0 +1,5 @@
+{
+  "hooks": [
+    "share/rmf_traffic_examples/hook/ament_prefix_path.dsv",
+  ]
+}

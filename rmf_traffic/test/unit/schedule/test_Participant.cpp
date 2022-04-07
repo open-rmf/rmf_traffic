@@ -42,19 +42,21 @@ public:
   bool drop_packets = false;
 
   void set(
-    rmf_traffic::schedule::ParticipantId participant,
-    const Input& itinerary,
-    rmf_traffic::schedule::ItineraryVersion version) final
+    ParticipantId participant,
+    PlanId plan,
+    const Itinerary& itinerary,
+    StorageId storage_base,
+    ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->set(participant, itinerary, version);
+    _database->set(participant, plan, itinerary, storage_base, version);
   }
 
   void extend(
     rmf_traffic::schedule::ParticipantId participant,
-    const Input& routes,
+    const Itinerary& routes,
     rmf_traffic::schedule::ItineraryVersion version) final
   {
     if (drop_packets)
@@ -74,25 +76,26 @@ public:
     _database->delay(participant, delay, version);
   }
 
-  void erase(
-    rmf_traffic::schedule::ParticipantId participant,
-    rmf_traffic::schedule::ItineraryVersion version) final
+  void reached(
+    ParticipantId participant,
+    PlanId plan,
+    const std::vector<CheckpointId>& reached_checkpoints,
+    ProgressVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->erase(participant, version);
+    _database->reached(participant, plan, reached_checkpoints, version);
   }
 
-  void erase(
+  void clear(
     rmf_traffic::schedule::ParticipantId participant,
-    const std::vector<rmf_traffic::RouteId>& routes,
     rmf_traffic::schedule::ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database->erase(participant, routes, version);
+    _database->clear(participant, version);
   }
 
   Registration register_participant(
@@ -119,37 +122,6 @@ public:
 private:
   std::shared_ptr<rmf_traffic::schedule::Database> _database;
 };
-
-//==============================================================================
-namespace {
-
-using RouteId = rmf_traffic::RouteId;
-using ConstRoutePtr = rmf_traffic::ConstRoutePtr;
-
-inline void CHECK_ITINERARY(
-  const rmf_traffic::schedule::Participant& p,
-  const std::shared_ptr<rmf_traffic::schedule::Database>& db)
-{
-  using Debug = rmf_traffic::schedule::Database::Debug;
-
-  REQUIRE(db->get_itinerary(p.id()));
-
-  auto db_iti = convert_itinerary(
-    Debug::get_itinerary(*db, p.id()).value());
-  auto p_iti = convert_itinerary(p.itinerary());
-  REQUIRE(db_iti.size() == p_iti.size());
-
-  for (const auto& item : p_iti)
-  {
-    const auto db_it = db_iti.find(item.first);
-    REQUIRE(db_it != db_iti.end());
-    CHECK(item.second->map() == db_it->second->map());
-    CHECK_EQUAL_TRAJECTORY(item.second->trajectory(),
-      db_it->second->trajectory());
-  }
-}
-
-} // namespace anonymous
 
 //=============================================================================
 // Symbol key for the test scenarios below
@@ -238,97 +210,85 @@ SCENARIO("Test Participant")
 
   GIVEN("Changes: S")
   {
-    auto route_id = p1.set({Route{"test_map", t1}});
-    CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
-    CHECK(p1.last_route_id() == 0);
+    const auto plan_id = p1.plan_id_assigner()->assign();
+    p1.set(plan_id, {Route{"test_map", t1}});
+    CHECK(p1.current_plan_id() == plan_id);
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     WHEN("When participant itinerary is set with an empty itinerary")
     {
       // This should be the same as getting cleared
-      route_id = p1.set({});
-      CHECK(route_id == 0);
+      p1.set(p1.plan_id_assigner()->assign(), {});
       CHECK(p1.itinerary().empty());
 
       CHECK(db->latest_version() == ++dbv);
-      CHECK_ITINERARY(p1, db);
+      CHECK_ITINERARY(p1, *db);
     }
   }
 
   GIVEN("Changes: SS")
   {
-    auto route_id = p1.set({Route{"test_map", t1}});
-    CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
-    CHECK(p1.last_route_id() == 0);
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
-    route_id = p1.set({
+    p1.set(p1.plan_id_assigner()->assign(),
+        {
           Route{"test_map_2", t1},
           Route{"test_map_3", t2}
         });
 
-    CHECK(route_id == 0);
-    // The RouteIds continue from previous set()
-    CHECK(p1.last_route_id() == 2);
     CHECK(p1.itinerary().size() == 2);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
   }
 
   GIVEN("Changes: X")
   {
-    auto route_id = p1.extend({Route{"test_map", t1}});
-    CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
-    CHECK(p1.last_route_id() == 0);
+    p1.extend({Route{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
   }
 
   GIVEN("Changes: SX")
   {
-    auto route_id = p1.set({Route{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     // Extend itinerary with two new routes
     std::vector<Route> additional_routes;
     additional_routes.emplace_back(Route{"test_map", t2});
     additional_routes.emplace_back(Route{"test_map_2", t1});
 
-    route_id = p1.extend(additional_routes);
-    CHECK(route_id == 0);
+    p1.extend(additional_routes);
     CHECK(p1.itinerary().size() == 3);
-    CHECK(p1.last_route_id() == 2);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
   }
 
   GIVEN("Changes: D")
   {
     p1.delay(5s);
-    CHECK(p1.last_route_id() ==
-      std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.itinerary().size() == 0);
+    CHECK(p1.current_plan_id() ==
+      std::numeric_limits<rmf_traffic::PlanId>::max());
 
     // We do not need to transmit a delay when the itinerary is empty
     CHECK(db->latest_version() == dbv);
-
-    CHECK(p1.last_route_id() ==
-      std::numeric_limits<rmf_traffic::RouteId>::max());
   }
 
   GIVEN("Changes: SD")
   {
-    p1.set({Route{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     // We make a copy of the itinerary for comparison after delay
     const auto old_itinerary = p1.itinerary();
@@ -336,14 +296,11 @@ SCENARIO("Test Participant")
     const auto delay_duration = 5s;
     p1.delay(delay_duration);
     REQUIRE(p1.itinerary().size() == 1);
-    CHECK(old_itinerary.front().id == p1.itinerary().front().id);
-    CHECK(old_itinerary.front().route->map() ==
-      p1.itinerary().front().route->map());
 
-    auto old_it = old_itinerary.front().route->trajectory().begin();
-    auto new_it = p1.itinerary().front().route->trajectory().begin();
+    auto old_it = old_itinerary.front().trajectory().begin();
+    auto new_it = p1.itinerary().front().trajectory().begin();
 
-    for (; new_it != p1.itinerary().front().route->trajectory().end();
+    for (; new_it != p1.itinerary().front().trajectory().end();
       new_it++, old_it++)
     {
       CHECK((new_it->time() - (old_it->time() + delay_duration)).count()
@@ -351,40 +308,15 @@ SCENARIO("Test Participant")
     }
 
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
-  }
-
-  GIVEN("Changes: E")
-  {
-    // Erasing RouteId not in the itinerary
-    p1.erase({0});
-    CHECK(p1.last_route_id() ==
-      std::numeric_limits<rmf_traffic::RouteId>::max());
-    CHECK(p1.itinerary().size() == 0);
-    // No change in database version
-    CHECK(db->latest_version() == dbv);
-  }
-
-  GIVEN("Changes: SE")
-  {
-    p1.set({Route{"test_map", t1}});
-    REQUIRE(p1.itinerary().size() == 1);
-    CHECK(p1.last_route_id() == 0);
-    CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
-
-    p1.erase({p1.last_route_id()});
-    CHECK(p1.itinerary().size() == 0);
-    CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
   }
 
   GIVEN("Changes: C")
   {
     // Clearing an empty itinerary
     p1.clear();
-    CHECK(p1.last_route_id() ==
-      std::numeric_limits<rmf_traffic::RouteId>::max());
+    CHECK(p1.current_plan_id() ==
+      std::numeric_limits<rmf_traffic::PlanId>::max());
     CHECK(p1.itinerary().size() == 0);
     // No change in database version
     CHECK(db->latest_version() == dbv);
@@ -392,23 +324,24 @@ SCENARIO("Test Participant")
 
   GIVEN("Changes: SC")
   {
-    p1.set({Route{"test_map", t1}, Route{"test_map_2", t2}});
+    p1.set(
+      p1.plan_id_assigner()->assign(),
+      {Route{"test_map", t1}, Route{"test_map_2", t2}});
     REQUIRE(p1.itinerary().size() == 2);
-    CHECK(p1.last_route_id() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     p1.clear();
     CHECK(p1.itinerary().size() == 0);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
   }
 
   GIVEN("Changes: s")
   {
     writer->drop_packets = true;
 
-    p1.set({{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
@@ -419,7 +352,7 @@ SCENARIO("Test Participant")
   {
     writer->drop_packets = true;
 
-    p1.set({{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
@@ -427,7 +360,7 @@ SCENARIO("Test Participant")
 
     writer->drop_packets = false;
 
-    p1.set({Route{"test_map", t2}});
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t2}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->get_itinerary(p1.id())->size() == 1);
     CHECK(db->latest_version() == ++dbv);
@@ -438,7 +371,7 @@ SCENARIO("Test Participant")
     // There is no need to fix anything, because the last change was a
     // nullifying change.
     CHECK(db->latest_version() == dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
@@ -446,7 +379,7 @@ SCENARIO("Test Participant")
   {
     writer->drop_packets = true;
 
-    p1.set({{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
@@ -470,7 +403,7 @@ SCENARIO("Test Participant")
 
     writer->drop_packets = false;
 
-    p1.set({{"test_map", t2}});
+    p1.set(p1.plan_id_assigner()->assign(), {{"test_map", t2}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
     REQUIRE(db->get_itinerary(p1.id()));
@@ -483,15 +416,266 @@ SCENARIO("Test Participant")
     // There is no need to fix anything, because the last change was a
     // nullifying change.
     CHECK(db->latest_version() == dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
   }
 
-  GIVEN("Changes: sE")
+  GIVEN("Changes: SRRRR(R)SR")
+  {
+    const auto plan_1 = p1.assign_plan_id();
+    p1.set(plan_1, {{"test_map", t1}, {"test_map", t2}});
+    CHECK(db->latest_version() == ++dbv);
+
+    const auto* progress = db->get_current_progress(p1.id());
+    REQUIRE(progress);
+    CHECK(progress->size() == 2);
+    for (const auto& c : *progress)
+      CHECK(c == 0);
+
+    p1.reached(plan_1, 0, 3);
+    CHECK(db->latest_version() == ++dbv);
+
+    progress = db->get_current_progress(p1.id());
+    REQUIRE(progress);
+    REQUIRE(progress->size() == 2);
+    CHECK((*progress)[0] == 3);
+    CHECK((*progress)[1] == 0);
+
+    p1.reached(plan_1, 5, 4);
+    CHECK(db->latest_version() == ++dbv);
+
+    progress = db->get_current_progress(p1.id());
+    REQUIRE(progress);
+    REQUIRE(progress->size() == 6);
+    CHECK((*progress)[0] == 3);
+    CHECK((*progress)[1] == 0);
+    CHECK((*progress)[2] == 0);
+    CHECK((*progress)[3] == 0);
+    CHECK((*progress)[4] == 0);
+    CHECK((*progress)[5] == 4);
+
+    bool reached_1_0_2 = false;
+    bool deprecated_1_0_2 = false;
+    const auto watch_1_0_2 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_1, 0, 2},
+      [&]() { reached_1_0_2 = true; },
+      [&]() { deprecated_1_0_2 = true; });
+
+    // watch_dependency should immediately trigger the on_reached function.
+    CHECK(reached_1_0_2);
+    CHECK_FALSE(deprecated_1_0_2);
+
+    bool reached_1_5_4 = false;
+    bool deprecated_1_5_4 = false;
+    const auto watch_1_5_4 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_1, 5, 4},
+      [&]() { reached_1_5_4 = true; },
+      [&]() { deprecated_1_5_4 = true; });
+
+    // watch_dependency should immediately trigger the on_reached function.
+    CHECK(reached_1_5_4);
+    CHECK_FALSE(deprecated_1_5_4);
+    CHECK(watch_1_5_4.reached());
+    CHECK_FALSE(watch_1_5_4.deprecated());
+
+    bool reached_1_3_6 = false;
+    bool deprecated_1_3_6 = false;
+    const auto watch_1_3_6 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_1, 3, 6},
+      [&]() { reached_1_3_6 = true; },
+      [&]() { deprecated_1_3_6 = true; });
+    CHECK_FALSE(reached_1_3_6);
+    CHECK_FALSE(deprecated_1_3_6);
+    CHECK_FALSE(watch_1_3_6.reached());
+    CHECK_FALSE(watch_1_3_6.deprecated());
+
+    bool reached_1_3_7 = false;
+    bool deprecated_1_3_7 = false;
+    const auto watch_1_3_7 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_1, 3, 7},
+      [&]() { reached_1_3_7 = true; },
+      [&]() { deprecated_1_3_7 = true; });
+    CHECK_FALSE(reached_1_3_7);
+    CHECK_FALSE(deprecated_1_3_7);
+    CHECK_FALSE(watch_1_3_7.reached());
+    CHECK_FALSE(watch_1_3_7.deprecated());
+
+    bool reached_1_3_8 = false;
+    bool deprecated_1_3_8 = false;
+    const auto watch_1_3_8 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_1, 3, 8},
+      [&]() { reached_1_3_8 = true; },
+      [&]() { deprecated_1_3_8 = true; });
+    CHECK_FALSE(reached_1_3_8);
+    CHECK_FALSE(deprecated_1_3_8);
+    CHECK_FALSE(watch_1_3_8.reached());
+    CHECK_FALSE(watch_1_3_8.deprecated());
+
+    // Double-check this right before the change
+    CHECK_FALSE(reached_1_3_6);
+    CHECK_FALSE(deprecated_1_3_6);
+
+    // Now trigger an arrival
+    p1.reached(plan_1, 3, 6);
+    CHECK(reached_1_3_6);
+    CHECK_FALSE(deprecated_1_3_6);
+    CHECK(watch_1_3_6.reached());
+    CHECK_FALSE(watch_1_3_6.deprecated());
+    CHECK_FALSE(reached_1_3_7);
+    CHECK_FALSE(deprecated_1_3_7);
+    CHECK_FALSE(watch_1_3_7.reached());
+    CHECK_FALSE(watch_1_3_7.deprecated());
+    CHECK_FALSE(reached_1_3_8);
+    CHECK_FALSE(deprecated_1_3_8);
+    CHECK_FALSE(watch_1_3_8.reached());
+    CHECK_FALSE(watch_1_3_8.deprecated());
+
+    p1.reached(plan_1, 3, 8);
+    CHECK(reached_1_3_7);
+    CHECK_FALSE(deprecated_1_3_7);
+    CHECK(watch_1_3_7.reached());
+    CHECK_FALSE(watch_1_3_7.deprecated());
+    CHECK(reached_1_3_8);
+    CHECK_FALSE(deprecated_1_3_8);
+    CHECK(watch_1_3_8.reached());
+    CHECK_FALSE(watch_1_3_8.deprecated());
+
+    const auto plan_2 = p1.assign_plan_id() + 100;
+    const auto skipped_plan = plan_1 + 5;
+
+    bool reached_s_0_2 = false;
+    bool deprecated_s_0_2 = false;
+    const auto watch_s_0_2 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), skipped_plan, 0, 2},
+      [&]() { reached_s_0_2 = true; },
+      [&]() { deprecated_s_0_2 = true; });
+    CHECK_FALSE(reached_s_0_2);
+    CHECK_FALSE(deprecated_s_0_2);
+
+    bool reached_2_1_3 = false;
+    bool deprecated_2_1_3 = false;
+    const auto watch_2_1_3 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_2, 1, 3},
+      [&]() { reached_2_1_3 = true; },
+      [&]() { deprecated_2_1_3 = true; });
+    CHECK_FALSE(reached_2_1_3);
+    CHECK_FALSE(deprecated_2_1_3);
+
+    bool reached_2_2_1 = false;
+    bool deprecated_2_2_1 = false;
+    const auto watch_2_2_1 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_2, 2, 1},
+      [&]() { reached_2_2_1 = true; },
+      [&]() { deprecated_2_2_1 = true; });
+    CHECK_FALSE(reached_2_2_1);
+    CHECK_FALSE(deprecated_2_2_1);
+
+    p1.reached(plan_2, 1, 3);
+    CHECK_FALSE(reached_2_1_3);
+    CHECK_FALSE(deprecated_2_1_3);
+
+    p1.set(plan_2, {{"test_map", t1}, {"test_map", t2}, {"test_map", t3}});
+    CHECK_FALSE(reached_s_0_2);
+    CHECK(deprecated_s_0_2);
+    CHECK(reached_2_1_3);
+    CHECK_FALSE(deprecated_2_1_3);
+    CHECK_FALSE(reached_2_2_1);
+    CHECK_FALSE(deprecated_2_2_1);
+
+    p1.reached(plan_2, 2, 1);
+    CHECK(reached_2_2_1);
+    CHECK_FALSE(deprecated_2_2_1);
+
+    bool reached_s_1_3 = false;
+    bool deprecated_s_1_3 = false;
+    const auto watch_s_1_3 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), skipped_plan+1, 1, 3},
+      [&]() { reached_s_1_3 = true; },
+      [&]() { deprecated_s_1_3 = true; });
+    CHECK_FALSE(reached_s_1_3);
+    CHECK(deprecated_s_1_3);
+  }
+
+  GIVEN("Changes: srSRsr")
+  {
+    writer->drop_packets = true;
+
+    const auto plan_1 = p1.assign_plan_id();
+    const auto watch_1_0_2 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_1, 0, 2}, []() {}, []() {});
+
+    p1.set(plan_1, {{"test_map", t1}});
+    p1.reached(plan_1, 0, 2);
+
+    CHECK_FALSE(watch_1_0_2.reached());
+    CHECK_FALSE(watch_1_0_2.deprecated());
+
+    writer->drop_packets = false;
+    rectifier->rectify();
+
+    CHECK(watch_1_0_2.reached());
+    CHECK_FALSE(watch_1_0_2.deprecated());
+
+    const auto plan_2 = p1.assign_plan_id();
+    bool reached_2_1_1 = false;
+    bool deprecated_2_1_1 = false;
+    using Subscription =
+      rmf_traffic::schedule::ItineraryViewer::DependencySubscription;
+    std::optional<Subscription> watch_2_1_1 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_2, 1, 1},
+      [&]() { reached_2_1_1 = true; },
+      [&]() { deprecated_2_1_1 = true; });
+
+    p1.set(plan_2, {{"test_map", t2}});
+
+    // Drop the watch
+    watch_2_1_1 = std::nullopt;
+
+    p1.reached(plan_2, 1, 1);
+
+    // Since the watch was dropped, these should still both be false
+    CHECK_FALSE(reached_2_1_1);
+    CHECK_FALSE(deprecated_2_1_1);
+
+    const auto plan_3 = p1.assign_plan_id();
+    const auto watch_3_2_1 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_3, 2, 1}, []() {}, []() {});
+
+    const auto plan_4 = p1.assign_plan_id();
+    const auto watch_4_3_2 = db->watch_dependency(
+      rmf_traffic::Dependency{p1.id(), plan_4, 3, 2}, []() {}, []() {});
+
+    writer->drop_packets = true;
+    p1.set(plan_3, {{"test_map", t2}});
+    p1.reached(plan_3, 2, 1);
+
+    CHECK_FALSE(watch_3_2_1.reached());
+    CHECK_FALSE(watch_3_2_1.deprecated());
+
+    p1.set(plan_4, {{"test_map", t3}});
+    p1.reached(plan_4, 3, 2);
+
+    CHECK_FALSE(watch_3_2_1.reached());
+    CHECK_FALSE(watch_3_2_1.deprecated());
+    CHECK_FALSE(watch_4_3_2.reached());
+    CHECK_FALSE(watch_4_3_2.deprecated());
+
+    writer->drop_packets = false;
+    rectifier->rectify();
+
+    CHECK_FALSE(watch_3_2_1.reached());
+    CHECK(watch_3_2_1.deprecated());
+    CHECK(watch_4_3_2.reached());
+    CHECK_FALSE(watch_4_3_2.deprecated());
+  }
+
+  GIVEN("Changes: sX")
   {
     writer->drop_packets = true;
 
     // Set the itinerary
-    p1.set({Route{"test_map", t1}, Route{"test_map", t2}});
+    p1.set(
+      p1.plan_id_assigner()->assign(),
+      {Route{"test_map", t1}, Route{"test_map", t2}});
     CHECK(db->latest_version() == dbv);
 
     writer->drop_packets = false;
@@ -506,16 +690,18 @@ SCENARIO("Test Participant")
     // Fix inconsistencies
     rectifier->rectify();
     CHECK(db->latest_version() == ++(++dbv));
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: SxX")
   {
-    p1.set({Route{"test_map", t1}});
+    p1.set(
+      p1.plan_id_assigner()->assign(),
+      {Route{"test_map", t1}});
 
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     // Tell the writer to start dropping packets
     writer->drop_packets = true;
@@ -545,16 +731,16 @@ SCENARIO("Test Participant")
     REQUIRE(db->get_itinerary(p1.id()));
     CHECK(db->get_itinerary(p1.id())->size() == 3);
     const auto itinerary = db->get_itinerary(p1.id());
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
-  GIVEN("Changes: sddxeX")
+  GIVEN("Changes: sddxX")
   {
     writer->drop_packets = true;
 
     // Set the participant itinerary
-    p1.set({Route{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
@@ -581,19 +767,11 @@ SCENARIO("Test Participant")
     REQUIRE(db->get_itinerary(p1.id()));
     CHECK(db->get_itinerary(p1.id())->empty());
 
-    // Erase the third route in the trajectory
-    REQUIRE(p1.last_route_id() == 2);
-    p1.erase({p1.last_route_id()});
-    CHECK(p1.itinerary().size() == 2);
-    CHECK(db->latest_version() == dbv);
-    REQUIRE(db->get_itinerary(p1.id()));
-    CHECK(db->get_itinerary(p1.id())->empty());
-
     writer->drop_packets = false;
 
     // Extend the itinerary
     p1.extend({Route{"test_map_2", t3}});
-    CHECK(p1.itinerary().size() == 3);
+    CHECK(p1.itinerary().size() == 4);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
     CHECK(db->get_itinerary(p1.id())->empty());
@@ -603,25 +781,25 @@ SCENARIO("Test Participant")
     CHECK(db->inconsistencies().begin()->participant == p1.id());
     const auto inconsistency = db->inconsistencies().begin();
     CHECK(inconsistency->ranges.size() == 1);
-    CHECK(inconsistency->ranges.last_known_version() == 5);
+    CHECK(inconsistency->ranges.last_known_version() == 4);
     CHECK(inconsistency->ranges.begin()->lower == 0);
-    CHECK(inconsistency->ranges.begin()->upper == 4);
+    CHECK(inconsistency->ranges.begin()->upper == 3);
 
     // Fix inconsistencies
     rectifier->rectify();
-    dbv += 6;
+    dbv += 5;
     CHECK(db->latest_version() == dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: SdDxX")
   {
     // Set the participant itinerary
-    p1.set({Route{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     writer->drop_packets = true;
 
@@ -671,17 +849,17 @@ SCENARIO("Test Participant")
     rectifier->rectify();
     dbv += 4;
     CHECK(db->latest_version() == dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: ScX")
   {
     // Set the participant itinerary
-    p1.set({Route{"test_map", t1}});
+    p1.set(p1.plan_id_assigner()->assign(), {Route{"test_map", t1}});
     REQUIRE(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
 
     writer->drop_packets = true;
 
@@ -712,7 +890,7 @@ SCENARIO("Test Participant")
     rectifier->rectify();
     dbv += 2;
     CHECK(db->latest_version() == dbv);
-    CHECK_ITINERARY(p1, db);
+    CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
   }
 
@@ -758,5 +936,4 @@ SCENARIO("Test Participant")
     CHECK_FALSE(db->get_itinerary(p2_id).has_value());
     CHECK(db->inconsistencies().size() == 1);
   }
-
 }

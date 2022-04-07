@@ -67,17 +67,6 @@ std::size_t termination_factor(
 }
 
 //==============================================================================
-Itinerary convert_itinerary(std::vector<Route> itinerary)
-{
-  Itinerary output;
-  output.reserve(itinerary.size());
-  for (auto&& r : itinerary)
-    output.emplace_back(std::make_shared<Route>(std::move(r)));
-
-  return output;
-}
-
-//==============================================================================
 struct NegotiationData
 {
   /// The participants that are part of the negotiation
@@ -135,11 +124,15 @@ public:
 
   Type type;
   ParticipantId participant;
+  PlanId plan_id;
+  RouteId route_id;
   std::shared_ptr<const Route> route;
   std::shared_ptr<const ParticipantDescription> description;
 
   static Endpoint make_initial(
     ParticipantId participant,
+    PlanId plan_id,
+    RouteId route_id,
     std::shared_ptr<const Route> route,
     std::shared_ptr<const ParticipantDescription> description)
   {
@@ -148,6 +141,8 @@ public:
       Implementation{
         Initial,
         participant,
+        plan_id,
+        route_id,
         std::move(route),
         std::move(description)
       });
@@ -157,6 +152,8 @@ public:
 
   static Endpoint make_final(
     ParticipantId participant,
+    PlanId plan_id,
+    RouteId route_id,
     std::shared_ptr<const Route> route,
     std::shared_ptr<const ParticipantDescription> description)
   {
@@ -165,6 +162,8 @@ public:
       Implementation{
         Final,
         participant,
+        plan_id,
+        route_id,
         std::move(route),
         std::move(description)
       });
@@ -214,16 +213,20 @@ public:
   static void insert_initial_endpoint(
     std::unordered_map<ParticipantId, Endpoint>& initial_endpoints,
     const ParticipantId participant,
+    const PlanId plan_id,
     const std::shared_ptr<const ParticipantDescription>& description,
     const Itinerary& itinerary)
   {
     ConstRoutePtr initial = nullptr;
-    for (const auto& r : itinerary)
+    std::optional<RouteId> route_id;
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
-      const auto& check = r->trajectory().front().time();
+      const auto& r = itinerary[i];
+      const auto& check = r.trajectory().front().time();
       if (!initial || check < initial->trajectory().front().time())
       {
-        initial = r;
+        initial = std::make_shared<Route>(r);
+        route_id = i;
       }
     }
 
@@ -232,8 +235,8 @@ public:
       initial_endpoints.insert(
         {
           participant,
-          Endpoint::Implementation::make_initial(participant, initial,
-          description)
+          Endpoint::Implementation::make_initial(
+            participant, plan_id, itinerary.size()+1, initial, description)
         });
     }
   }
@@ -241,16 +244,20 @@ public:
   static void insert_final_endpoint(
     std::unordered_map<ParticipantId, Endpoint>& final_endpoints,
     const ParticipantId participant,
+    const PlanId plan_id,
     const std::shared_ptr<const ParticipantDescription>& description,
     const Itinerary& itinerary)
   {
     ConstRoutePtr final = nullptr;
-    for (const auto& r : itinerary)
+    std::optional<RouteId> route_id;
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
-      const auto& check = r->trajectory().back().time();
+      const auto& r = itinerary[i];
+      const auto& check = r.trajectory().back().time();
       if (!final || final->trajectory().front().time() < check)
       {
-        final = r;
+        final = std::make_shared<Route>(r);
+        route_id = i;
       }
     }
 
@@ -259,11 +266,11 @@ public:
       final_endpoints.insert(
         {
           participant,
-          Endpoint::Implementation::make_final(participant, final, description)
+          Endpoint::Implementation::make_final(
+            participant, plan_id, itinerary.size()+2, final, description)
         });
     }
   }
-
 
   std::unordered_map<ParticipantId, Endpoint> get_initial_endpoints(
     const VersionedKeySequence& alt_keys) const
@@ -278,6 +285,8 @@ public:
       insert_initial_endpoint(
         output,
         key.participant,
+        // NOTE(MXG): placeholder value since alt plan_ids don't really matter
+        0,
         description,
         alternatives.at(key.participant)->at(key.version));
     }
@@ -298,6 +307,8 @@ public:
       insert_final_endpoint(
         output,
         key.participant,
+        // NOTE(MXG): placeholder value since alt plan_ids don't really matter
+        0,
         description,
         alternatives.at(key.participant)->at(key.version));
     }
@@ -318,12 +329,14 @@ private:
       insert_initial_endpoint(
         initial_endpoints,
         p.participant,
+        p.plan,
         description,
         p.itinerary);
 
       insert_final_endpoint(
         final_endpoints,
         p.participant,
+        p.plan,
         description,
         p.itinerary);
     }
@@ -406,7 +419,9 @@ public:
 
   const ParticipantId participant;
   const std::size_t depth;
-  rmf_utils::optional<Itinerary> itinerary;
+  // TODO(MXG): Do we really need this `itinerary` field when it's duplicated
+  // at the back of the `proposal` field?
+  std::optional<Itinerary> itinerary;
   bool rejected = false;
   bool forfeited = false;
   DefunctFlag defunct;
@@ -460,8 +475,10 @@ public:
 
         auto entry = std::make_shared<BaseRouteEntry>(
           BaseRouteEntry{
-            route,
+            std::make_shared<Route>(route),
             participant,
+            p.plan,
+            i,
             i,
             description
           });
@@ -520,7 +537,7 @@ public:
 
   void make_descendants()
   {
-    assert(itinerary);
+    assert(itinerary.has_value());
     assert(proposal.size() == depth);
 
     assert(std::find(unsubmitted.begin(),
@@ -567,6 +584,7 @@ public:
   }
 
   bool submit(
+    PlanId plan_id,
     std::vector<Route> new_itinerary,
     const Version new_version)
   {
@@ -592,18 +610,18 @@ public:
       formerly_successful = true;
     }
 
-    itinerary = convert_itinerary(new_itinerary);
+    itinerary = std::move(new_itinerary);
     rejected = false;
     forfeited = false;
 
     if (had_itinerary)
     {
-      proposal.back() = {participant, *itinerary};
+      proposal.back() = {participant, plan_id, *itinerary};
       clear_descendants();
     }
     else
     {
-      proposal.push_back({participant, *itinerary});
+      proposal.push_back({participant, plan_id, *itinerary});
     }
 
     make_descendants();
@@ -637,8 +655,14 @@ public:
       {
         auto entry = std::make_shared<BaseRouteEntry>(
           BaseRouteEntry{
-            route,
+            std::make_shared<Route>(route),
             participant,
+            // TODO(MXG): This is a placeholder for a PathId value because the
+            // schedule viewer requires it, but alternatives don't actually have
+            // plan IDs. When we migrated to a distributed CBS system, we should
+            // try to eliminate the use of placeholder values.
+            0,
+            id,
             id,
             description
           });
@@ -731,7 +755,7 @@ public:
 
     if (itinerary)
     {
-      itinerary = rmf_utils::nullopt;
+      itinerary = std::nullopt;
       proposal.pop_back();
     }
 
@@ -1124,6 +1148,7 @@ public:
       routes.emplace_back(
         Storage{
           entry->participant,
+          entry->plan_id,
           entry->route_id,
           entry->route,
           entry->description
@@ -1177,6 +1202,18 @@ Viewer::View Negotiation::Table::Viewer::query(
 ParticipantId Negotiation::Table::Viewer::Endpoint::participant() const
 {
   return _pimpl->participant;
+}
+
+//==============================================================================
+PlanId Negotiation::Table::Viewer::Endpoint::plan_id() const
+{
+  return _pimpl->plan_id;
+}
+
+//==============================================================================
+RouteId Negotiation::Table::Viewer::Endpoint::route_id() const
+{
+  return _pimpl->route_id;
 }
 
 //==============================================================================
@@ -1290,6 +1327,48 @@ const Itinerary* Negotiation::Table::Viewer::submission() const
 }
 
 //==============================================================================
+std::optional<rmf_traffic::Time>
+Negotiation::Table::Viewer::earliest_base_proposal_time() const
+{
+  std::optional<rmf_traffic::Time> earliest;
+  for (const auto& proposal : *_pimpl->base_proposals)
+  {
+    for (const auto& route : proposal.itinerary)
+    {
+      const auto* t = route.trajectory().start_time();
+      if (!t)
+        continue;
+
+      if (!earliest.has_value() || *t < *earliest)
+        earliest = *t;
+    }
+  }
+
+  return earliest;
+}
+
+//==============================================================================
+std::optional<rmf_traffic::Time>
+Negotiation::Table::Viewer::latest_base_proposal_time() const
+{
+  std::optional<rmf_traffic::Time> latest;
+  for (const auto& proposal : *_pimpl->base_proposals)
+  {
+    for (const auto& route : proposal.itinerary)
+    {
+      const auto* t = route.trajectory().finish_time();
+      if (!t)
+        continue;
+
+      if (!latest.has_value() || *latest < *t)
+        latest = *t;
+    }
+  }
+
+  return latest;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing
@@ -1369,10 +1448,11 @@ std::vector<ParticipantId> Negotiation::Table::unversioned_sequence() const
 
 //==============================================================================
 bool Negotiation::Table::submit(
+  PlanId plan_id,
   std::vector<Route> itinerary,
   const Version version)
 {
-  return _pimpl->submit(std::move(itinerary), version);
+  return _pimpl->submit(plan_id, std::move(itinerary), version);
 }
 
 //==============================================================================
@@ -1572,12 +1652,12 @@ rmf_utils::optional<Time> get_finish_time(const Itinerary& itinerary)
   rmf_utils::optional<Time> finish_time;
   for (const auto& route : itinerary)
   {
-    const auto* t = route->trajectory().finish_time();
+    const auto* t = route.trajectory().finish_time();
     if (!t)
       continue;
 
     if (!finish_time)
-      finish_time = *route->trajectory().finish_time();
+      finish_time = *route.trajectory().finish_time();
     else
     {
       if (*t < *finish_time)

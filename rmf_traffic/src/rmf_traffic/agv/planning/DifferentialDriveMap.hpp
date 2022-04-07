@@ -176,11 +176,13 @@ struct DifferentialDriveMapTypes
     rmf_traffic::Time finish_time;
     double finish_yaw;
     std::vector<Route> routes;
+    double cost;
 
     RouteInfo(
       rmf_traffic::Time finish_time_,
       double finish_yaw_,
-      std::vector<Route> routes_);
+      std::vector<Route> routes_,
+      double cost);
   };
 
   /// This type is a factory that produces routes. The SolutionNode will provide
@@ -314,12 +316,11 @@ struct FactoryInfo
 };
 
 //==============================================================================
-FactoryInfo make_differential_drive_translate_factory(
-  Eigen::Vector3d start,
+FactoryInfo make_differential_drive_translate_factory(Eigen::Vector3d start,
   Eigen::Vector3d finish,
   KinematicLimits limits,
   double translation_thresh,
-  double rotation_thresh,
+  double rotation_thresh, double traversal_cost_per_meter,
   std::vector<std::string> maps);
 
 //==============================================================================

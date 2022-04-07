@@ -38,8 +38,9 @@ public:
 
   struct Conflict
   {
-    ParticipantId participant;
+    Dependency dependency;
     Time time;
+    std::shared_ptr<const rmf_traffic::Route> route;
   };
 
   /// If the specified route has a conflict with another participant, this will
@@ -56,7 +57,7 @@ public:
   // it will only be with one participant. And since this is only meant to
   // provide a hint about which participant is causing conflicts, it is okay if
   // other participants are ignored.
-  virtual rmf_utils::optional<Conflict> find_conflict(
+  virtual std::optional<Conflict> find_conflict(
     const Route& route) const = 0;
 
   /// Create a clone of the underlying RouteValidator object.
@@ -141,7 +142,7 @@ public:
   // TODO(MXG): Make profile setters and getters
 
   // Documentation inherited
-  rmf_utils::optional<Conflict> find_conflict(const Route& route) const final;
+  std::optional<Conflict> find_conflict(const Route& route) const final;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;

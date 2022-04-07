@@ -24,34 +24,16 @@
 #include "internal_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
+#include "internal_Progress.hpp"
+#include "internal_Viewer.hpp"
+#include "DependencyTracker.hpp"
 
 #include <rmf_utils/Modular.hpp>
 
 #include <algorithm>
 #include <list>
-
 namespace rmf_traffic {
 namespace schedule {
-
-namespace {
-
-//==============================================================================
-Writer::Input deep_copy_input(Writer::Input input)
-{
-  Writer::Input copy;
-  for (const auto& item : input)
-  {
-    auto copy_item = Writer::Item{
-      item.id,
-      std::make_shared<Route>(*item.route)};
-
-    copy.emplace_back(std::move(copy_item));
-  }
-
-  return copy;
-}
-
-} // anonymous namespace
 
 //==============================================================================
 class Database::Implementation
@@ -96,7 +78,9 @@ public:
     RouteEntry(
       ConstRoutePtr route_,
       ParticipantId participant_,
+      PlanId plan_id_,
       RouteId route_id_,
+      StorageId storage_id_,
       std::shared_ptr<const ParticipantDescription> desc_,
       Version schedule_version_,
       TransitionPtr transition_,
@@ -104,7 +88,9 @@ public:
     : BaseRouteEntry{
         std::move(route_),
         participant_,
+        plan_id_,
         route_id_,
+        storage_id_,
         std::move(desc_),
     },
       schedule_version(schedule_version_),
@@ -121,13 +107,18 @@ public:
 
   struct ParticipantState
   {
-    std::unordered_set<RouteId> active_routes;
+    std::vector<StorageId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
     std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
     Version last_updated;
-    RouteId last_route_id = std::numeric_limits<RouteId>::max();
+    StorageId next_storage_id = 0;
+    PlanId latest_plan_id = std::numeric_limits<RouteId>::max();
+
+    Progress progress = {};
+    std::optional<Version> schedule_version_of_progress = std::nullopt;
+    ProgressBuffer buffered_progress = {};
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
@@ -190,83 +181,40 @@ public:
     Version version;
   };
 
-  rmf_utils::optional<CullInfo> last_cull;
+  std::optional<CullInfo> last_cull;
 
   /// The current time is used to know when participants can be culled after
   /// getting unregistered
   rmf_traffic::Time current_time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
-  /// This function verifies that the route IDs specified in the input are not
-  /// already being used. If that ever happens, it is indicative of a bug or a
-  /// malformed input into the database.
-  ///
-  /// This returns a vector of pointers to RouteEntryPtr objects. The entries in
-  /// that vector can be used to efficiently populate the route information,
-  /// saving us the cost of a second map lookup later on.
-  std::vector<RouteStorage*> check_route_ids(
-    ParticipantState& state,
-    const Input& input)
-  {
-    // NOTE(MXG): We store references to the values of the route entries,
-    // because iterators to a std::unordered_map can be invalidated by
-    // insertions, but pointers and references to the values inside the
-    // container to do not get invalidated by inserstion. Source:
-    // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
-    std::vector<RouteStorage*> entries;
-    entries.reserve(input.size());
+  mutable DependencyTracker dependencies;
 
+  /// This function is used to insert routes into the Database.
+  void insert_items(
+    const ParticipantId participant,
+    ParticipantState& state,
+    const Itinerary& itinerary)
+  {
     ParticipantStorage& storage = state.storage;
 
-    // Verify that the new route IDs do not overlap any that are still in the
-    // database
-    for (const Item& item : input)
+    const auto plan_id = state.latest_plan_id;
+    const auto initial_route_num = state.active_routes.size();
+    for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
-      const auto insertion = storage.insert({item.id, RouteStorage()});
+      const auto& route = itinerary[i];
+      const auto route_id = i + initial_route_num;
+      const auto storage_id = state.next_storage_id++;
 
-      // If the result of this insertion attempt was anything besides a nullptr,
-      // then that means this route ID was already taken, so we should reject
-      // this itinerary change.
-      if (insertion.first->second.entry)
-      {
-        // *INDENT-OFF*
-        throw std::runtime_error(
-          "[Database::set] New route ID [" + std::to_string(item.id)
-          + "] collides with one already in the database");
-        // *INDENT-ON*
-      }
+      state.active_routes.push_back(storage_id);
 
-      entries.push_back(&insertion.first->second);
-    }
-
-    return entries;
-  }
-
-  /// This function is used to insert items into the Database. This function
-  /// assumes that the items have already been fully validated and that there
-  /// would be no negative side-effects to entering them.
-  void insert_items(
-    ParticipantId participant,
-    ParticipantState& state,
-    const std::vector<RouteStorage*>& entries,
-    const Input& input)
-  {
-    assert(entries.size() == input.size());
-
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-      const auto& item = input[i];
-      const RouteId route_id = item.id;
-      if (rmf_utils::modular(state.last_route_id).less_than(route_id))
-        state.last_route_id = route_id;
-
-      state.active_routes.insert(route_id);
-
-      RouteStorage& entry_storage = *entries[i];
+      RouteStorage& entry_storage = storage[storage_id];
       entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
-          item.route,
+          std::make_shared<Route>(route),
           participant,
+          plan_id,
           route_id,
+          storage_id,
           state.description,
           schedule_version,
           nullptr,
@@ -283,21 +231,20 @@ public:
     Duration delay)
   {
     ParticipantStorage& storage = state.storage;
-    for (const RouteId id : state.active_routes)
+    for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(id) != storage.end());
-      auto& entry_storage = storage.at(id);
-      const Trajectory& old_trajectory =
-        entry_storage.entry->route->trajectory();
+      assert(storage.find(storage_id) != storage.end());
+      auto& entry_storage = storage.at(storage_id);
+      const auto& route_entry = entry_storage.entry;
+      const auto route_id = route_entry->route_id;
 
+      const Trajectory& old_trajectory = route_entry->route->trajectory();
       assert(old_trajectory.start_time());
-
-      auto delayed = schedule::apply_delay(old_trajectory, delay);
-      if (!delayed)
+      if (old_trajectory.empty())
         continue;
 
-      auto new_route = std::make_shared<Route>(
-        entry_storage.entry->route->map(), std::move(*delayed));
+      auto new_route = std::make_shared<Route>(*route_entry->route);
+      new_route->trajectory().front().adjust_times(delay);
 
       auto transition = std::make_unique<Transition>(
         Transition{
@@ -312,7 +259,9 @@ public:
         RouteEntry{
           std::move(new_route),
           participant,
-          id,
+          state.latest_plan_id,
+          route_id,
+          storage_id,
           state.description,
           schedule_version,
           std::move(transition),
@@ -331,12 +280,13 @@ public:
     ParticipantState& state)
   {
     ParticipantStorage& storage = state.storage;
-    for (const RouteId id : state.active_routes)
+    for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(id) != storage.end());
-      auto& entry_storage = storage.at(id);
+      assert(storage.find(storage_id) != storage.end());
+      auto& entry_storage = storage.at(storage_id);
 
       auto route = entry_storage.entry->route;
+      const auto route_id = entry_storage.entry->route_id;
 
       auto transition = std::make_unique<Transition>(
         Transition{
@@ -348,7 +298,9 @@ public:
         RouteEntry{
           std::move(route),
           participant,
-          id,
+          state.latest_plan_id,
+          route_id,
+          storage_id,
           state.description,
           schedule_version,
           std::move(transition),
@@ -362,16 +314,16 @@ public:
     }
   }
 
-  void erase_routes(
+  void clear(
     ParticipantId participant,
-    ParticipantState& state,
-    const std::unordered_set<RouteId>& routes)
+    ParticipantState& state)
   {
     ParticipantStorage& storage = state.storage;
-    for (const RouteId id : routes)
+    for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(id) != storage.end());
-      auto& entry_storage = storage.at(id);
+      assert(storage.find(storage_id) != storage.end());
+      auto& entry_storage = storage.at(storage_id);
+      const auto& entry = *entry_storage.entry;
 
       auto transition = std::make_unique<Transition>(
         Transition{
@@ -383,7 +335,9 @@ public:
         RouteEntry{
           nullptr,
           participant,
-          id,
+          entry.plan_id,
+          entry.route_id,
+          storage_id,
           state.description,
           schedule_version,
           std::move(transition),
@@ -396,9 +350,8 @@ public:
       entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
 
-    // TODO(MXG): Consider erasing the routes from the active_routes field of
-    // the state using this function. It gets tricky, though since the "erase"
-    // argument is sometimes a reference to the active_routes field.
+    state.active_routes.clear();
+    state.progress.reached_checkpoints.clear();
   }
 
   ParticipantId get_next_participant_id()
@@ -471,7 +424,7 @@ std::size_t Database::Debug::current_removed_participant_count(
 }
 
 //==============================================================================
-std::optional<Writer::Input> Database::Debug::get_itinerary(
+std::optional<Itinerary> Database::Debug::get_itinerary(
   const Database& database,
   const ParticipantId participant)
 {
@@ -481,28 +434,28 @@ std::optional<Writer::Input> Database::Debug::get_itinerary(
 
   const Implementation::ParticipantState& state = state_it->second;
 
-  Writer::Input itinerary;
+  Itinerary itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back({route, state.storage.at(route).entry->route});
+    itinerary.push_back(*state.storage.at(route).entry->route);
 
   return itinerary;
 }
 
 //==============================================================================
 void Database::set(
-  ParticipantId participant,
-  const Input& input,
-  ItineraryVersion version)
+  const ParticipantId participant,
+  const PlanId plan,
+  const Itinerary& itinerary,
+  const StorageId storage_base,
+  const ItineraryVersion version)
 {
-  auto itinerary = deep_copy_input(input);
-
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::set] No participant with ID ["
+      "[rmf_traffic::schedule::Database::set] No participant with ID ["
       + std::to_string(participant) + "]");
     // *INDENT-ON*
   }
@@ -518,40 +471,45 @@ void Database::set(
 
   if (auto ticket = state.tracker->check(version, true))
   {
-    ticket->set([=]() { this->set(participant, itinerary, version); });
+    ticket->set([=]() {
+      this->set(participant, plan, itinerary, storage_base, version);
+    });
     return;
   }
 
-  std::vector<Implementation::RouteStorage*> entries =
-    _pimpl->check_route_ids(state, itinerary);
-
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
 
   // Erase the routes that are currently active
-  _pimpl->erase_routes(participant, state, state.active_routes);
+  _pimpl->clear(participant, state);
 
-  // Clear the list of routes that are currently active
-  state.active_routes.clear();
+  // Reset the current progress of the state
+  state.progress = state.buffered_progress.pull(plan, itinerary.size());
+  state.schedule_version_of_progress = _pimpl->schedule_version;
 
   // Insert the new routes into the current itinerary
-  _pimpl->insert_items(participant, state, entries, input);
+  state.latest_plan_id = plan;
+  state.next_storage_id = storage_base;
+  _pimpl->insert_items(participant, state, itinerary);
+
+  // Deprecate all dependencies on earlier plans
+  _pimpl->dependencies.deprecate_dependencies_before(
+        participant, plan);
+  _pimpl->dependencies.reached(
+    participant, plan, state.progress.reached_checkpoints);
 }
 
 //==============================================================================
 void Database::extend(
   ParticipantId participant,
-  const Input& input,
+  const Itinerary& itinerary,
   ItineraryVersion version)
 {
-  auto routes = deep_copy_input(input);
-
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::extend] No participant with ID ["
+      "[rmf_traffic::schedule::Database::extend] No participant with ID ["
       + std::to_string(participant) + "]");
     // *INDENT-ON*
   }
@@ -571,17 +529,17 @@ void Database::extend(
   {
     // If we got a ticket from the inconsistency tracker, then pass along a
     // callback to call this
-    ticket->set([=]() { this->extend(participant, routes, version); });
+    ticket->set([=]() { this->extend(participant, itinerary, version); });
     return;
   }
 
-  std::vector<Implementation::RouteStorage*> entries =
-    _pimpl->check_route_ids(state, routes);
-
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
 
-  _pimpl->insert_items(participant, state, entries, input);
+  _pimpl->insert_items(participant, state, itinerary);
+
+  // Update the progress tracker with the new routes
+  state.progress.resize(state.active_routes.size());
+  state.schedule_version_of_progress = _pimpl->schedule_version;
 }
 
 //==============================================================================
@@ -616,52 +574,53 @@ void Database::delay(
     return;
   }
 
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
   _pimpl->apply_delay(participant, state, delay);
 }
 
 //==============================================================================
-void Database::erase(
+void Database::reached(
   ParticipantId participant,
-  ItineraryVersion version)
+  PlanId plan,
+  const std::vector<CheckpointId>& reached_checkpoints,
+  ProgressVersion version)
 {
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::erase] No participant with ID ["
+      "[Database::reached] No participant with ID ["
       + std::to_string(participant) + "]");
     // *INDENT-ON*
   }
-
   Implementation::ParticipantState& state = p_it->second;
 
   assert(state.tracker);
-  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
+  if (plan != state.latest_plan_id)
   {
-    // This is an old change, possibly a retransmission requested by a different
-    // database tracker, so we will ignore it.
+    if (rmf_utils::modular(plan).less_than(state.latest_plan_id))
+      return;
+
+    for (std::size_t i = 0; i < reached_checkpoints.size(); ++i)
+      state.buffered_progress.buff(plan, i, reached_checkpoints[i], version);
+
     return;
   }
 
-  if (auto ticket = state.tracker->check(version))
-  {
-    ticket->set([=]() { this->erase(participant, version); });
-    return;
-  }
+  for (std::size_t i = 0; i < reached_checkpoints.size(); ++i)
+    state.progress.update(i, reached_checkpoints[i], version);
 
-  //======== All validation is complete ===========
-  ++_pimpl->schedule_version;
-  _pimpl->erase_routes(participant, state, state.active_routes);
-  state.active_routes.clear();
+  state.schedule_version_of_progress = ++_pimpl->schedule_version;
+
+  // Update relevant dependencies
+  _pimpl->dependencies.reached(
+    participant, plan, state.progress.reached_checkpoints);
 }
 
 //==============================================================================
-void Database::erase(
+void Database::clear(
   ParticipantId participant,
-  const std::vector<RouteId>& routes,
   ItineraryVersion version)
 {
   const auto p_it = _pimpl->states.find(participant);
@@ -686,41 +645,26 @@ void Database::erase(
 
   if (auto ticket = state.tracker->check(version))
   {
-    ticket->set([=]() { this->erase(participant, routes, version); });
+    ticket->set([=]() { this->clear(participant, version); });
     return;
   }
 
-  std::unordered_set<RouteId> route_set;
-  route_set.reserve(routes.size());
-  for (const RouteId id : routes)
-  {
-    if (state.active_routes.count(id) == 0)
-    {
-      // *INDENT-OFF*
-      throw std::runtime_error(
-        "[Database::erase] The route with ID [" + std::to_string(id)
-        + "] is not active!");
-      // *INDENT-ON*
-    }
-
-    route_set.insert(id);
-  }
-
-  //======== All validation is complete ===========
   ++_pimpl->schedule_version;
-  _pimpl->erase_routes(participant, state, route_set);
-  for (const RouteId id : routes)
-    state.active_routes.erase(id);
+  _pimpl->clear(participant, state);
+  _pimpl->dependencies.deprecate_dependencies_before(
+    participant, state.latest_plan_id+1);
 }
 
+//==============================================================================
 Writer::Registration register_participant_impl(
   Database::Implementation& pimpl,
   ParticipantId id,
+  ItineraryVersion last_known_version,
   ParticipantDescription description)
 {
   const Version version = ++pimpl.schedule_version;
   auto tracker = Inconsistencies::Implementation::register_participant(
-    pimpl.inconsistencies, id);
+    pimpl.inconsistencies, id, last_known_version);
 
   const auto description_ptr =
     std::make_shared<const ParticipantDescription>(std::move(description));
@@ -743,7 +687,8 @@ Writer::Registration register_participant_impl(
 
   const auto& state = p_it->second;
   return Database::Registration(
-    id, state.tracker->last_known_version(), state.last_route_id);
+    id, state.tracker->last_known_version(),
+    state.latest_plan_id, state.next_storage_id);
 }
 
 //==============================================================================
@@ -751,18 +696,98 @@ Writer::Registration Database::register_participant(
   ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
-  return register_participant_impl(*_pimpl, id, std::move(description));
+  return register_participant_impl(
+    *_pimpl,
+    id,
+    std::numeric_limits<ItineraryVersion>::max(),
+    std::move(description));
 }
 
 //==============================================================================
 void internal_register_participant(
   Database& database,
   ParticipantId id,
+  ItineraryVersion last_known_version,
   ParticipantDescription description)
 {
   auto& impl = Database::Implementation::get(database);
   impl.add_new_participant_id(id);
-  register_participant_impl(impl, id, std::move(description));
+  register_participant_impl(
+    impl, id, last_known_version, std::move(description));
+}
+
+//==============================================================================
+void set_participant_state(
+  Database& database,
+  ParticipantId participant,
+  PlanId plan,
+  std::vector<RouteStorageInfo> routes,
+  StorageId storage_base,
+  ItineraryVersion itinerary_version,
+  std::vector<CheckpointId> progress,
+  ProgressVersion progress_version)
+{
+  using RouteEntry = Database::Implementation::RouteEntry;
+  using RouteEntryPtr = Database::Implementation::RouteEntryPtr;
+  auto& impl = Database::Implementation::get(database);
+  const auto p_it = impl.states.find(participant);
+  if (p_it == impl.states.end())
+  {
+    // *INDENT-OFF*
+    // The [rmf_traffic::schedule::Mirror] tag will be added to this message
+    // when it gets caught by that function.
+    throw std::runtime_error(
+      "No participant with ID [" + std::to_string(participant) + "]");
+    // *INDENT-ON*
+  }
+
+  auto& state = p_it->second;
+
+  // This should only be used by Mirror::fork, so the given value should always
+  // perfectly match the expectation.
+  assert(state.tracker->expected_version() == itinerary_version);
+  if (auto ticket = state.tracker->check(itinerary_version, true))
+  {
+    // *INDENT-OFF*
+    throw std::runtime_error(
+      "Inconsistency detected with the itinerary version ["
+      + std::to_string(itinerary_version) + "] of participant ["
+      + std::to_string(participant));
+    // *INDENT-ON*
+  }
+
+  state.active_routes.clear();
+  state.latest_plan_id = plan;
+  state.next_storage_id = storage_base;
+  state.progress.reached_checkpoints = std::move(progress);
+  state.progress.version = progress_version;
+  auto& storage = state.storage;
+
+  for (std::size_t i = 0; i < routes.size(); ++i)
+  {
+    const auto& info = routes[i];
+    const auto storage_id = info.storage_id;
+
+    state.active_routes.push_back(storage_id);
+
+    auto& entry_storage = storage[storage_id];
+    entry_storage.entry = std::make_unique<RouteEntry>(
+      RouteEntry{
+        info.route,
+        participant,
+        plan,
+        i,
+        storage_id,
+        state.description,
+        impl.schedule_version,
+        nullptr,
+        RouteEntryPtr()
+      });
+
+    entry_storage.timeline_handle = impl.timeline.insert(entry_storage.entry);
+  }
+
+  std::sort(state.active_routes.begin(), state.active_routes.end());
 }
 
 //==============================================================================
@@ -774,7 +799,7 @@ void set_initial_fork_version(
   impl.schedule_version = version;
 
   std::optional<Time> maximum_time;
-  for (const auto& [_, state] : impl.states)
+  for (auto& [_, state] : impl.states)
   {
     for (const auto& [_, storage] : state.storage)
     {
@@ -786,6 +811,8 @@ void set_initial_fork_version(
           maximum_time = *finish;
       }
     }
+
+    state.schedule_version_of_progress = version;
   }
 
   if (maximum_time.has_value())
@@ -807,7 +834,7 @@ void Database::update_description(
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[Database::erase] No participant with ID ["
+      "[Database::update_description] No participant with ID ["
       + std::to_string(id) + "]");
     // *INDENT-ON*
   }
@@ -863,6 +890,9 @@ void Database::unregister_participant(
   const Version version = ++_pimpl->schedule_version;
   _pimpl->remove_participant_version[version] = {participant, initial_version};
   _pimpl->remove_participant_time[_pimpl->current_time] = version;
+
+  // Deprecate all dependencies for this participant
+  _pimpl->dependencies.deprecate_dependencies_on(participant);
 }
 
 //==============================================================================
@@ -989,7 +1019,7 @@ public:
       {
         // The newest version of this route is not relevant to the mirror, so
         // we will erase it from the mirror.
-        changes[newest->participant].erasures.emplace_back(newest->route_id);
+        changes[newest->participant].erasures.emplace_back(newest->storage_id);
       }
     }
     else
@@ -1001,6 +1031,7 @@ public:
         changes[newest->participant].additions.emplace_back(
           Change::Add::Item{
             newest->route_id,
+            newest->storage_id,
             newest->route
           });
       }
@@ -1035,6 +1066,7 @@ public:
       changes[newest->participant].additions.emplace_back(
         Change::Add::Item{
           newest->route_id,
+          newest->storage_id,
           newest->route
         });
     }
@@ -1062,6 +1094,7 @@ public:
       routes.emplace_back(
         Storage{
           entry->participant,
+          entry->plan_id,
           entry->route_id,
           entry->route,
           entry->description
@@ -1090,6 +1123,7 @@ public:
       routes.emplace_back(
         Storage{
           entry->participant,
+          entry->plan_id,
           entry->route_id,
           entry->route,
           entry->description
@@ -1129,6 +1163,7 @@ public:
       routes.emplace_back(
         Storage{
           entry->participant,
+          entry->plan_id,
           entry->route_id,
           entry->route,
           entry->description
@@ -1154,7 +1189,7 @@ public:
   struct Info
   {
     ParticipantId participant;
-    RouteId route_id;
+    StorageId storage_id;
   };
 
   std::vector<Info> routes;
@@ -1174,7 +1209,7 @@ public:
     assert(entry->route->trajectory().finish_time());
     if (*entry->route->trajectory().finish_time() < _cull_time)
     {
-      routes.emplace_back(Info{entry->participant, entry->route_id});
+      routes.emplace_back(Info{entry->participant, entry->storage_id});
     }
   }
 
@@ -1218,16 +1253,22 @@ std::shared_ptr<const ParticipantDescription> Database::get_participant(
 }
 
 //==============================================================================
-rmf_utils::optional<Itinerary> Database::get_itinerary(
-  std::size_t participant_id) const
+Version Database::latest_version() const
+{
+  return _pimpl->schedule_version;
+}
+
+//==============================================================================
+std::optional<ItineraryView> Database::get_itinerary(
+  const std::size_t participant_id) const
 {
   const auto state_it = _pimpl->states.find(participant_id);
   if (state_it == _pimpl->states.end())
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   const Implementation::ParticipantState& state = state_it->second;
 
-  Itinerary itinerary;
+  ItineraryView itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
     itinerary.push_back(state.storage.at(route).entry->route);
@@ -1236,9 +1277,83 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
 }
 
 //==============================================================================
-Version Database::latest_version() const
+std::optional<PlanId> Database::get_current_plan_id(
+  const std::size_t participant_id) const
 {
-  return _pimpl->schedule_version;
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return std::nullopt;
+
+  const auto& state = state_it->second;
+  return state.latest_plan_id;
+}
+
+//==============================================================================
+const std::vector<CheckpointId>* Database::get_current_progress(
+  ParticipantId participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return nullptr;
+
+  return &p->second.progress.reached_checkpoints;
+}
+
+//==============================================================================
+ProgressVersion Database::get_current_progress_version(
+  ParticipantId participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return 0;
+
+  return p->second.progress.version;
+}
+
+//==============================================================================
+auto Database::watch_dependency(
+  Dependency dep,
+  std::function<void()> on_reached,
+  std::function<void()> on_deprecated) const -> DependencySubscription
+{
+  auto subscription = DependencySubscription::Implementation::make(
+    dep, std::move(on_reached), std::move(on_deprecated));
+
+  auto shared =
+    DependencySubscription::Implementation::get_shared(subscription);
+
+  const auto p_it = _pimpl->states.find(dep.on_participant);
+  if (p_it == _pimpl->states.end())
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  const auto& state = p_it->second;
+  if (rmf_utils::modular(dep.on_plan).less_than(state.latest_plan_id))
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  if (state.latest_plan_id == dep.on_plan)
+  {
+    if (dep.on_route < state.progress.reached_checkpoints.size())
+    {
+      const auto latest_checkpoint =
+        state.progress.reached_checkpoints[dep.on_route];
+
+      if (dep.on_checkpoint <= latest_checkpoint)
+      {
+        shared->reach();
+        return subscription;
+      }
+    }
+  }
+
+  _pimpl->dependencies.add(dep, std::move(shared));
+
+  return subscription;
 }
 
 //==============================================================================
@@ -1276,7 +1391,7 @@ const Inconsistencies& Database::inconsistencies() const
 //==============================================================================
 auto Database::changes(
   const Query& parameters,
-  rmf_utils::optional<Version> after) const -> Patch
+  std::optional<Version> after) const -> Patch
 {
   if (after.has_value() && _pimpl->fork_info.has_value())
   {
@@ -1330,13 +1445,25 @@ auto Database::changes(
       continue;
     }
 
+    std::optional<Change::Progress> progress;
+    if (state.schedule_version_of_progress.has_value())
+    {
+      if (!after.has_value() || *after < *state.schedule_version_of_progress)
+      {
+        progress = Change::Progress(
+            state.progress.version,
+            state.progress.reached_checkpoints);
+      }
+    }
+
     part_patches.emplace_back(
       Patch::Participant{
         p.first,
         state.tracker->last_known_version(),
         Change::Erase(std::move(p.second.erasures)),
         std::move(delays),
-        Change::Add(std::move(p.second.additions))
+        Change::Add(state.latest_plan_id, std::move(p.second.additions)),
+        std::move(progress)
       });
   }
 
@@ -1381,7 +1508,7 @@ Version Database::cull(Time time)
     assert(p_it != _pimpl->states.end());
 
     auto& storage = p_it->second.storage;
-    const auto r_it = storage.find(route.route_id);
+    const auto r_it = storage.find(route.storage_id);
     assert(r_it != storage.end());
 
     storage.erase(r_it);
@@ -1447,17 +1574,31 @@ ItineraryVersion Database::itinerary_version(ParticipantId participant) const
 }
 
 //==============================================================================
-RouteId Database::last_route_id(ParticipantId participant) const
+PlanId Database::latest_plan_id(ParticipantId participant) const
 {
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
     throw std::runtime_error(
-            "[Database::last_route_id] No participant with ID ["
+            "[Database::lastest_plan_id] No participant with ID ["
             + std::to_string(participant) + "]");
   }
 
-  return p_it->second.last_route_id;
+  return p_it->second.latest_plan_id;
+}
+
+//==============================================================================
+StorageId Database::next_storage_base(ParticipantId participant) const
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+            "[Database::latest_storage_id] No participant with ID ["
+            + std::to_string(participant) + "]");
+  }
+
+  return p_it->second.next_storage_id;
 }
 
 } // namespace schedule

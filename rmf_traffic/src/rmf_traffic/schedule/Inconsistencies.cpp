@@ -35,15 +35,17 @@ class Inconsistencies::Ranges::Implementation
 {
 public:
 
-  Implementation(const RangesSet& set_)
-  : set(set_)
+  Implementation(
+    const RangesSet& set_,
+    ItineraryVersion last_known_version_)
+  : set(set_),
+    last_known_version(last_known_version_)
   {
     // Do nothing
   }
 
   const RangesSet& set;
-  ItineraryVersion last_known_version =
-    std::numeric_limits<ItineraryVersion>::max();
+  ItineraryVersion last_known_version;
 
   using raw_iterator = RangesSet::const_iterator;
   static const_iterator make_iterator(raw_iterator it)
@@ -54,10 +56,14 @@ public:
     return result;
   }
 
-  static Ranges make(const RangesSet& set)
+  static Ranges make(
+    const RangesSet& set,
+    const ItineraryVersion last_known_version)
   {
     Ranges result;
-    result._pimpl = rmf_utils::make_unique_impl<Implementation>(set);
+    result._pimpl = rmf_utils::make_unique_impl<Implementation>(
+      set, last_known_version);
+
     return result;
   }
 
@@ -108,7 +114,8 @@ ItineraryVersion Inconsistencies::Ranges::last_known_version() const
 std::unique_ptr<InconsistencyTracker>
 Inconsistencies::Implementation::register_participant(
   Inconsistencies& inconsistencies,
-  ParticipantId id)
+  ParticipantId id,
+  ItineraryVersion last_known_version)
 {
   auto& _inconsistencies = inconsistencies._pimpl->_inconsistencies;
   auto& _api = inconsistencies._pimpl->_api;
@@ -122,7 +129,7 @@ Inconsistencies::Implementation::register_participant(
       id,
       Element{
         id,
-        Ranges::Implementation::make(ranges)
+        Ranges::Implementation::make(ranges, last_known_version)
       }));
 
   auto& ranges_api = ranges_it.first->second.ranges;

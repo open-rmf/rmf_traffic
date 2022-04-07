@@ -33,6 +33,7 @@ public:
   struct Storage
   {
     ParticipantId participant;
+    PlanId plan_id;
     RouteId route_id;
     ConstRoutePtr route;
     std::shared_ptr<const ParticipantDescription> description;
@@ -80,7 +81,7 @@ public:
     {
       assert(s.route);
       elements.emplace_back(
-        Element{s.participant, s.route_id, *s.route, *s.description});
+        Element{s.participant, s.plan_id, s.route_id, s.route, *s.description});
     }
   }
 };

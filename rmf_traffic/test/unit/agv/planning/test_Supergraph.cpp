@@ -135,7 +135,7 @@ SCENARIO("Supergraph -- Single Floor, Reversible")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, {}, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options(), 0.1);
 
   auto traversals = supergraph->traversals_from(0);
   REQUIRE(traversals);
@@ -260,7 +260,7 @@ SCENARIO("Supergraph -- Single Floor, Events, Irreversible")
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
     rmf_traffic::agv::Graph::Implementation::get(graph),
-    traits, {}, rmf_traffic::agv::Interpolate::Options());
+    traits, {}, rmf_traffic::agv::Interpolate::Options(), 0.1);
 
   auto traversals = supergraph->traversals_from(0);
   REQUIRE(traversals);

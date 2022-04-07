@@ -17,11 +17,15 @@
 
 #include <rmf_traffic/schedule/Mirror.hpp>
 
+#include <rmf_utils/Modular.hpp>
+
 #include "ChangeInternal.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
 #include "internal_Snapshot.hpp"
 #include "internal_Database.hpp"
+#include "internal_Progress.hpp"
+#include "DependencyTracker.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -44,9 +48,12 @@ public:
 
   struct ParticipantState
   {
-    std::unordered_map<RouteId, RouteStorage> storage;
+    std::unordered_map<StorageId, RouteStorage> storage;
     std::shared_ptr<const ParticipantDescription> description;
     ItineraryVersion itinerary_version;
+    PlanId current_plan_id = std::numeric_limits<PlanId>::max();
+    std::optional<StorageId> highest_storage;
+    Progress progress;
   };
 
   // This violates the single-source-of-truth principle, but it helps make it
@@ -64,12 +71,14 @@ public:
 
   Version latest_version = 0;
 
+  mutable DependencyTracker dependencies;
+
   static void erase_routes(
     const ParticipantId participant,
     ParticipantState& state,
     const Change::Erase& erase)
   {
-    for (const RouteId id : erase.ids())
+    for (const StorageId id : erase.ids())
     {
       const auto r_it = state.storage.find(id);
       if (r_it == state.storage.end())
@@ -92,14 +101,11 @@ public:
       RouteStorage& entry_storage = s.second;
       assert(entry_storage.entry);
       assert(entry_storage.entry->route);
-      auto delayed = schedule::apply_delay(
-        entry_storage.entry->route->trajectory(), delay.duration());
-
-      if (!delayed)
+      if (entry_storage.entry->route->trajectory().empty())
         continue;
 
-      auto new_route = std::make_shared<Route>(
-        entry_storage.entry->route->map(), std::move(*delayed));
+      auto new_route = std::make_shared<Route>(*entry_storage.entry->route);
+      new_route->trajectory().front().adjust_times(delay.duration());
 
       // We create a new entry because
       auto new_entry = std::make_shared<RouteEntry>(*entry_storage.entry);
@@ -113,15 +119,16 @@ public:
     const ParticipantId participant,
     ParticipantState& state,
     const RouteId route_id,
+    const StorageId storage_id,
     const ConstRoutePtr& route)
   {
-    auto insertion = state.storage.insert({route_id, RouteStorage()});
+    auto insertion = state.storage.insert({storage_id, RouteStorage()});
     const bool inserted = insertion.second;
     if (!inserted)
     {
-      std::cerr << "[Mirror::update] Inserting a route [" << route_id
-                << "] which already exists for participant [" << participant
-                << "]" << std::endl;
+      std::cerr << "[Mirror::update] Inserting a route at storage_id ["
+                << storage_id << "] which is already used for participant ["
+                << participant << "]" << std::endl;
       // NOTE(MXG): We will continue anyway. The new route will simply
       // overwrite the old one.
     }
@@ -131,11 +138,18 @@ public:
       RouteEntry{
         std::move(route),
         participant,
+        state.current_plan_id,
         route_id,
+        storage_id,
         state.description
       });
 
     entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+
+    if (!state.highest_storage.has_value())
+      state.highest_storage = storage_id;
+    else if (rmf_utils::modular(*state.highest_storage).less_than(storage_id))
+      state.highest_storage = storage_id;
   }
 
   void add_routes(
@@ -148,7 +162,8 @@ public:
       add_route(
         participant,
         state,
-        item.id,
+        item.route_id,
+        item.storage_id,
         std::make_shared<const Route>(*item.route));
     }
   }
@@ -177,6 +192,7 @@ public:
       routes.emplace_back(
         Storage{
           entry->participant,
+          entry->plan_id,
           entry->route_id,
           entry->route,
           entry->description
@@ -196,7 +212,7 @@ public:
   struct Info
   {
     ParticipantId participant;
-    RouteId route_id;
+    StorageId storage_id;
   };
 
   std::vector<Info> info;
@@ -208,7 +224,7 @@ public:
     assert(entry);
     assert(entry->route);
     if (relevant(*entry))
-      info.emplace_back(Info{entry->participant, entry->route_id});
+      info.emplace_back(Info{entry->participant, entry->storage_id});
   }
 
 };
@@ -249,8 +265,14 @@ std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
 }
 
 //==============================================================================
-std::optional<Itinerary> Mirror::get_itinerary(
-  std::size_t participant_id) const
+Version Mirror::latest_version() const
+{
+  return _pimpl->latest_version;
+}
+
+//==============================================================================
+std::optional<ItineraryView> Mirror::get_itinerary(
+  const std::size_t participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
@@ -261,11 +283,11 @@ std::optional<Itinerary> Mirror::get_itinerary(
     if (_pimpl->participant_ids.count(participant_id) > 0)
       return {};
 
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   const auto& state = p->second;
-  Itinerary itinerary;
+  ItineraryView itinerary;
   itinerary.reserve(state.storage.size());
   for (const auto& s : state.storage)
     itinerary.push_back(s.second.entry->route);
@@ -274,16 +296,90 @@ std::optional<Itinerary> Mirror::get_itinerary(
 }
 
 //==============================================================================
-Version Mirror::latest_version() const
+std::optional<PlanId> Mirror::get_current_plan_id(
+  const std::size_t participant_id) const
 {
-  return _pimpl->latest_version;
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return std::nullopt;
+
+  return p->second.current_plan_id;
+}
+
+//==============================================================================
+const std::vector<CheckpointId>* Mirror::get_current_progress(
+  ParticipantId participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return nullptr;
+
+  return &p->second.progress.reached_checkpoints;
+}
+
+//==============================================================================
+auto Mirror::watch_dependency(
+  Dependency dep,
+  std::function<void()> on_reached,
+  std::function<void()> on_deprecated) const -> DependencySubscription
+{
+  auto subscription = DependencySubscription::Implementation::make(
+    dep, std::move(on_reached), std::move(on_deprecated));
+
+  auto shared =
+    DependencySubscription::Implementation::get_shared(subscription);
+
+  const auto p_it = _pimpl->states.find(dep.on_participant);
+  if (p_it == _pimpl->states.end())
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  const auto& state = p_it->second;
+  if (rmf_utils::modular(dep.on_plan).less_than(state.current_plan_id))
+  {
+    shared->deprecate();
+    return subscription;
+  }
+
+  if (state.current_plan_id == dep.on_plan)
+  {
+    if (dep.on_route < state.progress.reached_checkpoints.size())
+    {
+      const auto latest_checkpoint =
+        state.progress.reached_checkpoints[dep.on_route];
+
+      if (dep.on_checkpoint <= latest_checkpoint)
+      {
+        shared->reach();
+        return subscription;
+      }
+    }
+  }
+
+  _pimpl->dependencies.add(dep, std::move(shared));
+
+  return subscription;
+}
+
+//==============================================================================
+ProgressVersion Mirror::get_current_progress_version(
+  ParticipantId participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return 0;
+
+  return p->second.progress.version;
 }
 
 //==============================================================================
 std::shared_ptr<const Snapshot> Mirror::snapshot() const
 {
   using SnapshotType =
-    SnapshotImplementation<Implementation::RouteEntry,
+    SnapshotImplementation<
+      Implementation::RouteEntry,
       MirrorViewRelevanceInspector
     >;
 
@@ -355,14 +451,16 @@ void Mirror::update_participants_info(
       const auto old_storage = state.storage;
 
       // Clear out the state's copy of the route information
-      p_it->second.storage.clear();
+      state.storage.clear();
 
       // Insert new routes that are equivalent to the old ones, but which have
       // the updated description.
-      for (const auto& [route_id, route_storage] : old_storage)
+      for (const auto& [storage_id, route_storage] : old_storage)
       {
-        const auto& route = route_storage.entry->route;
-        _pimpl->add_route(participant_id, state, route_id, route);
+        const auto& entry = *route_storage.entry;
+        const auto& route = entry.route;
+        _pimpl->add_route(
+          participant_id, state, entry.route_id, storage_id, route);
       }
     }
   }
@@ -417,7 +515,18 @@ bool Mirror::update(const Patch& patch)
     for (const auto& delay : p.delays())
       _pimpl->apply_delay(state, delay);
 
+    if (state.current_plan_id != p.additions().plan_id())
+      state.progress = Progress();
+
+    state.current_plan_id = p.additions().plan_id();
     _pimpl->add_routes(participant, state, p.additions());
+    state.progress.resize(state.storage.size());
+
+    if (p.progress().has_value())
+    {
+      state.progress.reached_checkpoints = p.progress()->checkpoints();
+      state.progress.version = p.progress()->version();
+    }
   }
 
   if (const Change::Cull* cull = patch.cull())
@@ -441,11 +550,33 @@ bool Mirror::update(const Patch& patch)
         continue;
       }
 
-      p_it->second.storage.erase(route.route_id);
+      p_it->second.storage.erase(route.storage_id);
     }
   }
 
   _pimpl->latest_version = patch.latest_version();
+
+  for (const auto& p : patch)
+  {
+    _pimpl->dependencies.deprecate_dependencies_before(
+      p.participant_id(), p.additions().plan_id());
+
+    if (p.progress().has_value())
+    {
+      _pimpl->dependencies.reached(
+        p.participant_id(), p.additions().plan_id(),
+        p.progress()->checkpoints());
+    }
+
+    // This is a hacky way of recognizing if a clear() has happened
+    const auto& state = _pimpl->states[p.participant_id()];
+    if (state.storage.empty())
+    {
+      _pimpl->dependencies.deprecate_dependencies_before(
+        p.participant_id(), p.additions().plan_id()+1);
+    }
+  }
+
   return true;
 }
 
@@ -454,20 +585,54 @@ Database Mirror::fork() const
 {
   Database output;
 
-  for (const auto& [id, description] : _pimpl->descriptions)
-    internal_register_participant(output, id, *description);
-
-  for (const auto& [participant, state] : _pimpl->states)
+  try
   {
-    Writer::Input input;
-    input.reserve(state.storage.size());
-    for (const auto& [route_id, route] : state.storage)
-      input.emplace_back(Writer::Item{route_id, route.entry->route});
+    for (const auto& [id, description] : _pimpl->descriptions)
+    {
+      ItineraryVersion v = std::numeric_limits<ItineraryVersion>::max();
+      const auto p_it = _pimpl->states.find(id);
+      if (p_it != _pimpl->states.end())
+        v = p_it->second.itinerary_version-1;
 
-    output.set(participant, input, state.itinerary_version);
+      internal_register_participant(output, id, v, *description);
+    }
+
+    for (const auto& [participant, state] : _pimpl->states)
+    {
+      std::vector<RouteStorageInfo> routes;
+      routes.reserve(state.storage.size());
+      for (const auto& [storage_id, route] : state.storage)
+      {
+        routes.emplace_back(
+          RouteStorageInfo{
+            route.entry->route_id,
+            storage_id,
+            route.entry->route
+          });
+      }
+
+      std::size_t next_storage_id = 0;
+      if (state.highest_storage.has_value())
+        next_storage_id = *state.highest_storage + 1;
+
+      set_participant_state(
+        output,
+        participant,
+        state.current_plan_id,
+        routes,
+        next_storage_id,
+        state.itinerary_version,
+        state.progress.reached_checkpoints,
+        state.progress.version);
+    }
+
+    set_initial_fork_version(output, _pimpl->latest_version);
   }
-
-  set_initial_fork_version(output, _pimpl->latest_version);
+  catch (const std::exception& e)
+  {
+    throw std::runtime_error(
+      std::string("[rmf_traffic::schedule::Mirror] ") + e.what());
+  }
 
   return output;
 }

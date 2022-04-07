@@ -31,7 +31,7 @@ public:
   Change::Erase erasures;
   std::vector<Change::Delay> delays;
   Change::Add additions;
-
+  std::optional<Change::Progress> progress;
 };
 
 //==============================================================================
@@ -40,14 +40,16 @@ Patch::Participant::Participant(
   ItineraryVersion itinerary_version,
   Change::Erase erasures,
   std::vector<Change::Delay> delays,
-  Change::Add additions)
+  Change::Add additions,
+  std::optional<Change::Progress> progress)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         id,
         itinerary_version,
         std::move(erasures),
         std::move(delays),
-        std::move(additions)
+        std::move(additions),
+        std::move(progress)
       }))
 {
   // Do nothing
@@ -81,6 +83,12 @@ const std::vector<Change::Delay>& Patch::Participant::delays() const
 const Change::Add& Patch::Participant::additions() const
 {
   return _pimpl->additions;
+}
+
+//==============================================================================
+const std::optional<Change::Progress>& Patch::Participant::progress() const
+{
+  return _pimpl->progress;
 }
 
 //==============================================================================

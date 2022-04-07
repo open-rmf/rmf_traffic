@@ -188,8 +188,13 @@ public:
     result->myself = make_segment(result);
     assert(segments.size() > 0);
 
-    ordering.emplace_hint(hint, data.time, result);
+    auto it = ordering.emplace_hint(hint, data.time, result);
     assert(ordering.size() > 0);
+
+    // Adjust the indices of this new element and any that come after it.
+    std::size_t index = it - ordering.begin();
+    for (; it != ordering.end(); ++index, ++it)
+      it->value->data.index = index;
 
     return InsertionResult{make_iterator<Waypoint>(result), true};
   }
@@ -219,7 +224,11 @@ public:
 
   iterator erase(iterator waypoint)
   {
-    ordering.erase(waypoint->_pimpl->myself->data.time);
+    auto it = ordering.erase(waypoint->_pimpl->myself->data.time);
+    auto index = it - ordering.begin();
+    for(; it != ordering.end(); ++it, ++index)
+      it->value->data.index = index;
+
     return make_iterator<Waypoint>(segments.erase(waypoint->_pimpl->myself));
   }
 
@@ -233,7 +242,11 @@ public:
     const auto order_end = seg_end == segments.end() ?
       ordering.end() : ordering.find(seg_end->data.time);
 
-    ordering.erase(order_start, order_end);
+    auto it = ordering.erase(order_start, order_end);
+    auto index = it - ordering.begin();
+    for(; it != ordering.end(); ++it, ++index)
+      it->value->data.index = index;
+
     return make_iterator<Waypoint>(segments.erase(seg_begin, seg_end));
   }
 
@@ -284,6 +297,12 @@ Time Trajectory::Waypoint::time() const
 }
 
 //==============================================================================
+std::size_t Trajectory::Waypoint::index() const
+{
+  return _pimpl->data().index;
+}
+
+//==============================================================================
 Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
 {
   internal::WaypointList::iterator data_it = _pimpl->myself;
@@ -306,6 +325,7 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
   const internal::OrderMap::iterator hint = ordering.lower_bound(new_time);
 
   current_order_it->key = new_time;
+  std::optional<std::size_t> rotated_index;
   if (current_order_it == hint)
   {
     // The Waypoint is already in the correct location within the list, so it
@@ -315,7 +335,7 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
   {
     // This Waypoint must be moved to the end of the list.
     segments.splice(segments.end(), segments, data_it);
-    ordering.rotate(current_order_it, hint);
+    rotated_index = ordering.rotate(current_order_it, hint);
   }
   else
   {
@@ -344,12 +364,19 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
     else
     {
       segments.splice(destination, segments, data_it);
-      ordering.rotate(current_order_it, hint);
+      rotated_index = ordering.rotate(current_order_it, hint);
     }
   }
 
   // Update the time value in the data field.
   current_data.time = new_time;
+
+  // Update the indices of all rotated elements.
+  if (rotated_index.has_value())
+  {
+    for (auto index = *rotated_index; index < ordering.size(); ++index)
+      ordering[index].value->data.index = index;
+  }
 
   return *this;
 }
@@ -496,6 +523,19 @@ Trajectory::iterator Trajectory::lower_bound(Time time)
 Trajectory::const_iterator Trajectory::lower_bound(Time time) const
 {
   return const_cast<Implementation&>(*_pimpl).lower_bound(time);
+}
+
+//==============================================================================
+std::size_t Trajectory::index_after(Time time) const
+{
+  const auto it = find(time);
+  if (it == end())
+    return size();
+
+  if (it->time() == time)
+    return it->index()+1;
+
+  return it->index();
 }
 
 //==============================================================================

@@ -27,7 +27,8 @@ InconsistencyTracker::InconsistencyTracker(
   RangesSet& ranges,
   ItineraryVersion& last_known_version)
 : _ranges(ranges),
-  _last_known_version(last_known_version)
+  _last_known_version(last_known_version),
+  _expected_version(_last_known_version+1)
 {
   // Do nothing
 }

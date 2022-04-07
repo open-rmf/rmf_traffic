@@ -57,12 +57,17 @@ public:
     ///
     /// \param[in] additions
     ///   The information about which routes to add
+    ///
+    /// \param[in] progress
+    ///   Information about progress that the participant has made since the
+    ///   last change, if any.
     Participant(
       ParticipantId id,
       ItineraryVersion itinerary_version,
       Change::Erase erasures,
       std::vector<Change::Delay> delays,
-      Change::Add additions);
+      Change::Add additions,
+      std::optional<Change::Progress> progress);
 
     /// The ID of the participant that this set of changes will patch.
     ParticipantId participant_id() const;
@@ -79,12 +84,20 @@ public:
     ///
     /// These delays should be applied in sequential order after the erasures
     /// are performed, and before any additions are performed.
+    //
+    // TODO(MXG): Why don't we sum these delays into one value since they all
+    // get applied at the same time anyway? They were originally split because
+    // we used to allow delays to be applied to partial trajectories, but that
+    // is no longer allowed.
     const std::vector<Change::Delay>& delays() const;
 
     /// The set of additions to perfom.
     ///
     /// These additions should be applied after all other changes.
     const Change::Add& additions() const;
+
+    /// Progress that this participant made since the last version, if any.
+    const std::optional<Change::Progress>& progress() const;
 
     class Implementation;
   private:

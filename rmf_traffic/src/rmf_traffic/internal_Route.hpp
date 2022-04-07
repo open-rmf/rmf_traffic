@@ -29,11 +29,8 @@ public:
 
   std::string map;
   Trajectory trajectory;
-
-  static Route make(Implementation data)
-  {
-    return Route(std::move(data.map), std::move(data.trajectory));
-  }
+  std::set<uint64_t> checkpoints;
+  DependsOnParticipant dependencies;
 
   static const Route::Implementation& get(const Route& route)
   {

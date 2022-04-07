@@ -34,11 +34,6 @@ public:
 
 };
 
-//==============================================================================
-rmf_utils::optional<Trajectory> apply_delay(
-  const Trajectory& old_trajectory,
-  Duration delay);
-
 } // namespace schedule
 } // namespace rmf_traffic
 

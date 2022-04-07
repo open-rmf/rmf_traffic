@@ -32,17 +32,19 @@ public:
 
   Eigen::Vector3d position;
 
-  rmf_traffic::Time time;
+  Time time;
 
-  rmf_utils::optional<std::size_t> graph_index;
+  std::optional<std::size_t> graph_index;
 
   std::vector<std::size_t> approach_lanes;
 
-  std::size_t itinerary_index;
+  std::vector<Progress> progress;
 
-  std::size_t trajectory_index;
+  Checkpoints arrival;
 
   Graph::Lane::EventPtr event;
+
+  Dependencies dependencies = {};
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -52,6 +54,18 @@ public:
       Implementation{std::forward<Args>(args)...});
 
     return wp;
+  }
+
+//  static Waypoint copy(const Implementation& impl)
+//  {
+//    Waypoint wp;
+//    wp._pimpl = rmf_utils::make_impl<Implementation>(std::move(impl));
+//    return wp;
+//  }
+
+  static void add_dependency(Waypoint& waypoint, const Dependency dep)
+  {
+    waypoint._pimpl->dependencies.push_back(dep);
   }
 };
 
