@@ -8,18 +8,20 @@ on:
 jobs:
   build_and_test:
     name: Build and test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+      container:
+        image: ubuntu:latest
     steps:
       - name: pwd
         run: pwd
       - name: deps
         uses: ros-tooling/setup-ros@v0.2
         with:
-          required-ros-distributions: foxy
+          required-ros-distributions: rolling
       - name: build
         uses: ros-tooling/action-ros-ci@v0.2
         with:
-          target-ros2-distro: foxy
+          target-ros2-distro: rolling
           # build all packages listed in the meta package
           package-name: |
             rmf_traffic

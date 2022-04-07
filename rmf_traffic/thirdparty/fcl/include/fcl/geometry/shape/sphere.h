@@ -42,6 +42,7 @@
 
 #include <iostream>
 #include <atomic>
+#include <optional>
 
 namespace fcl
 {
