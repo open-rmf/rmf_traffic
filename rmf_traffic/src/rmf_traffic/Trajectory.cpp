@@ -22,6 +22,7 @@
 #include "TrajectoryInternal.hpp"
 
 #include <iostream>
+#include <optional>
 #include <string>
 
 namespace rmf_traffic {

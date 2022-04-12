@@ -542,7 +542,7 @@ bool check_overlap(
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   fcl::CollisionRequestd request;
   fcl::CollisionResultd result;
-  for (const auto pair : pairs)
+  for (const auto& pair : pairs)
   {
     auto pos_a = spline_a.compute_position(time);
     auto pos_b = spline_b.compute_position(time);

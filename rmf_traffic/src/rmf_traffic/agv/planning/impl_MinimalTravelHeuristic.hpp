@@ -64,7 +64,7 @@ void expand_traversals(
       std::optional<double> minimum_angle;
       for (const auto init_angle : {forward_init_angle, reverse_init_angle})
       {
-        for (const auto alternative : traversal.alternatives)
+        for (const auto& alternative : traversal.alternatives)
         {
           if (!alternative.has_value())
             continue;
