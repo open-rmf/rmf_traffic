@@ -45,7 +45,7 @@ public:
   ///
   /// \param[in] itinerary
   ///   The new itinerary that the participant should reflect in the schedule.
-  void set(PlanId plan, std::vector<Route> itinerary);
+  bool set(PlanId plan, std::vector<Route> itinerary);
 
   /// Add more routes for the participant. All of the routes currently in the
   /// itinerary will still be in it.

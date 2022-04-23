@@ -55,27 +55,13 @@ bool Participant::Implementation::Shared::set(
   PlanId plan, std::vector<Route> itinerary)
 {
   if (rmf_utils::modular(plan).less_than_or_equal(_current_plan_id))
-  {
-    // *INDENT-OFF*
-    std::cerr << "[Participant::set] ERROR: The given plan ID [" << plan
-              << "] needs to be greater than the current [" << _current_plan_id
-              << "]" << std::endl;
-    // *INDENT-ON*
     return false;
-  }
 
   for (std::size_t i = 0; i < itinerary.size(); ++i)
   {
     const auto& r = itinerary[i];
     if (r.trajectory().size() < 2)
-    {
-      // *INDENT-OFF*
-      std::cerr << "[Participant::set] Route [" << i << "] has a trajectory "
-                << "of size [" << r.trajectory().size() << "], but the "
-                << "minimum acceptable size is 2." << std::endl;
-      // *INDENT-ON*
       return false;
-    }
   }
 
   if (itinerary.empty())
@@ -403,7 +389,7 @@ ItineraryVersion Participant::Implementation::Shared::get_next_version()
 }
 
 //==============================================================================
-void Participant::set(PlanId plan, std::vector<Route> itinerary)
+bool Participant::set(PlanId plan, std::vector<Route> itinerary)
 {
   return _pimpl->_shared->set(plan, std::move(itinerary));
 }
