@@ -47,7 +47,7 @@ public:
       ParticipantDescription description,
       std::shared_ptr<Writer> writer);
 
-    void set(PlanId plan, std::vector<Route> itinerary);
+    bool set(PlanId plan, std::vector<Route> itinerary);
 
     void extend(std::vector<Route> additional_routes);
 

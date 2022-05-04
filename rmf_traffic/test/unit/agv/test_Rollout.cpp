@@ -61,9 +61,12 @@ public:
           nullptr))
       {
         return Conflict{
-          _other_participant, 0, 0,
-          route.trajectory().index_after(conflict->time),
-          conflict->time
+          rmf_traffic::Dependency{
+            _other_participant, 0, 0,
+            route.trajectory().index_after(conflict->time),
+          },
+          conflict->time,
+          std::make_shared<rmf_traffic::Route>(route)
         };
       }
     }

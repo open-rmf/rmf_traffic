@@ -51,38 +51,24 @@ Participant::Implementation::Shared::Shared(
 }
 
 //==============================================================================
-void Participant::Implementation::Shared::set(
+bool Participant::Implementation::Shared::set(
   PlanId plan, std::vector<Route> itinerary)
 {
   if (rmf_utils::modular(plan).less_than_or_equal(_current_plan_id))
-  {
-    // *INDENT-OFF*
-    throw std::runtime_error(
-      "[Participant::set] The given plan ID [" + std::to_string(plan)
-      + "] needs to be greater than the current ["
-      + std::to_string(_current_plan_id) + "]");
-    // *INDENT-ON*
-  }
+    return false;
 
   for (std::size_t i = 0; i < itinerary.size(); ++i)
   {
     const auto& r = itinerary[i];
     if (r.trajectory().size() < 2)
-    {
-      // *INDENT-OFF*
-      throw std::runtime_error(
-        "[Participant::set] Route [" + std::to_string(i) + "] has a trajectory "
-        "of size [" + std::to_string(r.trajectory().size()) + "], but the "
-        "minimum acceptable size is 2.");
-      // *INDENT-ON*
-    }
+      return false;
   }
 
   if (itinerary.empty())
   {
     // This situation is more efficient to express as a clear() command
     clear();
-    return;
+    return true;
   }
 
   _change_history.clear();
@@ -118,6 +104,8 @@ void Participant::Implementation::Shared::set(
     _writer->reached(
       _id, plan, _progress.reached_checkpoints, _progress.version);
   }
+
+  return true;
 }
 
 //==============================================================================
@@ -401,7 +389,7 @@ ItineraryVersion Participant::Implementation::Shared::get_next_version()
 }
 
 //==============================================================================
-void Participant::set(PlanId plan, std::vector<Route> itinerary)
+bool Participant::set(PlanId plan, std::vector<Route> itinerary)
 {
   return _pimpl->_shared->set(plan, std::move(itinerary));
 }
