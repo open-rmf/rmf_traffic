@@ -8,6 +8,8 @@
   <license>Apache License 2.0</license>
   <author>Grey</author>
 
+  <buildtool_depend>cmake</buildtool_depend>
+
   <depend>rmf_traffic</depend>
 
   <export>
