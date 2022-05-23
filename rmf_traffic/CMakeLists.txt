@@ -97,6 +97,7 @@ endif()
 target_link_libraries(rmf_traffic
   PUBLIC
     rmf_utils::rmf_utils
+    Threads::Threads
   PRIVATE
     ${FCL_LIBRARIES}
 )

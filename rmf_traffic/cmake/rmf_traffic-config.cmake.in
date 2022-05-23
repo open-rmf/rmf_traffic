@@ -7,6 +7,7 @@ include(CMakeFindDependencyMacro)
 @RMF_TRAFFIC_DEPENDS_EIGEN3_CMAKE_MODULE@
 find_dependency(Eigen3)
 find_dependency(rmf_utils)
+find_dependency(Threads)
 
 if(NOT TARGET rmf_traffic::rmf_traffic)
     include("${rmf_traffic_CMAKE_DIR}/rmf_traffic-targets.cmake")
