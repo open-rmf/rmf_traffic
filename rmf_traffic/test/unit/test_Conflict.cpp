@@ -20,15 +20,8 @@
 #include "src/rmf_traffic/DetectConflictInternal.hpp"
 
 #include <rmf_utils/catch.hpp>
-#include <iostream>
 
 using namespace std::chrono_literals;
-
-/*
-####################################################################################################
-NOTE: When merging with schedule_tests, the profiles will need to be redefined with finalized shapes
-####################################################################################################
-*/
 
 SCENARIO("DetectConflict unit tests")
 {
@@ -153,7 +146,8 @@ SCENARIO("DetectConflict unit tests")
 
       THEN("narrow_phase should return empty")
       {
-        CHECK(!rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
+        CHECK(!rmf_traffic::DetectConflict::between(
+            profile, t1, nullptr, profile, t2, nullptr));
         CHECK_between_is_commutative(profile, t1, profile, t2);
       }
     }
@@ -234,7 +228,7 @@ SCENARIO("DetectConflict unit tests")
       REQUIRE(trajectory_b.size() == 2);
 
       CHECK(rmf_traffic::DetectConflict::between(
-          profile, trajectory_a, profile, trajectory_b));
+          profile, trajectory_a, nullptr, profile, trajectory_b, nullptr));
 
       const auto conflicts = get_conflicts(
         profile, trajectory_a, profile, trajectory_b);
@@ -433,8 +427,8 @@ SCENARIO("DetectConflict unit tests")
       t2.insert(time + 35s, Eigen::Vector3d{5, 5, 0}, Eigen::Vector3d{0, 0, 0});
       REQUIRE(t2.size() == 2);
 
-      CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile,
-        t2));
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, nullptr, profile, t2, nullptr));
     }
   }
 
@@ -529,6 +523,214 @@ SCENARIO("DetectConflict unit tests")
       CHECK(conflicts.front().a_it == ++(++trajectory.begin()));
       CHECK(conflicts.front().a_it == trajectory.find(begin_time + 20s));
     }
+  }
+}
+
+SCENARIO("Conservative Advancement Regression Tests")
+{
+  const rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<rmf_traffic::geometry::Circle>(0.1)
+  };
+
+  GIVEN("Trajectories with final velocities")
+  {
+    for (double T = 1.0; T <= 10.0; T += 0.1)
+    {
+      const auto start = rmf_traffic::Time(rmf_traffic::Duration(0));
+      const auto finish = rmf_traffic::Time(rmf_traffic::time::from_seconds(T));
+      rmf_traffic::Trajectory t1;
+      t1.insert(start, {0, 0, 0}, {0, 0, 0});
+      t1.insert(finish, {1, 0, 0}, {1, 0, 0});
+
+      rmf_traffic::Trajectory t2;
+      t2.insert(start, {1, 0, 0}, {0, 0, 0});
+      t2.insert(finish, {0.5, 0, 0}, {-1, 0, 0});
+
+      CHECK(rmf_traffic::DetectConflict::between(
+          profile, t1, nullptr, profile, t2, nullptr).has_value());
+    }
+  }
+}
+
+struct Range
+{
+  rmf_traffic::Duration lower;
+  rmf_traffic::Duration upper;
+
+  Range(rmf_traffic::Duration l, rmf_traffic::Duration u)
+  : lower(l),
+    upper(u)
+  {
+    // Do nothing
+  }
+};
+
+SCENARIO("Route dependency conflict tests")
+{
+  using namespace std::chrono_literals;
+  const auto t0 = rmf_traffic::Time(rmf_traffic::Duration(0));
+
+  const rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<rmf_traffic::geometry::Circle>(0.2)
+  };
+
+  /*
+   *
+   *     B1-----B2     B5      B8
+   *     |      |      ||      |
+   * A0--|--A1--|--A3--||--A5--|--A7
+   *     |  A2  |  A4  ||  A6  |
+   *     B0     B3----B4B6-----B7
+   *
+   */
+
+  rmf_traffic::Trajectory A;
+  A.insert(t0, {0, 0, 0}, {0, 0, 0}); // A0
+  A.insert(t0+1s, {1, 0, 0}, {0, 0, 0}); // A1
+  A.insert(t0+2s, {1, 0, 0}, {0, 0, 0}); // A2
+  A.insert(t0+3s, {2, 0, 0}, {0, 0, 0}); // A3
+  A.insert(t0+4s, {2, 0, 0}, {0, 0, 0}); // A4
+  A.insert(t0+6s, {3, 0, 0}, {0, 0, 0}); // A5
+  A.insert(t0+7s, {3, 0, 0}, {0, 0, 0}); // A6
+  A.insert(t0+8s, {4, 0, 0}, {0, 0, 0}); // A7
+
+  rmf_traffic::Route rA("test_map", A);
+
+  rmf_traffic::Trajectory B;
+  B.insert(t0, {0.5, -0.5, 0}, {0, 0, 0}); // B0
+  B.insert(t0+1s, {0.5, 0.5, 0}, {0, 0, 0}); // B1
+  B.insert(t0+2s, {1.5, 0.5, 0}, {0, 0, 0}); // B2
+  B.insert(t0+3s, {1.5, -0.5, 0}, {0, 0, 0}); // B3
+  B.insert(t0+4s, {2.5, -0.5, 0}, {0, 0, 0}); // B4
+  B.insert(t0+5s, {2.5, 0.5, 0}, {0, 0, 0}); // B5
+  B.insert(t0+6s, {2.5, -0.5, 0}, {0, 0, 0}); // B6
+  B.insert(t0+7s, {3.5, -0.5, 0}, {0, 0, 0}); // B7
+  B.insert(t0+8s, {3.5, 0.5, 0}, {0, 0, 0}); // B8
+
+  rmf_traffic::Route rB("test_map", B);
+
+  std::optional<Range> conflict_range;
+  WHEN("No dependencies")
+  {
+    conflict_range = Range{0s, 1s};
+  }
+
+  WHEN("A0 depends on B1")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    conflict_range = Range{2s, 3s};
+  }
+
+  WHEN("B2 depends on A3")
+  {
+    rB.add_dependency(2, {0, 0, 0, 3});
+    conflict_range = Range{0s, 1s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    conflict_range = Range{4s, 5s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {A5: B4}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rB.add_dependency(4, {0, 0, 0, 5});
+    conflict_range = Range{7s, 8s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {A5: B4}, {A5: B5}")
+  {
+    // This should give the same result as the previous one because the
+    // {A5: B4} dependency takes precedent over {A5: B5}
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rB.add_dependency(4, {0, 0, 0, 5});
+    rB.add_dependency(5, {0, 0, 0, 5});
+    conflict_range = Range{7s, 8s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B5: A4}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 5});
+    conflict_range = Range{5s, 6s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B6: A4}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 6});
+    conflict_range = Range{7s, 8s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B6: A4}, {B7: A6}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 6});
+    rA.add_dependency(6, {1, 0, 0, 7});
+    conflict_range = Range{7s, 8s};
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B6: A4}, {B8: A5}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 6});
+    rA.add_dependency(5, {1, 0, 0, 8});
+    conflict_range = std::nullopt;
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B6: A4}, {B8: A6}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 6});
+    rA.add_dependency(6, {1, 0, 0, 8});
+    conflict_range = std::nullopt;
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B6: A4}, {A7: B6}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 6});
+    rB.add_dependency(6, {0, 0, 0, 7});
+    conflict_range = std::nullopt;
+  }
+
+  WHEN("{B1: A0}, {A3: B2}, {B6: A4}, {A7: B7}")
+  {
+    rA.add_dependency(0, {1, 0, 0, 1});
+    rB.add_dependency(2, {0, 0, 0, 3});
+    rA.add_dependency(4, {1, 0, 0, 6});
+    rB.add_dependency(7, {0, 0, 0, 7});
+    conflict_range = std::nullopt;
+  }
+
+  const auto conflict = rmf_traffic::DetectConflict::between(
+    profile, A, rA.check_dependencies(1, 0, 0),
+    profile, B, rB.check_dependencies(0, 0, 0));
+
+  if (conflict_range.has_value())
+  {
+    CHECK(conflict.has_value());
+    if (conflict.has_value())
+    {
+      const auto t = conflict->time.time_since_epoch().count();
+      CHECK(conflict_range->lower.count() <= t);
+      CHECK(t <= conflict_range->upper.count());
+    }
+  }
+  else
+  {
+    CHECK(!conflict.has_value());
   }
 }
 

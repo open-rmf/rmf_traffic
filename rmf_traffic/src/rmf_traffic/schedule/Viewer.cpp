@@ -23,6 +23,7 @@
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include "debug_Viewer.hpp"
+#include "internal_Viewer.hpp"
 
 #include <algorithm>
 
@@ -54,6 +55,72 @@ auto Viewer::View::end() const -> const_iterator
 std::size_t Viewer::View::size() const
 {
   return _pimpl->elements.size();
+}
+
+//==============================================================================
+void ItineraryViewer::DependencySubscription::Implementation::Shared::reach()
+{
+  reached = true;
+  on_reached();
+}
+
+//==============================================================================
+void
+ItineraryViewer::DependencySubscription::Implementation::Shared::deprecate()
+{
+  deprecated = true;
+  on_deprecated();
+}
+
+//==============================================================================
+ItineraryViewer::DependencySubscription
+ItineraryViewer::DependencySubscription::Implementation::make(
+  Dependency dep,
+  std::function<void()> on_reached,
+  std::function<void()> on_deprecated)
+{
+  DependencySubscription output;
+  output._pimpl = rmf_utils::make_unique_impl<Implementation>();
+  output._pimpl->shared = std::make_shared<Shared>(
+    Shared{dep, std::move(on_reached), std::move(on_deprecated)});
+
+  return output;
+}
+//==============================================================================
+auto ItineraryViewer::DependencySubscription::Implementation::get_shared(
+  const DependencySubscription& sub) -> std::shared_ptr<Shared>
+{
+  return sub._pimpl->shared;
+}
+
+//==============================================================================
+bool ItineraryViewer::DependencySubscription::reached() const
+{
+  return _pimpl->shared->reached;
+}
+
+//==============================================================================
+bool ItineraryViewer::DependencySubscription::deprecated() const
+{
+  return _pimpl->shared->deprecated;
+}
+
+//==============================================================================
+bool ItineraryViewer::DependencySubscription::finished() const
+{
+  return reached() || deprecated();
+}
+
+//==============================================================================
+Dependency ItineraryViewer::DependencySubscription::dependency() const
+{
+  return _pimpl->shared->dependency;
+}
+
+//==============================================================================
+ItineraryViewer::DependencySubscription::DependencySubscription()
+{
+  // Do nothing
 }
 
 } // namespace schedule

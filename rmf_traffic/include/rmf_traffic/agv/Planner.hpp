@@ -104,6 +104,13 @@ public:
     /// Get a const reference to the LaneClosure setting
     const LaneClosure& lane_closures() const;
 
+    /// How much the cost should increase per meter travelled. Besides this,
+    /// cost is measured by the number of seconds spent travelling.
+    Configuration& traversal_cost_per_meter(double value);
+
+    /// Get the traversal cost.
+    double traversal_cost_per_meter() const;
+
     // TODO(MXG): Add a field to specify whether multi-start planning problems
     // should choose the plan that takes the least amount of time (according to
     // plan duration) or the plan that finishes the earliest (according to the
@@ -120,7 +127,7 @@ public:
   {
   public:
 
-    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(5);
+    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(1);
 
     /// Constructor
     ///
@@ -153,8 +160,8 @@ public:
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time = DefaultMinHoldingTime,
       std::shared_ptr<const std::atomic_bool> interrupt_flag = nullptr,
-      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
-      rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
+      std::optional<double> maximum_cost_estimate = std::nullopt,
+      std::optional<std::size_t> saturation_limit = std::nullopt);
 
     /// Constructor
     ///
@@ -189,8 +196,8 @@ public:
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time,
       std::function<bool()> interrupter,
-      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
-      rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
+      std::optional<double> maximum_cost_estimate = std::nullopt,
+      std::optional<std::size_t> saturation_limit = std::nullopt);
 
     /// Set the route validator
     Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
@@ -228,17 +235,37 @@ public:
     /// estimate of the best possible plan that the planner could produce ever
     /// exceeds this value, the planner will pause itself (but this will not be
     /// considered an interruption).
-    Options& maximum_cost_estimate(rmf_utils::optional<double> value);
+    Options& maximum_cost_estimate(std::optional<double> value);
 
     /// Get the maximum cost estimate that the planner will allow.
-    rmf_utils::optional<double> maximum_cost_estimate() const;
+    std::optional<double> maximum_cost_estimate() const;
 
     /// Set the saturation limit for the planner. If the planner produces more
     /// search nodes than this limit, then the planning will stop.
-    Options& saturation_limit(rmf_utils::optional<std::size_t> value);
+    Options& saturation_limit(std::optional<std::size_t> value);
 
     /// Get the saturation limit.
-    rmf_utils::optional<std::size_t> saturation_limit() const;
+    std::optional<std::size_t> saturation_limit() const;
+
+    /// Set the dependency window for generated plans. Any potential conflicts
+    /// with the generated plan that happen within this window will be added as
+    /// dependencies to the plan waypoints. If set to a nullopt, the plan will
+    /// not have any dependencies.
+    Options& dependency_window(std::optional<Duration> value);
+
+    /// Dependency window for the planner.
+    std::optional<Duration> dependency_window() const;
+
+    /// Set the dependency resolution for generated plans. To check for
+    /// dependencies, the planner will step the generated routes back in time by
+    /// this value and check for conflicts. Detected conflicts get added to the
+    /// list of dependencies. This backstepping happens until dependency_window
+    /// is reached. If dependency_window is nullopt, this value will not be
+    /// used.
+    Options& dependency_resoution(Duration value);
+
+    /// Get the dependency resolution for generated plans.
+    Duration dependency_resolution() const;
 
     class Implementation;
   private:
@@ -274,8 +301,8 @@ public:
       Time initial_time,
       std::size_t initial_waypoint,
       double initial_orientation,
-      rmf_utils::optional<Eigen::Vector2d> location = rmf_utils::nullopt,
-      rmf_utils::optional<std::size_t> initial_lane = rmf_utils::nullopt);
+      std::optional<Eigen::Vector2d> location = std::nullopt,
+      std::optional<std::size_t> initial_lane = std::nullopt);
 
     /// Set the starting time of a plan
     Start& time(Time initial_time);
@@ -296,16 +323,16 @@ public:
     double orientation() const;
 
     /// Get the starting location, if one was specified
-    const rmf_utils::optional<Eigen::Vector2d>& location() const;
+    const std::optional<Eigen::Vector2d>& location() const;
 
-    /// Set the starting location, or remove it by using rmf_utils::nullopt
-    Start& location(rmf_utils::optional<Eigen::Vector2d> initial_location);
+    /// Set the starting location, or remove it by using std::nullopt
+    Start& location(std::optional<Eigen::Vector2d> initial_location);
 
     /// Get the starting lane, if one was specified
-    const rmf_utils::optional<std::size_t>& lane() const;
+    const std::optional<std::size_t>& lane() const;
 
-    /// Set the starting lane, or remove it by using rmf_utils::nullopt
-    Start& lane(rmf_utils::optional<std::size_t> initial_lane);
+    /// Set the starting lane, or remove it by using std::nullopt
+    Start& lane(std::optional<std::size_t> initial_lane);
 
     class Implementation;
   private:
@@ -701,6 +728,20 @@ public:
   using Configuration = Planner::Configuration;
   using Result = Planner::Result;
 
+  struct Checkpoint
+  {
+    RouteId route_id;
+    CheckpointId checkpoint_id;
+  };
+  using Checkpoints = std::vector<Checkpoint>;
+
+  struct Progress
+  {
+    std::size_t graph_index;
+    Checkpoints checkpoints;
+    rmf_traffic::Time time;
+  };
+
   /// A Waypoint within a Plan.
   ///
   /// This class helps to discretize a Plan based on the Waypoints belonging to
@@ -737,15 +778,25 @@ public:
     /// lanes to reach this Waypoint (e.g. it is simply turning in place).
     const std::vector<std::size_t>& approach_lanes() const;
 
-    /// Get the index of the Route in the plan's Itinerary that this Waypoint
-    /// belongs to.
+    /// Points on the graph that will be passed along the way to this waypoint.
+    const std::vector<Progress>& progress_checkpoints() const;
+
+    /// Points in the itinerary that have been reached when the robot arrives at
+    /// this waypoint.
+    const Checkpoints& arrival_checkpoints() const;
+
+    [[deprecated("Use arrival_checkpoints().back().route_id instead")]]
     std::size_t itinerary_index() const;
 
-    /// Get the Trajectory::Waypoint index that arrives at this Plan::Waypoint
+    [[deprecated("Use arrival_checkpoints().back().checkpoint_id instead")]]
     std::size_t trajectory_index() const;
 
     /// An event that should occur when this waypoint is reached.
     const Graph::Lane::Event* event() const;
+
+    /// The dependencies on other traffic participants that must be satisfied
+    /// before leaving this waypoint.
+    const Dependencies& dependencies() const;
 
     class Implementation;
   private:

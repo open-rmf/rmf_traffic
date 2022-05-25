@@ -249,12 +249,21 @@ void SplineMotion<S>::computeSplineParameter()
 template <typename S>
 S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
 {
+  if (tf_t >= 1.0)
+    return 0.0;
+
   S Ta = TA.dot(n);
   S Tb = TB.dot(n);
   S Tc = TC.dot(n);
 
   std::vector<S> T_potential;
+#ifdef FCL_DEBUG_CA
+  std::cout << T_potential.size() << " at line " << __LINE__+2 << std::endl;
+#endif
   T_potential.push_back(tf_t);
+#ifdef FCL_DEBUG_CA
+  std::cout << T_potential.size() << " at line " << __LINE__+2 << std::endl;
+#endif
   T_potential.push_back(1);
   if(Tb * Tb - 3 * Ta * Tc >= 0)
   {
@@ -264,7 +273,12 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
       {
         S tmp = -Tc / (2 * Tb);
         if(tmp < 1 && tmp > tf_t)
+        {
+#ifdef FCL_DEBUG_CA
+          std::cout << T_potential.size() << " at line " << __LINE__+1 << std::endl;
+#endif
           T_potential.push_back(tmp);
+        }
       }
     }
     else
@@ -273,24 +287,48 @@ S SplineMotion<S>::computeTBound(const Vector3<S>& n) const
       S tmp1 = (-Tb + tmp_delta) / (3 * Ta);
       S tmp2 = (-Tb - tmp_delta) / (3 * Ta);
       if(tmp1 < 1 && tmp1 > tf_t)
+      {
+#ifdef FCL_DEBUG_CA
+        std::cout << T_potential.size() << " at line " << __LINE__+1 << std::endl;
+#endif
         T_potential.push_back(tmp1);
+      }
       if(tmp2 < 1 && tmp2 > tf_t)
+      {
+#ifdef FCL_DEBUG_CA
+        std::cout << T_potential.size() << " at line " << __LINE__+1 << std::endl;
+#endif
         T_potential.push_back(tmp2);
+      }
     }
   }
 
-  S T_bound = Ta * T_potential[0] * T_potential[0] * T_potential[0] + Tb * T_potential[0] * T_potential[0] + Tc * T_potential[0];
+  S T_curr = Ta * T_potential[0] * T_potential[0] * T_potential[0] + Tb * T_potential[0] * T_potential[0] + Tc * T_potential[0];
+  S T_bound = T_curr;
   for(unsigned int i = 1; i < T_potential.size(); ++i)
   {
     S T_bound_tmp = Ta * T_potential[i] * T_potential[i] * T_potential[i] + Tb * T_potential[i] * T_potential[i] + Tc * T_potential[i];
-    if(T_bound_tmp > T_bound) T_bound = T_bound_tmp;
+#ifdef FCL_DEBUG_CA
+    std::cout << "Considering " << T_bound_tmp << " at index " << i << std::endl;
+#endif
+    if(T_bound_tmp > T_bound)
+    {
+#ifdef FCL_DEBUG_CA
+      std::cout << "Switching T_bound to " << T_bound_tmp << " at index " << i << std::endl;
+#endif
+      T_bound = T_bound_tmp;
+    }
   }
 
-
-  S cur_delta = Ta * tf_t * tf_t * tf_t + Tb * tf_t * tf_t + Tc * tf_t;
-
-  T_bound -= cur_delta;
+#ifdef FCL_DEBUG_CA
+  std::cout << "initial T_bound: " << T_bound << " | T_curr: " << T_curr << " | 1.0 - tf_t: " << 1.0-tf_t << " | final: ";
+#endif
+  T_bound -= T_curr;
+  T_bound /= (1.0 - tf_t);
   T_bound /= 6.0;
+#ifdef FCL_DEBUG_CA
+  std::cout << T_bound << std::endl;
+#endif
 
   return T_bound;
 }

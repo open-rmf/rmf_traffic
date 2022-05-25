@@ -137,7 +137,7 @@ private:
   RangesSet& _ranges;
 
   ItineraryVersion& _last_known_version;
-  ItineraryVersion _expected_version = 0;
+  ItineraryVersion _expected_version;
   std::map<ItineraryVersion, std::function<void()>> _changes;
 
   // TODO(MXG): Consider whether this _ready flag is superfluous since a Ticket

@@ -27,7 +27,8 @@ public:
 
   ParticipantId id;
   ItineraryVersion version;
-  RouteId route_id;
+  PlanId plan_id;
+  StorageId storage_base;
 
 };
 
@@ -35,9 +36,10 @@ public:
 Writer::Registration::Registration(
   ParticipantId id,
   ItineraryVersion version,
-  RouteId route_id)
+  PlanId plan_id,
+  StorageId storage_base)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{id, version, route_id}))
+      Implementation{id, version, plan_id, storage_base}))
 {
   // Do nothing
 }
@@ -55,9 +57,15 @@ ItineraryVersion Writer::Registration::last_itinerary_version() const
 }
 
 //==============================================================================
-RouteId Writer::Registration::last_route_id() const
+Writer::PlanId Writer::Registration::last_plan_id() const
 {
-  return _pimpl->route_id;
+  return _pimpl->plan_id;
+}
+
+//==============================================================================
+Writer::StorageId Writer::Registration::next_storage_base() const
+{
+  return _pimpl->storage_base;
 }
 
 } // namespace schedule

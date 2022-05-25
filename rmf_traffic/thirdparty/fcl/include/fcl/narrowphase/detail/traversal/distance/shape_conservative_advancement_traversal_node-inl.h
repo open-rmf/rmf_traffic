@@ -88,8 +88,17 @@ leafTesting(int, int) const
   S bound = bound1 + bound2;
 
   S cur_delta_t;
-  if(bound <= distance) cur_delta_t = 1;
-  else cur_delta_t = distance / bound;
+  if(bound <= distance)
+  {
+    cur_delta_t = 1;
+  }
+  else
+  {
+#ifdef FCL_DEBUG_CA
+    std::cout << "cur_delta_t = " << distance << " / " << bound << std::endl;
+#endif
+    cur_delta_t = distance / bound;
+  }
 
   if(cur_delta_t < delta_t)
     delta_t  = cur_delta_t;

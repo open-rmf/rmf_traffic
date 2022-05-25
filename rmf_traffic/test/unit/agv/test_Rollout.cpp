@@ -41,26 +41,37 @@ public:
     // Do nothing
   }
 
-  rmf_utils::optional<Conflict> find_conflict(
+  std::optional<Conflict> find_conflict(
     const Route& route) const final
   {
     for (const auto& blocking_route : _other_itinerary)
     {
-      if (route.map() != blocking_route->map())
+      if (route.map() != blocking_route.map())
         continue;
 
-      if (blocking_route->trajectory().size() < 2)
+      if (blocking_route.trajectory().size() < 2)
         continue;
 
-      if (const auto time = rmf_traffic::DetectConflict::between(
+      if (const auto conflict = rmf_traffic::DetectConflict::between(
           _profile,
           route.trajectory(),
+          route.check_dependencies(_other_participant, 0, 0),
           _other_profile,
-          blocking_route->trajectory()))
-        return Conflict{_other_participant, *time};
+          blocking_route.trajectory(),
+          nullptr))
+      {
+        return Conflict{
+          rmf_traffic::Dependency{
+            _other_participant, 0, 0,
+            route.trajectory().index_after(conflict->time),
+          },
+          conflict->time,
+          std::make_shared<rmf_traffic::Route>(route)
+        };
+      }
     }
 
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   std::unique_ptr<RouteValidator> clone() const final
@@ -222,13 +233,13 @@ SCENARIO("Test Rollout on graph with side routes")
     wait_time
   };
 
-  const auto start_time = std::chrono::steady_clock::now();
+  const auto start_time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
   const auto plan_0 = planner.plan(
     rmf_traffic::agv::Plan::Start(start_time, start_0, 0.0),
     rmf_traffic::agv::Plan::Goal(goal_0), options_0);
   CHECK(plan_0);
-  p0.set(plan_0->get_itinerary());
+  p0.set(p0.plan_id_assigner()->assign(), plan_0->get_itinerary());
 
   const auto plan_1 = planner.plan(
     rmf_traffic::agv::Plan::Start(start_time, start_1, 0.0),
@@ -246,12 +257,12 @@ SCENARIO("Test Rollout on graph with side routes")
 //  std::cout << "Found " << alternatives.size() << " alterantives" << std::endl;
   for (const auto& itinerary : alternatives)
   {
-//      std::cout << "Trying alternative #" << ++alterantive_count << std::endl;
-//      for (const auto& r : itinerary)
-//        std::cout << "(" << r->trajectory().front().position().transpose()
-//                  << ") --> (" << r->trajectory().back().position().transpose()
-//                  << ") --> ";
-//      std::cout << "(end)\n" << std::endl;
+//    std::cout << "Trying alternative #" << ++alterantive_count << std::endl;
+//    for (const auto& r : itinerary)
+//      std::cout << "(" << r.trajectory().front().position().transpose()
+//                << ") --> (" << r.trajectory().back().position().transpose()
+//                << ") --> ";
+//    std::cout << "(end)\n" << std::endl;
 
     const auto new_plan_0 = plan_0.replan(
       plan_0.get_starts(),
@@ -267,18 +278,7 @@ SCENARIO("Test Rollout on graph with side routes")
     if (new_plan_0)
     {
       found_plan = true;
-      p0.set(new_plan_0->get_itinerary());
-
-//      std::cout << "Found plan:\n(start) --> ";
-//      for (const auto& wp : new_plan_0->get_waypoints())
-//      {
-//        if (wp.graph_index())
-//          std::cout << *wp.graph_index() << " --> ";
-//        else
-//          std::cout << "(no index) --> ";
-//      }
-//      std::cout << "(end)\n" << std::endl;
-
+      p0.set(p0.plan_id_assigner()->assign(), new_plan_0->get_itinerary());
       break;
     }
   }
@@ -287,17 +287,9 @@ SCENARIO("Test Rollout on graph with side routes")
 
   const auto new_plan_1 = plan_1.replan(plan_1.get_starts());
   REQUIRE(new_plan_1);
-  p1.set(new_plan_1->get_itinerary());
-
+  p1.set(p1.plan_id_assigner()->assign(), new_plan_1->get_itinerary());
+  REQUIRE(new_plan_1->get_itinerary().size() == p1.itinerary().size());
+  REQUIRE(p1.itinerary().size() == database->get_itinerary(p1.id()).value().size());
   const auto new_plan_0 = plan_0.replan(plan_0.get_starts());
-  CHECK(new_plan_0);
-//  std::cout << "Found plan:\n(start) --> ";
-//  for (const auto& wp : new_plan_0->get_waypoints())
-//  {
-//    if (wp.graph_index())
-//      std::cout << *wp.graph_index() << " --> ";
-//    else
-//      std::cout << "(no index) --> ";
-//  }
-//  std::cout << "(end)\n" << std::endl;
+  CHECK(new_plan_0.success());
 }

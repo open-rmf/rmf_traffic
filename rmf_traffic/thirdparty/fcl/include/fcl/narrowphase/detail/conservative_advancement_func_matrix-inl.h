@@ -249,6 +249,7 @@ bool conservativeAdvancement(const Shape1& o1,
   node.motion1 = motion1;
   node.motion2 = motion2;
 
+  std::size_t iterations = 0;
   do
   {
     motion1->getCurrentTransform(tf1);
@@ -259,18 +260,28 @@ bool conservativeAdvancement(const Shape1& o1,
     node.delta_t = 1;
     node.min_distance = std::numeric_limits<S>::max();
 
+#ifdef FCL_DEBUG_CA
+    std::cout << "initial toc: " << node.toc << std::endl;
+#endif
     distanceRecurse(&node, 0, 0, nullptr);
 
     if(node.delta_t <= node.t_err)
     {
-      // std::cout << node.delta_t << " " << node.t_err << std::endl;
       break;
     }
 
     node.toc += node.delta_t;
+#ifdef FCL_DEBUG_CA
+    std::cout << "next toc: " << node.toc << std::endl;
+#endif
     if(node.toc > 1)
     {
       node.toc = 1;
+      break;
+    }
+
+    if (++iterations >= request.num_max_iterations)
+    {
       break;
     }
 
@@ -722,6 +733,7 @@ typename Shape1::S ShapeConservativeAdvancement(const CollisionGeometry<typename
   const Shape2* obj2 = static_cast<const Shape2*>(o2);
 
   CollisionRequest<S> c_request;
+  c_request.num_max_iterations = request.num_max_iterations;
   CollisionResult<S> c_result;
   S toc;
   bool is_collide = conservativeAdvancement(*obj1, motion1, *obj2, motion2, nsolver, c_request, c_result, toc);

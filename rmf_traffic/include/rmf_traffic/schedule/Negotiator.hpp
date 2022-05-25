@@ -48,6 +48,9 @@ public:
     /// The negotiator will call this function when it has an itinerary to
     /// submit in response to a negotiation.
     ///
+    /// \param[in] plan_id
+    ///   A unique ID that refers to the plan that is being submitted.
+    ///
     /// \param[in] itinerary
     ///   The itinerary that is being proposed
     ///
@@ -58,6 +61,7 @@ public:
     ///   negotiation (or a nullopt if no update will be performed). Pass in a
     ///   nullptr if an approval callback is not necessary.
     virtual void submit(
+      PlanId plan_id,
       std::vector<Route> itinerary,
       ApprovalCallback approval_callback = nullptr) const = 0;
 
@@ -107,13 +111,18 @@ class SimpleResponder : public Negotiator::Responder
 {
 public:
 
+  using ApprovalMap =
+    std::unordered_map<
+    Negotiation::ConstTablePtr,
+    std::function<UpdateVersion()>
+    >;
+
+  using BlockerSet = std::unordered_set<schedule::ParticipantId>;
+
   /// Constructor
   ///
-  /// \param[in] negotiation
-  ///   The Negotiation that this SimpleResponder is tied to
-  ///
   /// \param[in] table
-  ///   The table
+  ///   The negotiation table that this SimpleResponder is tied to
   ///
   /// \param[in] report_blockers
   ///   If the blockers should be reported when a forfeit is given, provide a
@@ -121,6 +130,21 @@ public:
   SimpleResponder(
     const Negotiation::TablePtr& table,
     std::vector<schedule::ParticipantId>* report_blockers = nullptr);
+
+  /// Constructor
+  ///
+  /// \param[in] table
+  ///   The negotiation table that this SimpleResponder is tied to
+  ///
+  /// \param[in] approval_map
+  ///   If provided, the responder will store the approval callback in this map
+  ///
+  /// \param[in] blockers
+  ///   If provided, the responder will store any solution blockers in this set
+  SimpleResponder(
+    const Negotiation::TablePtr& table,
+    std::shared_ptr<ApprovalMap> approval_map,
+    std::shared_ptr<BlockerSet> blockers);
 
   template<typename... Args>
   static std::shared_ptr<SimpleResponder> make(Args&& ... args)
@@ -131,6 +155,7 @@ public:
   // Documentation inherited
   // NOTE: approval_callback does not get used
   void submit(
+    PlanId plan_id,
     std::vector<Route> itinerary,
     std::function<UpdateVersion()> approval_callback = nullptr) const final;
 

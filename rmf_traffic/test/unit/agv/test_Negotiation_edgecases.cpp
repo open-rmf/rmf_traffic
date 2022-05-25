@@ -15,14 +15,17 @@
  *
 */
 
-#include "utils_NegotiationRoom.hpp"
-
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
+#include <rmf_traffic/agv/CentralizedNegotiation.hpp>
 
 #include <rmf_traffic/agv/debug/debug_Planner.hpp>
+
+#include <rmf_utils/catch.hpp>
+
+#include <iostream>
 
 //==============================================================================
 Eigen::Vector3d get_location(
@@ -70,25 +73,13 @@ void check_start_compatibility(
       b_traj.insert(b.time() + 10s, p_b, zero);
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-          profile_a, a_traj,
-          profile_b, b_traj))
+          profile_a, a_traj, nullptr,
+          profile_b, b_traj, nullptr))
       {
         std::cout << "CONFLICT FOUND" << std::endl;
       }
     }
   }
-}
-
-//==============================================================================
-rmf_traffic::schedule::Itinerary convert(
-  const std::vector<rmf_traffic::Route>& itinerary)
-{
-  rmf_traffic::schedule::Itinerary output;
-  output.reserve(itinerary.size());
-  for (const auto& it : itinerary)
-    output.push_back(std::make_shared<rmf_traffic::Route>(it));
-
-  return output;
 }
 
 //==============================================================================
@@ -107,6 +98,7 @@ std::vector<rmf_traffic::schedule::Itinerary> multiply(
 //==============================================================================
 SCENARIO("Test difficult 3-way scenarios")
 {
+  using rmf_traffic::agv::CentralizedNegotiation;
   const std::string test_map_name = "test_map";
 
   rmf_traffic::agv::Graph graph_a;
@@ -252,9 +244,20 @@ SCENARIO("Test difficult 3-way scenarios")
       profile_b
     }, database);
 
+  const auto planner_a = std::make_shared<rmf_traffic::agv::Planner>(
+    config_a, rmf_traffic::agv::Planner::Options{nullptr});
+
+  const auto planner_b = std::make_shared<rmf_traffic::agv::Planner>(
+    config_b, rmf_traffic::agv::Planner::Options{nullptr});
+
+  const auto options = rmf_traffic::agv::SimpleNegotiator::Options()
+    .maximum_cost_leeway(5.5)
+    .minimum_cost_threshold(std::nullopt)
+    .maximum_alternatives(200);
+
   GIVEN("Case 1")
   {
-    const auto time = std::chrono::steady_clock::now();
+    const auto time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
     auto a0_starts = rmf_traffic::agv::compute_plan_starts(
       graph_a, test_map_name, {14.006982, -15.530105, -3.137865}, time);
@@ -268,22 +271,36 @@ SCENARIO("Test difficult 3-way scenarios")
       graph_b, test_map_name, {13.057442, -15.363754, -3.128299}, time);
     auto b2_goal = rmf_traffic::agv::Plan::Goal(13);
 
-    NegotiationRoom::Intentions intentions;
-    intentions.insert({
+    std::vector<CentralizedNegotiation::Agent> agents;
+    agents.push_back(
+      {
         a0.id(),
-        NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
+        std::move(a0_starts),
+        a0_goal,
+        planner_a,
+        options
+      });
 
-    intentions.insert({
+    agents.push_back(
+      {
         b1.id(),
-        NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
+        std::move(b1_starts),
+        b1_goal,
+        planner_b,
+        options
+      });
 
-    intentions.insert({
+    agents.push_back(
+      {
         b2.id(),
-        NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
+        std::move(b2_starts),
+        b2_goal,
+        planner_b,
+        options
+      });
 
-    auto room = NegotiationRoom(database, intentions, 5.5, std::nullopt, 200);
-    auto proposal = room.solve();
-    REQUIRE(proposal);
+    const auto result = CentralizedNegotiation(database).solve(agents);
+    REQUIRE(result.proposal().has_value());
   }
 }
 
@@ -402,7 +419,7 @@ SCENARIO("Test cycling through all negotiation alternatives")
 
   const auto table = negotiation.table(0, {});
 
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = rmf_traffic::Time(rmf_traffic::Duration(0));
   const auto start_1 = rmf_traffic::agv::Plan::Start(now, 5, 0.0);
   const auto goal_1 = rmf_traffic::agv::Plan::Goal(0);
 
@@ -412,8 +429,8 @@ SCENARIO("Test cycling through all negotiation alternatives")
   const auto plan_1 = planner.plan(start_1, goal_1);
   const auto plan_2 = planner.plan(start_2, goal_2);
 
-  const auto alt_1 = multiply(convert(plan_1->get_itinerary()));
-  const auto alt_2 = multiply(convert(plan_2->get_itinerary()));
+  const auto alt_1 = multiply(plan_1->get_itinerary());
+  const auto alt_2 = multiply(plan_2->get_itinerary());
   const auto alt_3 = alt_2;
 
   WHEN("One rejects")
@@ -484,17 +501,17 @@ SCENARIO("Test empty proposal")
   const auto empty_route = rmf_traffic::Route("test_map", {});
 
   using namespace std::chrono_literals;
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = rmf_traffic::Time(rmf_traffic::Duration(0));
   rmf_traffic::Trajectory not_empty_trajectory;
   not_empty_trajectory.insert(now, {0, 0, 0}, {0, 0, 0});
   not_empty_trajectory.insert(now + 10s, {0, 0, 0}, {0, 0, 0});
   const auto not_empty_route =
     rmf_traffic::Route("test_map", not_empty_trajectory);
 
-  negotiation.table(0, {})->submit({}, 1);
-  negotiation.table(1, {})->submit({not_empty_route}, 1);
-  negotiation.table(1, {0})->submit({not_empty_route}, 1);
-  negotiation.table(0, {1})->submit({not_empty_route}, 1);
+  negotiation.table(0, {})->submit(0, {}, 1);
+  negotiation.table(1, {})->submit(0, {not_empty_route}, 1);
+  negotiation.table(1, {0})->submit(0, {not_empty_route}, 1);
+  negotiation.table(0, {1})->submit(0, {not_empty_route}, 1);
 
   const auto quickest_finish =
     negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());

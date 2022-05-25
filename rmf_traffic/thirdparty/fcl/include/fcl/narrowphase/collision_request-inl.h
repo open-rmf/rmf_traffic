@@ -52,6 +52,7 @@ struct CollisionRequest<double>;
 //==============================================================================
 template <typename S>
 CollisionRequest<S>::CollisionRequest(
+    size_t num_max_iterations_,
     size_t num_max_contacts_,
     bool enable_contact_,
     size_t num_max_cost_sources_,
@@ -59,7 +60,8 @@ CollisionRequest<S>::CollisionRequest(
     bool use_approximate_cost_,
     GJKSolverType gjk_solver_type_,
     Real gjk_tolerance_)
-  : num_max_contacts(num_max_contacts_),
+  : num_max_iterations(num_max_iterations_),
+    num_max_contacts(num_max_contacts_),
     enable_contact(enable_contact_),
     num_max_cost_sources(num_max_cost_sources_),
     enable_cost(enable_cost_),

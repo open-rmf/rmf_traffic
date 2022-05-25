@@ -54,11 +54,34 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
-  std::optional<Itinerary> get_itinerary(
+  std::optional<ItineraryView> get_itinerary(
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
   Version latest_version() const final;
+
+
+  //============================================================================
+  // ItineraryViewer API
+  //============================================================================
+
+  // Documentation inherited from ItineraryViewer
+  std::optional<PlanId> get_current_plan_id(
+    ParticipantId participant_id) const final;
+
+  // Documentation inherited from ItineraryViewer
+  const std::vector<CheckpointId>* get_current_progress(
+    ParticipantId participant_id) const final;
+
+  // Documentation inherited from ItineraryViewer
+  ProgressVersion get_current_progress_version(
+    ParticipantId participant_id) const final;
+
+  // Documentation inherited from ItineraryViewer
+  DependencySubscription watch_dependency(
+    Dependency dependency,
+    std::function<void()> on_reached,
+    std::function<void()> on_deprecated) const final;
 
 
   //============================================================================
