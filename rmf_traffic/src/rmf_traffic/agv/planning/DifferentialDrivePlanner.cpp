@@ -1369,14 +1369,14 @@ public:
       }
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
-      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time
+      std::cout << "Cost " << approach_cost + entry_event_cost + alt->cost
         + exit_event_cost << " = " << "Approach: " << approach_cost
-                << " | Entry: " << entry_event_cost << " | Alt: " << alt->time
+                << " | Entry: " << entry_event_cost << " | Alt: " << alt->cost
                 << " | Exit: " << exit_event_cost << std::endl;
       std::cout << "Previous cost " << top->current_cost << " + Cost "
-                << approach_cost + entry_event_cost + alt->time
+                << approach_cost + entry_event_cost + alt->cost
         + exit_event_cost << " = " << top->current_cost
-        + approach_cost + entry_event_cost + alt->time
+        + approach_cost + entry_event_cost + alt->cost
         + exit_event_cost << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
