@@ -195,6 +195,18 @@ void node_to_traversals(
     {
       kin_limits.linear.velocity =
         std::min(kin_limits.linear.velocity, *node.lowest_speed_limit);
+        if (kin_limits.linear.velocity <= 0.0)
+        {
+          const double new_value = kin.limits.linear.velocity * 1e-3;
+          std::cerr << "A speed limit of " << kin_limits.linear.velocity
+                    << " was given for lane " << traversal.finish_lane_index
+                    << ". Speed limits must be strictly greater than 0.0 to "
+                    << "prevent mathematical singularities. The value will be "
+                    << "changed to 0.001*v = " << new_value
+                    << ", but you are advised to fix your usage of rmf_traffic."
+                    << std::endl;
+          kin_limits.linear.velocity = new_value;
+        }
     }
 
     Traversal::Alternative alternative;
