@@ -195,18 +195,6 @@ void node_to_traversals(
     {
       kin_limits.linear.velocity =
         std::min(kin_limits.linear.velocity, *node.lowest_speed_limit);
-        if (kin_limits.linear.velocity <= 0.0)
-        {
-          const double new_value = kin.limits.linear.velocity * 1e-3;
-          std::cerr << "A speed limit of " << kin_limits.linear.velocity
-                    << " was given for lane " << traversal.finish_lane_index
-                    << ". Speed limits must be strictly greater than 0.0 to "
-                    << "prevent mathematical singularities. The value will be "
-                    << "changed to 0.001*v = " << new_value
-                    << ", but you are advised to fix your usage of rmf_traffic."
-                    << std::endl;
-          kin_limits.linear.velocity = new_value;
-        }
     }
 
     Traversal::Alternative alternative;
@@ -275,6 +263,24 @@ void perform_traversal(
   const auto& exit = lane.exit();
   const std::size_t wp_index_0 = entry.waypoint_index();
   const std::size_t wp_index_1 = exit.waypoint_index();
+
+  if (lane.properties().speed_limit().has_value())
+  {
+    const auto speed_limit = *lane.properties().speed_limit();
+    if (speed_limit <= 0.0)
+    {
+      // If the lane has a nonsense speed limit, then we will warn the user and
+      // avoid traversing it.
+      std::cerr << "A speed limit of " << speed_limit
+                << " was given for lane " << lane_index
+                << ". Speed limits must be strictly greater than 0.0 to "
+                << "prevent mathematical singularities or illegal time travel. "
+                << "The planner will treat this lane as though it is blocked, "
+                << "but you are advised to use the lane closure feature for "
+                << "that instead." << std::endl;
+      return;
+    }
+  }
 
   if (!visited.insert(wp_index_1).second)
   {
