@@ -264,6 +264,24 @@ void perform_traversal(
   const std::size_t wp_index_0 = entry.waypoint_index();
   const std::size_t wp_index_1 = exit.waypoint_index();
 
+  if (lane.properties().speed_limit().has_value())
+  {
+    const auto speed_limit = *lane.properties().speed_limit();
+    if (speed_limit <= 0.0)
+    {
+      // If the lane has a nonsense speed limit, then we will warn the user and
+      // avoid traversing it.
+      std::cerr << "A speed limit of " << speed_limit
+                << " was given for lane " << lane_index
+                << ". Speed limits must be strictly greater than 0.0 to "
+                << "prevent mathematical singularities or illegal time travel. "
+                << "The planner will treat this lane as though it is blocked, "
+                << "but you are advised to use the lane closure feature for "
+                << "that instead." << std::endl;
+      return;
+    }
+  }
+
   if (!visited.insert(wp_index_1).second)
   {
     // If we have already added the finish waypoint to the queue, then there is
