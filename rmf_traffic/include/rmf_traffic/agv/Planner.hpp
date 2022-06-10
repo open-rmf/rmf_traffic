@@ -262,7 +262,7 @@ public:
     /// list of dependencies. This backstepping happens until dependency_window
     /// is reached. If dependency_window is nullopt, this value will not be
     /// used.
-    Options& dependency_resoution(Duration value);
+    Options& dependency_resolution(Duration value);
 
     /// Get the dependency resolution for generated plans.
     Duration dependency_resolution() const;
