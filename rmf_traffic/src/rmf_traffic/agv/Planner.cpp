@@ -316,7 +316,7 @@ std::optional<Duration> Planner::Options::dependency_window() const
 }
 
 //==============================================================================
-auto Planner::Options::dependency_resoution(Duration value) -> Options&
+auto Planner::Options::dependency_resolution(Duration value) -> Options&
 {
   _pimpl->dependency_resolution = value;
   return *this;
