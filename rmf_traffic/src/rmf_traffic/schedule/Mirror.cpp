@@ -274,6 +274,7 @@ Version Mirror::latest_version() const
 std::optional<ItineraryView> Mirror::get_itinerary(
   const std::size_t participant_id) const
 {
+  ItineraryView itinerary;
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
   {
@@ -281,13 +282,12 @@ std::optional<ItineraryView> Mirror::get_itinerary(
     // this participant but never received a state. In that case we should
     // return an empty itinerary, not a nullopt.
     if (_pimpl->participant_ids.count(participant_id) > 0)
-      return {};
+      return itinerary;
 
     return std::nullopt;
   }
 
   const auto& state = p->second;
-  ItineraryView itinerary;
   itinerary.reserve(state.storage.size());
   for (const auto& s : state.storage)
     itinerary.push_back(s.second.entry->route);
