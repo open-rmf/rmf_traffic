@@ -700,6 +700,13 @@ auto DifferentialDriveHeuristic::generate(
 }
 
 //==============================================================================
+ConstForestSolutionPtr DifferentialDriveHeuristic::inner_heuristic(
+  std::size_t start, std::size_t finish) const
+{
+  return _heuristic->get(start, finish);
+}
+
+//==============================================================================
 CacheManagerPtr<DifferentialDriveHeuristic>
 DifferentialDriveHeuristic::make_manager(
   std::shared_ptr<const Supergraph> supergraph)

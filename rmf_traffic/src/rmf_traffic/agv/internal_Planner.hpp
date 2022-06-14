@@ -21,6 +21,7 @@
 #include <rmf_traffic/agv/Planner.hpp>
 
 #include "internal_planning.hpp"
+#include "planning/Tree.hpp"
 
 namespace rmf_traffic {
 namespace agv {
@@ -92,6 +93,21 @@ public:
 
   static const Implementation& get(const Result& r);
 
+};
+
+//==============================================================================
+class Planner::QuickestPath::Implementation
+{
+public:
+  planning::ConstForestSolutionPtr solution;
+  double cost_offset;
+
+  static void choose_better(
+    std::optional<Implementation>& left,
+    const Implementation& right);
+
+  static std::optional<QuickestPath> promote(
+    std::optional<Implementation> value);
 };
 
 } // namespace agv
