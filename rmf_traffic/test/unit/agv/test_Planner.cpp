@@ -824,6 +824,20 @@ SCENARIO("Quickest Path")
     expected_cost = 5 + diagonal_time;
   }
 
+  GIVEN("Same start and goal")
+  {
+    start_set.push_back({time, 0, 0.0});
+    goal_wp = 0;
+    expected_path = {};
+    expected_cost = 0.0;
+  }
+
+  GIVEN("No starts")
+  {
+    // We should get back no solution
+    expected_cost = std::nullopt;
+  }
+
   auto options = rmf_traffic::agv::Planner::Options{nullptr};
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
