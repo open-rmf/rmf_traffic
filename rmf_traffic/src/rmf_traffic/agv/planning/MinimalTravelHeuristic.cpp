@@ -31,7 +31,7 @@ MinimumTravel::ForwardExpander::ForwardExpander(
 {
   _heuristic = [cache, target](WaypointId from)
     {
-      return cache->get(from, target);
+      return cache->get_cost(from, target);
     };
 }
 
@@ -90,7 +90,7 @@ void MinimumTravel::ForwardExpander::retarget(
 {
   _heuristic = [cache, new_target](WaypointId from)
     {
-      return cache->get(from, new_target);
+      return cache->get_cost(from, new_target);
     };
 
   // It is okay to capture by reference because the lambda only gets used within
@@ -118,7 +118,7 @@ MinimumTravel::ReverseExpander::ReverseExpander(
 {
   _heuristic = [cache, target](WaypointId from)
     {
-      return cache->get(target, from);
+      return cache->get_cost(target, from);
     };
 }
 
@@ -177,7 +177,7 @@ void MinimumTravel::ReverseExpander::retarget(
 {
   _heuristic = [cache, new_target](WaypointId from)
     {
-      return cache->get(new_target, from);
+      return cache->get_cost(new_target, from);
     };
 
   // It is okay to capture by reference because the lambda only gets used within

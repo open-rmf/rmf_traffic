@@ -226,7 +226,7 @@ using ConstMinimalTravelHeuristicPtr =
   std::shared_ptr<const MinimalTravelHeuristic>;
 
 //==============================================================================
-inline double combine_costs(
+inline ForestSolution combine_paths(
   const MinimumTravel::ForwardNode& a,
   const MinimumTravel::ReverseNode& b)
 {
@@ -235,15 +235,38 @@ inline double combine_costs(
   // other because it may be going across multiple lanes instead of only going
   // down one lane. We subtract the lower of the two lane costs because the
   // lower lane cost would be leaving a gap in the overall path.
-  return a.current_cost + b.current_cost - std::min(a.lane_cost, b.lane_cost);
+  const double cost =
+    a.current_cost + b.current_cost - std::min(a.lane_cost, b.lane_cost);
+
+  std::vector<std::size_t> path;
+
+  // Do not add the first waypoint of either a or b because those will both be
+  // covered by adding the waypoints of a's parent and b's parent.
+  auto f_node = a.parent;
+  while (f_node)
+  {
+    path.push_back(f_node->waypoint);
+    f_node = f_node->parent;
+  }
+
+  std::reverse(path.begin(), path.end());
+
+  auto r_node = b.parent;
+  while (r_node)
+  {
+    path.push_back(r_node->waypoint);
+    r_node = r_node->parent;
+  }
+
+  return ForestSolution{cost, std::move(path)};
 }
 
 //==============================================================================
-inline double combine_costs(
+inline ForestSolution combine_paths(
   const MinimumTravel::ReverseNode& b,
   const MinimumTravel::ForwardNode& a)
 {
-  return combine_costs(a, b);
+  return combine_paths(a, b);
 }
 
 //==============================================================================
