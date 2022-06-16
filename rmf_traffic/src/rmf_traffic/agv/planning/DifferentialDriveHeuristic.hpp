@@ -52,6 +52,9 @@ public:
     const Storage& old_items,
     Storage& new_items) const final;
 
+  ConstForestSolutionPtr inner_heuristic(
+      std::size_t start, std::size_t finish) const;
+
   static CacheManagerPtr<DifferentialDriveHeuristic> make_manager(
     std::shared_ptr<const Supergraph> graph);
 

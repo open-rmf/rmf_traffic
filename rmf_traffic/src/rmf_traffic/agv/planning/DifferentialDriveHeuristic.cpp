@@ -146,7 +146,7 @@ public:
       const auto initial_lane_index = traversal.initial_lane_index;
       const auto next_lane_index = traversal.finish_lane_index;
       const auto remaining_cost_estimate =
-        _heuristic->get(next_waypoint_index, _goal_waypoint);
+        _heuristic->get_cost(next_waypoint_index, _goal_waypoint);
 
 //      std::cout << "Heuristic " << next_waypoint_index << " -> " << _goal_waypoint << ": ";
 //      if (remaining_cost_estimate.has_value())
@@ -536,7 +536,7 @@ auto DifferentialDriveHeuristic::generate(
   const std::size_t goal_waypoint_index = goal_lane.exit().waypoint_index();
 
   auto start_heuristic =
-    _heuristic->get(start_waypoint_index, goal_waypoint_index);
+    _heuristic->get_cost(start_waypoint_index, goal_waypoint_index);
 
   if (!start_heuristic.has_value())
   {
@@ -697,6 +697,13 @@ auto DifferentialDriveHeuristic::generate(
   }
 
   return output;
+}
+
+//==============================================================================
+ConstForestSolutionPtr DifferentialDriveHeuristic::inner_heuristic(
+  std::size_t start, std::size_t finish) const
+{
+  return _heuristic->get(start, finish);
 }
 
 //==============================================================================

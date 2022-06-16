@@ -99,6 +99,10 @@ public:
     const Planner::Options& options,
     std::optional<std::size_t> max_rollouts) const = 0;
 
+  virtual std::optional<Planner::QuickestPath> quickest_path(
+    const Planner::StartSet& start_vertices,
+    std::size_t goal_vertex) const = 0;
+
   virtual const Planner::Configuration& get_configuration() const = 0;
 
   class Debugger

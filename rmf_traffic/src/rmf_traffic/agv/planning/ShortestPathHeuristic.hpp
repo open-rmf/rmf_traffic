@@ -189,19 +189,40 @@ public:
 };
 
 //==============================================================================
-inline double combine_costs(
+inline ForestSolution combine_paths(
   const ShortestPath::ForwardNode& a,
   const ShortestPath::ReverseNode& b)
 {
-  return a.current_cost + b.current_cost;
+  const double cost = a.current_cost + b.current_cost;
+  std::vector<std::size_t> path;
+  path.push_back(a.waypoint);
+  auto f_node = a.parent;
+  while (f_node)
+  {
+    path.push_back(f_node->waypoint);
+    f_node = f_node->parent;
+  }
+
+  // Crawling down the forward path gives us a backtrack of the path, so we need
+  // to reverse it here.
+  std::reverse(path.begin(), path.end());
+
+  auto r_node = b.parent;
+  while (r_node)
+  {
+    path.push_back(r_node->waypoint);
+    r_node = r_node->parent;
+  }
+
+  return ForestSolution{cost, std::move(path)};
 }
 
 //==============================================================================
-inline double combine_costs(
+inline ForestSolution combine_paths(
   const ShortestPath::ReverseNode& b,
   const ShortestPath::ForwardNode& a)
 {
-  return combine_costs(a, b);
+  return combine_paths(a, b);
 }
 
 //==============================================================================

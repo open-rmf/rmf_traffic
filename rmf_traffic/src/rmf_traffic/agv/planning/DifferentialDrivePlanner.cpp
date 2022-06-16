@@ -2508,6 +2508,57 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
 }
 
 //==============================================================================
+std::optional<Planner::QuickestPath> DifferentialDrivePlanner::quickest_path(
+  const Planner::StartSet& start_options,
+  std::size_t goal_vertex) const
+{
+  std::optional<Planner::QuickestPath::Implementation> best;
+  for (const auto& start : start_options)
+  {
+    const auto cost_offset = [&]()
+      {
+        const auto location = start.location();
+        if (!location.has_value())
+          return 0.0;
+
+        const Eigen::Vector2d wp_location =
+          _supergraph->original().waypoints.at(start.waypoint()).get_location();
+
+        const auto speed = [&]()
+          {
+            const auto agent_speed =
+              _supergraph->traits().linear().get_nominal_velocity();
+
+            const auto lane_index = start.lane();
+            if (!lane_index.has_value())
+              return agent_speed;
+
+            const auto& lane = _supergraph->original().lanes.at(*lane_index);
+            const auto speed_limit = lane.properties().speed_limit();
+            if (!speed_limit.has_value())
+              return agent_speed;
+
+            return std::min(agent_speed, *speed_limit);
+          }();
+
+        return (*location - wp_location).norm() / speed;
+      }();
+
+    const auto solution =
+      _cache->inner()->inner_heuristic(start.waypoint(), goal_vertex);
+
+    if (!solution)
+      continue;
+
+    Planner::QuickestPath::Implementation::choose_better(
+      best,
+      Planner::QuickestPath::Implementation{solution, cost_offset});
+  }
+
+  return Planner::QuickestPath::Implementation::promote(best);
+}
+
+//==============================================================================
 const Planner::Configuration&
 DifferentialDrivePlanner::get_configuration() const
 {
