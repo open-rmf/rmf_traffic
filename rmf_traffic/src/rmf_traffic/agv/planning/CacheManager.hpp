@@ -178,6 +178,8 @@ public:
 
   CacheArg get() const;
 
+  const std::shared_ptr<const Generator>& inner() const;
+
 private:
 
   CacheManager(
@@ -293,6 +295,14 @@ template<typename CacheArg>
 CacheArg CacheManager<CacheArg>::get() const
 {
   return CacheArg{_upstream, _storage_initializer};
+}
+
+//==============================================================================
+template<typename CacheArg>
+const std::shared_ptr<const typename CacheArg::Generator>&
+CacheManager<CacheArg>::inner() const
+{
+  return _upstream->generator;
 }
 
 //==============================================================================
