@@ -281,7 +281,7 @@ std::optional<ItineraryView> Mirror::get_itinerary(
     // this participant but never received a state. In that case we should
     // return an empty itinerary, not a nullopt.
     if (_pimpl->participant_ids.count(participant_id) > 0)
-      return {};
+      return ItineraryView{};
 
     return std::nullopt;
   }
