@@ -138,7 +138,8 @@ const LaneClosure& Planner::Configuration::lane_closures() const
 }
 
 //==============================================================================
-auto Planner::Configuration::traversal_cost_per_meter(double per_meter) ->Configuration&
+auto Planner::Configuration::traversal_cost_per_meter(
+  double per_meter) -> Configuration&
 {
   _pimpl->traversal_cost_per_meter = per_meter;
   return *this;
@@ -989,6 +990,65 @@ std::vector<schedule::ParticipantId> Planner::Result::blockers() const
 Planner::Result::Result()
 {
   // Do nothing
+}
+
+//==============================================================================
+double Planner::QuickestPath::cost() const
+{
+  return _pimpl->solution->cost + _pimpl->cost_offset;
+}
+
+//==============================================================================
+const std::vector<std::size_t>& Planner::QuickestPath::path() const
+{
+  return _pimpl->solution->path;
+}
+
+//==============================================================================
+Planner::QuickestPath::QuickestPath()
+{
+  // Do nothing
+}
+
+//==============================================================================
+void Planner::QuickestPath::Implementation::choose_better(
+  std::optional<Implementation>& left,
+  const Implementation& right)
+{
+  if (!left.has_value())
+  {
+    left = right;
+    return;
+  }
+
+  const auto c_left = left->cost_offset + left->solution->cost;
+  const auto c_right = right.cost_offset + right.solution->cost;
+
+  if (c_right < c_left)
+    left = right;
+}
+
+//==============================================================================
+std::optional<Planner::QuickestPath>
+Planner::QuickestPath::Implementation::promote(
+  std::optional<Implementation> value)
+{
+  if (!value.has_value())
+    return std::nullopt;
+
+  QuickestPath output;
+  output._pimpl = rmf_utils::make_impl<Implementation>(*std::move(value));
+
+  return output;
+}
+
+//==============================================================================
+auto Planner::quickest_path(
+  const StartSet& start,
+  const std::size_t goal) const
+-> std::optional<QuickestPath>
+{
+  return _pimpl->interface->quickest_path(start, goal);
 }
 
 //==============================================================================

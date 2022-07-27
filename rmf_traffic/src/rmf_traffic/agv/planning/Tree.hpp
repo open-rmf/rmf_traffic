@@ -209,6 +209,14 @@ struct DefaultForestSettings
 };
 
 //==============================================================================
+struct ForestSolution
+{
+  double cost;
+  std::vector<std::size_t> path;
+};
+using ConstForestSolutionPtr = std::shared_ptr<const ForestSolution>;
+
+//==============================================================================
 template<typename T>
 class BidirectionalForest
 {
@@ -228,7 +236,9 @@ public:
     std::shared_ptr<const Supergraph> graph,
     Cache cache);
 
-  std::optional<double> get(WaypointId start, WaypointId finish) const;
+  ConstForestSolutionPtr get(WaypointId start, WaypointId finish) const;
+
+  std::optional<double> get_cost(WaypointId start, WaypointId finish) const;
 
   ~BidirectionalForest();
 
@@ -237,10 +247,10 @@ private:
   using ForwardTreeManagerMap = TreeManagerMap<ForwardTree, ReverseTree>;
   using ReverseTreeManagerMap = TreeManagerMap<ReverseTree, ForwardTree>;
 
-  std::optional<std::optional<double>> _check_for_solution(
+  std::optional<ConstForestSolutionPtr> _check_for_solution(
     WaypointId start, WaypointId finish) const;
 
-  std::optional<double> _search(
+  ConstForestSolutionPtr _search(
     WaypointId start,
     std::optional<LockedTree<ForwardTree>> forward_locked,
     WaypointId finish,
@@ -248,6 +258,7 @@ private:
 
   std::shared_ptr<const Supergraph> _graph;
   Cache _heuristic_cache;
+  ConstForestSolutionPtr _identity_solution;
 
   mutable ForwardTreeManagerMap _forward;
   mutable std::atomic_bool _forward_mutex = false;
@@ -255,7 +266,7 @@ private:
   mutable ReverseTreeManagerMap _reverse;
   mutable std::atomic_bool _reverse_mutex = false;
 
-  using GoalCostMap = std::unordered_map<WaypointId, std::optional<double>>;
+  using GoalCostMap = std::unordered_map<WaypointId, ConstForestSolutionPtr>;
   using SolutionMap = std::unordered_map<WaypointId, GoalCostMap>;
   mutable SolutionMap _solutions;
   mutable std::atomic_bool _solutions_mutex = false;

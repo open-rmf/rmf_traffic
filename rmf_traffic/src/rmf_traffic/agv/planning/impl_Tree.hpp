@@ -235,20 +235,20 @@ LockedTree<T> lock_tree(
 
 //==============================================================================
 template<typename T, typename A, typename B>
-std::optional<double> lowest_cost_overlap(
+std::optional<ForestSolution> lowest_cost_overlap(
   const A& fewer_visits,
   const B& more_visits)
 {
   using GetKey = typename T::GetKey;
-  std::optional<double> lowest_cost;
+  std::optional<ForestSolution> lowest_cost;
   for (const auto& [_, visit] : fewer_visits)
   {
     const auto m_it = more_visits.find(GetKey()(visit));
     if (m_it == more_visits.end())
       continue;
 
-    const auto check = combine_costs(*visit, *m_it->second);
-    if (!lowest_cost.has_value() || check < *lowest_cost)
+    const auto check = combine_paths(*visit, *m_it->second);
+    if (!lowest_cost.has_value() || check.cost < lowest_cost->cost)
     {
       lowest_cost = check;
     }
@@ -259,7 +259,7 @@ std::optional<double> lowest_cost_overlap(
 
 //==============================================================================
 template<typename T, typename A, typename B>
-inline std::optional<double> find_overlap(
+inline std::optional<ForestSolution> find_overlap(
   const A& forward,
   const B& reverse)
 {
@@ -321,21 +321,22 @@ BidirectionalForest<T>::BidirectionalForest(
   std::shared_ptr<const Supergraph> graph,
   Cache cache)
 : _graph(std::move(graph)),
-  _heuristic_cache(std::move(cache))
+  _heuristic_cache(std::move(cache)),
+  _identity_solution(std::make_shared<ForestSolution>(ForestSolution{0.0, {}}))
 {
   // Do nothing
 }
 
 //==============================================================================
 template<typename T>
-std::optional<double> BidirectionalForest<T>::get(
+ConstForestSolutionPtr BidirectionalForest<T>::get(
   WaypointId start, WaypointId finish) const
 {
   if constexpr (T::count_usage)
     ++_usage_count;
 
   if (start == finish)
-    return 0.0;
+    return _identity_solution;
 
   {
     const auto solution = _check_for_solution(start, finish);
@@ -352,11 +353,23 @@ std::optional<double> BidirectionalForest<T>::get(
   if (const auto overlap = find_overlap<T>(*forward.tree, *reverse.tree))
   {
     SpinLock lock(_solutions_mutex);
-    _solutions[start][finish] = *overlap;
-    return *overlap;
+    auto solution = std::make_shared<ForestSolution>(*overlap);
+    _solutions[start][finish] = solution;
+    return solution;
   }
 
   return _search(start, std::move(forward), finish, std::move(reverse));
+}
+
+//==============================================================================
+template<typename T>
+std::optional<double> BidirectionalForest<T>::get_cost(
+  WaypointId start, WaypointId finish) const
+{
+  if (const auto solution = get(start, finish))
+    return solution->cost;
+
+  return std::nullopt;
 }
 
 //==============================================================================
@@ -378,7 +391,7 @@ BidirectionalForest<T>::~BidirectionalForest()
 
 //==============================================================================
 template<typename T>
-std::optional<std::optional<double>>
+std::optional<ConstForestSolutionPtr>
 BidirectionalForest<T>::_check_for_solution(
   WaypointId start, WaypointId finish) const
 {
@@ -397,7 +410,7 @@ BidirectionalForest<T>::_check_for_solution(
 
 //==============================================================================
 template<typename T>
-std::optional<double> BidirectionalForest<T>::_search(
+ConstForestSolutionPtr BidirectionalForest<T>::_search(
   WaypointId start,
   std::optional<LockedTree<ForwardTree>> forward_locked,
   WaypointId finish,
@@ -416,7 +429,7 @@ std::optional<double> BidirectionalForest<T>::_search(
 
   using GetKey = typename T::GetKey;
 
-  std::optional<double> result;
+  ConstForestSolutionPtr result;
   std::vector<ForwardNodePtr> new_forwards;
   std::vector<ReverseNodePtr> new_reverses;
   {
@@ -437,7 +450,8 @@ std::optional<double> BidirectionalForest<T>::_search(
 
           if (const auto overlap = reverse.visited(GetKey()(next_forward)))
           {
-            result = combine_costs(*next_forward, *overlap);
+            result = std::make_shared<ForestSolution>(
+              combine_paths(*next_forward, *overlap));
             break;
           }
         }
@@ -453,7 +467,8 @@ std::optional<double> BidirectionalForest<T>::_search(
 
           if (const auto overlap = forward.visited(GetKey()(next_reverse)))
           {
-            result = combine_costs(*next_reverse, *overlap);
+            result = std::make_shared<ForestSolution>(
+              combine_paths(*next_reverse, *overlap));
             break;
           }
         }
