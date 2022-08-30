@@ -746,6 +746,7 @@ SCENARIO("Quickest Path")
   std::size_t goal_wp = 0;
   std::vector<std::size_t> expected_path;
   std::optional<double> expected_cost;
+  auto planner_config = rmf_traffic::agv::Planner::Configuration(graph, traits);
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
 
   GIVEN("Quickest Path Request from 3 -> 7")
@@ -762,8 +763,8 @@ SCENARIO("Quickest Path")
     WHEN("Modest speed limit along 8 -> 10")
     {
       const auto speed = 2.0/3.0;
-      graph.get_lane(18).properties().speed_limit(speed);
-      graph.get_lane(20).properties().speed_limit(speed);
+      planner_config.graph().get_lane(18).properties().speed_limit(speed);
+      planner_config.graph().get_lane(20).properties().speed_limit(speed);
       expected_path = {3, 8, 9, 10, 7};
       expected_cost = 2.0 / speed + 2.0 * diagonal_time;
     }
@@ -771,8 +772,8 @@ SCENARIO("Quickest Path")
     WHEN("Significant speed limit along 8 -> 10")
     {
       const auto speed = 0.5;
-      graph.get_lane(18).properties().speed_limit(speed);
-      graph.get_lane(20).properties().speed_limit(speed);
+      planner_config.graph().get_lane(18).properties().speed_limit(speed);
+      planner_config.graph().get_lane(20).properties().speed_limit(speed);
 
       // The route will change to following the bottom instead
       expected_path = {3, 4, 0, 1, 2, 6, 7};
@@ -796,14 +797,14 @@ SCENARIO("Quickest Path")
 
     WHEN("Significant speed limit from 6 -> 7")
     {
-      graph.get_lane(12).properties().speed_limit(0.1);
+      planner_config.graph().get_lane(12).properties().speed_limit(0.1);
       expected_path = {5, 4, 3, 8, 9};
       expected_cost = 3.5 + diagonal_time;
     }
 
     WHEN("Significant speed limit on offset lane")
     {
-      graph.get_lane(6).properties().speed_limit(0.1);
+      planner_config.graph().get_lane(6).properties().speed_limit(0.1);
       expected_path = {5, 4, 3, 8, 9};
       expected_cost = 3.5 + diagonal_time;
     }
@@ -838,11 +839,21 @@ SCENARIO("Quickest Path")
     expected_cost = std::nullopt;
   }
 
+  GIVEN("3 -> 7 that is impossible because of blocked lanes")
+  {
+    auto lane_closures = rmf_traffic::agv::LaneClosure();
+    start_set.push_back({time, 3, 0.0});
+    goal_wp = 7;
+    // All the graph is closed
+    for (std::size_t i = 0; i < planner_config.graph().num_lanes(); ++i)
+      lane_closures.close(i);
+    planner_config.lane_closures(lane_closures);
+    // There should be no solution
+    expected_cost = std::nullopt;
+  }
+
   auto options = rmf_traffic::agv::Planner::Options{nullptr};
-  rmf_traffic::agv::Planner planner{
-    rmf_traffic::agv::Planner::Configuration{graph, traits},
-    options
-  };
+  rmf_traffic::agv::Planner planner{planner_config, options};
 
   auto quickest = planner.quickest_path(start_set, goal_wp);
   if (expected_cost.has_value())
