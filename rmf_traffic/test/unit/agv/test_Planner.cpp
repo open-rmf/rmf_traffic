@@ -845,7 +845,7 @@ SCENARIO("Quickest Path")
     start_set.push_back({time, 3, 0.0});
     goal_wp = 7;
     // All the graph is closed
-    for (std::size_t i = 0; i < planner_config.graph().num_waypoints(); ++i)
+    for (std::size_t i = 0; i < planner_config.graph().num_lanes(); ++i)
       lane_closures.close(i);
     planner_config.lane_closures(lane_closures);
     // There should be no solution
