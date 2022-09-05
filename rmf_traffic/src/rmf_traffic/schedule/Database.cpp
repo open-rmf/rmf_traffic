@@ -32,8 +32,22 @@
 
 #include <algorithm>
 #include <list>
+#include <deque>
+
 namespace rmf_traffic {
 namespace schedule {
+
+//==============================================================================
+class RouteStorageException : public std::exception
+{
+public:
+  const char* what() const noexcept override
+  {
+    return "Route storage is corrupted. This indicates that Database::cull was "
+        "called with a bad time value. Check whether your schedule node should "
+        "turn on simulation time.";
+  }
+};
 
 //==============================================================================
 class Database::Implementation
@@ -108,6 +122,7 @@ public:
   struct ParticipantState
   {
     std::vector<StorageId> active_routes;
+    rmf_traffic::Duration cumulative_delay;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
     std::shared_ptr<const ParticipantDescription> description;
@@ -186,6 +201,7 @@ public:
   /// The current time is used to know when participants can be culled after
   /// getting unregistered
   rmf_traffic::Time current_time = rmf_traffic::Time(rmf_traffic::Duration(0));
+  rmf_traffic::Duration maximum_cumulative_delay = std::chrono::hours(2);
 
   mutable DependencyTracker dependencies;
 
@@ -231,10 +247,38 @@ public:
     Duration delay)
   {
     ParticipantStorage& storage = state.storage;
+    state.cumulative_delay += delay;
+    if (state.cumulative_delay > maximum_cumulative_delay)
+    {
+      // We have reached the maximum supported cumulative delay, so we will
+      // refresh the whole itinerary to avoid overloading the database.
+      Itinerary refresh_itinerary;
+      for (const auto storage_id : state.active_routes)
+      {
+        const auto s_it = state.storage.find(storage_id);
+        if (s_it == storage.end())
+          throw RouteStorageException();
+
+        auto& entry_storage = s_it->second;
+        const auto& route_entry = entry_storage.entry;
+        auto new_route = *route_entry->route;
+        if (!new_route.trajectory().empty())
+          new_route.trajectory().front().adjust_times(delay);
+        refresh_itinerary.push_back(new_route);
+      }
+
+      clear(participant, state, false);
+      insert_items(participant, state, refresh_itinerary);
+      return;
+    }
+
     for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(storage_id) != storage.end());
-      auto& entry_storage = storage.at(storage_id);
+      const auto s_it = storage.find(storage_id);
+      if (s_it == storage.end())
+        throw RouteStorageException();
+
+      auto& entry_storage = s_it->second;
       const auto& route_entry = entry_storage.entry;
       const auto route_id = route_entry->route_id;
 
@@ -282,9 +326,11 @@ public:
     ParticipantStorage& storage = state.storage;
     for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(storage_id) != storage.end());
-      auto& entry_storage = storage.at(storage_id);
+      const auto s_it = storage.find(storage_id);
+      if (s_it == storage.end())
+        throw RouteStorageException();
 
+      auto& entry_storage = s_it->second;
       auto route = entry_storage.entry->route;
       const auto route_id = entry_storage.entry->route_id;
 
@@ -316,13 +362,17 @@ public:
 
   void clear(
     ParticipantId participant,
-    ParticipantState& state)
+    ParticipantState& state,
+    bool clear_progress = true)
   {
     ParticipantStorage& storage = state.storage;
     for (const StorageId storage_id : state.active_routes)
     {
-      assert(storage.find(storage_id) != storage.end());
-      auto& entry_storage = storage.at(storage_id);
+      const auto s_it = storage.find(storage_id);
+      if (s_it == storage.end())
+        throw RouteStorageException();
+
+      auto& entry_storage = s_it->second;
       const auto& entry = *entry_storage.entry;
 
       auto transition = std::make_unique<Transition>(
@@ -350,8 +400,10 @@ public:
       entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
 
+    state.cumulative_delay = rmf_traffic::Duration(0);
     state.active_routes.clear();
-    state.progress.reached_checkpoints.clear();
+    if (clear_progress)
+      state.progress.reached_checkpoints.clear();
   }
 
   ParticipantId get_next_participant_id()
@@ -437,7 +489,14 @@ std::optional<Itinerary> Database::Debug::get_itinerary(
   Itinerary itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back(*state.storage.at(route).entry->route);
+  {
+    const auto s_it = state.storage.find(route);
+    if (s_it == state.storage.end())
+      throw RouteStorageException();
+
+    const auto& entry_storage = s_it->second;
+    itinerary.push_back(*entry_storage.entry->route);
+  }
 
   return itinerary;
 }
@@ -674,6 +733,7 @@ Writer::Registration register_participant_impl(
       id,
       Database::Implementation::ParticipantState{
         {},
+        rmf_traffic::Duration(0),
         std::move(tracker),
         {},
         description_ptr,
@@ -1271,7 +1331,14 @@ std::optional<ItineraryView> Database::get_itinerary(
   ItineraryView itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back(state.storage.at(route).entry->route);
+  {
+    const auto s_it = state.storage.find(route);
+    if (s_it == state.storage.end())
+      throw RouteStorageException();
+
+    const auto& entry_storage = s_it->second;
+    itinerary.push_back(entry_storage.entry->route);
+  }
 
   return itinerary;
 }
@@ -1491,6 +1558,23 @@ Viewer::View Database::query(const Query& parameters, const Version after) const
 }
 
 //==============================================================================
+void Database::set_maximum_cumulative_delay(rmf_traffic::Duration maximum_delay)
+{
+  _pimpl->maximum_cumulative_delay = maximum_delay;
+}
+
+//==============================================================================
+std::optional<rmf_traffic::Duration> Database::get_cumulative_delay(
+  ParticipantId participant) const
+{
+  const auto s_it = _pimpl->states.find(participant);
+  if (s_it == _pimpl->states.end())
+    return std::nullopt;
+
+  return s_it->second.cumulative_delay;
+}
+
+//==============================================================================
 Version Database::cull(Time time)
 {
   Query::Spacetime spacetime;
@@ -1511,7 +1595,47 @@ Version Database::cull(Time time)
     const auto r_it = storage.find(route.storage_id);
     assert(r_it != storage.end());
 
+    const auto a_it = std::find(
+      p_it->second.active_routes.begin(),
+      p_it->second.active_routes.end(),
+      route.storage_id);
+    if (a_it != p_it->second.active_routes.end())
+      p_it->second.active_routes.erase(a_it);
+
+    // If the thread of RouteEntries gets too long, it is possible that erasing
+    // the entry from storage could cause a stack overflow as its predecessors
+    // are recursively destructed. Therefore we will first store the
+    // predecessors in a queue before erasing the entry, and then destruct the
+    // queue in an order that will avoid recursive destruction.
+    std::cout << " ===== CULLING SCHEDULE ROUTE ENTRY" << std::endl;
+    std::unordered_set<Implementation::RouteEntryPtr> visited;
+    std::deque<Implementation::RouteEntryPtr> entries;
+    entries.push_back(r_it->second.entry);
+    while (const auto* transition = entries.back()->transition.get())
+    {
+      if (transition->predecessor.entry.use_count() == 1)
+      {
+        if (!visited.insert(transition->predecessor.entry).second)
+        {
+          throw std::runtime_error(" !!!! REVISITED ROUTE ENTRY -- CIRCULAR REFERENCE!");
+        }
+        entries.push_back(transition->predecessor.entry);
+      }
+      else
+      {
+        // If the use count of the route entry is already higher than one, then
+        // we do not have to worry about recursively destructing it.
+        break;
+      }
+    }
+
     storage.erase(r_it);
+    visited.clear();
+
+    // Now we pop the queue from front to back to make sure the destruction
+    // happens one entry at a time.
+    while (!entries.empty())
+      entries.pop_front();
   }
 
   _pimpl->timeline.cull(time);
