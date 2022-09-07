@@ -1607,7 +1607,6 @@ Version Database::cull(Time time)
     // are recursively destructed. Therefore we will first store the
     // predecessors in a queue before erasing the entry, and then destruct the
     // queue in an order that will avoid recursive destruction.
-    std::cout << " ===== CULLING SCHEDULE ROUTE ENTRY" << std::endl;
     std::unordered_set<Implementation::RouteEntryPtr> visited;
     std::deque<Implementation::RouteEntryPtr> entries;
     entries.push_back(r_it->second.entry);
@@ -1617,7 +1616,10 @@ Version Database::cull(Time time)
       {
         if (!visited.insert(transition->predecessor.entry).second)
         {
-          throw std::runtime_error(" !!!! REVISITED ROUTE ENTRY -- CIRCULAR REFERENCE!");
+          // A circular reference like this should never happen, but if it does
+          // then we should exit right away.
+          // TODO(MXG): Consider escalating this issue with an error printout
+          break;
         }
         entries.push_back(transition->predecessor.entry);
       }

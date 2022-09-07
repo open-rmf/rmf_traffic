@@ -73,7 +73,6 @@ bool Participant::Implementation::Shared::set(
 
   _change_history.clear();
   _cumulative_delay = std::chrono::seconds(0);
-  std::cout << "[" << _description.name() << "] cumulative delay reset by set: " << time::to_seconds(_cumulative_delay) << std::endl;
   _current_plan_id = plan;
   const auto storage_base = _next_storage_base;
   _next_storage_base += itinerary.size();
@@ -122,11 +121,6 @@ bool Participant::Implementation::Shared::cumulative_delay(
   if (std::chrono::abs(change_in_delay) <= std::chrono::abs(tolerance))
     return true;
 
-  std::cout << "[" << _description.name() << "] cumulative delay adjustment:"
-            << "\n -- before: " << time::to_seconds(_cumulative_delay)
-            << "\n -- after:  " << time::to_seconds(new_cumulative_delay)
-            << "\n -- change: " << time::to_seconds(change_in_delay);
-
   _cumulative_delay = new_cumulative_delay;
   const ItineraryVersion itinerary_version = get_next_version();
   const ParticipantId id = _id;
@@ -171,11 +165,6 @@ void Participant::Implementation::Shared::delay(Duration delay)
     return;
   }
 
-  std::cout << "[" << _description.name() << "] delay adjustment:"
-            << "\n -- before: " << time::to_seconds(_cumulative_delay)
-            << "\n -- adjust: " << time::to_seconds(delay)
-            << "\n -- after:  " << time::to_seconds(_cumulative_delay + delay)
-            << std::endl;
   _cumulative_delay += delay;
 
   const ItineraryVersion itinerary_version = get_next_version();
@@ -215,7 +204,6 @@ void Participant::Implementation::Shared::reached(
 void Participant::Implementation::Shared::clear()
 {
   _cumulative_delay = std::chrono::seconds(0);
-  std::cout << "[" << _description.name() << "] cumulative delay reset by clear: " << time::to_seconds(_cumulative_delay) << std::endl;
   if (_current_itinerary.empty())
   {
     // There is nothing to clear, so we can skip this change
