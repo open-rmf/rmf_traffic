@@ -372,6 +372,12 @@ SCENARIO("Test Participant")
 
     p1.cumulative_delay(p1.current_plan_id(), 10s);
     CHECK(db->latest_version() == dbv);
+    // No change because the new cumulative delay is equal to the previous one
+    CHECK(db->inconsistencies().begin()->ranges.last_known_version() ==
+      rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
+
+    p1.cumulative_delay(p1.current_plan_id(), 9s);
+    CHECK(db->latest_version() == dbv);
     CHECK(db->inconsistencies().begin()->ranges.last_known_version() + 1 ==
       rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
 
@@ -677,7 +683,7 @@ SCENARIO("Test Participant")
     // Now the database should have updated with both changes
     CHECK(db->latest_version() == ++(++dbv));
     REQUIRE(db->get_itinerary(p1.id()));
-    CHECK(db->get_itinerary(p1.id())->size() == 3);
+    CHECK(db->get_itinerary(p1.id())->size() == 1);
     const auto itinerary = db->get_itinerary(p1.id());
     CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);
@@ -710,7 +716,7 @@ SCENARIO("Test Participant")
 
     // Extend the itinerary
     p1.cumulative_delay(p1.current_plan_id(), -3s);
-    CHECK(p1.itinerary().size() == 3);
+    CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
     CHECK(db->get_itinerary(p1.id())->empty());
@@ -719,7 +725,7 @@ SCENARIO("Test Participant")
 
     // Extend the itinerary
     p1.cumulative_delay(p1.current_plan_id(), -5s);
-    CHECK(p1.itinerary().size() == 4);
+    CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
     REQUIRE(db->get_itinerary(p1.id()));
     CHECK(db->get_itinerary(p1.id())->empty());
@@ -772,7 +778,7 @@ SCENARIO("Test Participant")
 
     // Extend the itinerary
     p1.cumulative_delay(p1.current_plan_id(), -5s);
-    CHECK(p1.itinerary().size() == 2);
+    CHECK(p1.itinerary().size() == 1);
     CHECK(db->latest_version() == dbv);
 
     writer->drop_packets = false;
@@ -822,7 +828,7 @@ SCENARIO("Test Participant")
 
     // Fix inconsistency
     rectifier->rectify();
-    dbv += 2;
+    dbv += 1;
     CHECK(db->latest_version() == dbv);
     CHECK_ITINERARY(p1, *db);
     CHECK(db->inconsistencies().begin()->ranges.size() == 0);

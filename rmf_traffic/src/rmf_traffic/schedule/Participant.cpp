@@ -121,6 +121,22 @@ bool Participant::Implementation::Shared::cumulative_delay(
   if (std::chrono::abs(change_in_delay) <= std::chrono::abs(tolerance))
     return true;
 
+  bool no_delays = true;
+  for (auto& route : _current_itinerary)
+  {
+    if (route.trajectory().size() > 0)
+    {
+      no_delays = false;
+      route.trajectory().front().adjust_times(change_in_delay);
+    }
+  }
+
+  if (no_delays)
+  {
+    // We don't need to make any changes, because there are no waypoints to move
+    return true;
+  }
+
   _cumulative_delay = new_cumulative_delay;
   const ItineraryVersion itinerary_version = get_next_version();
   const ParticipantId id = _id;
