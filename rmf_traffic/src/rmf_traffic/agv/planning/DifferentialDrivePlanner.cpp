@@ -298,7 +298,7 @@ std::vector<Plan::Waypoint> find_dependencies(
       std::unordered_map<CheckpointId, Dependencies> found_dependencies;
       while (!no_conflicts)
       {
-        if (++count > 10000)
+        if (++count > 100)
         {
           // This almost certainly means there's a bug causing an infinite loop.
           // A normal value would be less than 10.
