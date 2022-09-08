@@ -106,6 +106,9 @@ public:
   /// Get the current plan ID of the participant
   PlanId current_plan_id() const;
 
+  /// Change the profile of this participant
+  void change_profile(Profile new_profile);
+
   // This class supports moving but not copying
   Participant(Participant&&) = default;
   Participant& operator=(Participant&&) = default;
