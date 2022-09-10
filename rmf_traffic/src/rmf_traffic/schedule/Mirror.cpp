@@ -583,6 +583,13 @@ bool Mirror::update(const Patch& patch)
 void Mirror::reset()
 {
   _pimpl->latest_version = std::nullopt;
+  for (auto& [id, state] : _pimpl->states)
+  {
+    state.storage.clear();
+    state.highest_storage = std::nullopt;
+    state.current_plan_id = std::numeric_limits<PlanId>::max();
+    state.itinerary_version = 0;
+  }
 }
 
 //==============================================================================
