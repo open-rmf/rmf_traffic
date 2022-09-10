@@ -116,7 +116,7 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
-  Version latest_version() const final;
+  Version latest_version() const;
 
 
   //============================================================================

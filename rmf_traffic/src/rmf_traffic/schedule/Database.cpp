@@ -1371,8 +1371,7 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
   return std::make_shared<SnapshotType>(
     _pimpl->timeline.snapshot(check_relevant),
     _pimpl->participant_ids,
-    _pimpl->descriptions,
-    _pimpl->schedule_version);
+    _pimpl->descriptions);
 }
 
 //==============================================================================

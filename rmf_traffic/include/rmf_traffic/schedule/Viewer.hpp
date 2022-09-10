@@ -105,7 +105,7 @@ public:
     ParticipantId participant_id) const = 0;
 
   /// Get the latest version number of this Database.
-  virtual Version latest_version() const = 0;
+//  virtual Version latest_version() const = 0;
 
   // Virtual destructor
   virtual ~Viewer() = default;
