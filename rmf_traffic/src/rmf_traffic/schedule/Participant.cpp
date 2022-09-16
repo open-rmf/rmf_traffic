@@ -20,6 +20,7 @@
 #include "internal_Rectifier.hpp"
 
 #include <iostream>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -360,6 +361,26 @@ ParticipantId Participant::Implementation::Shared::get_id() const
 }
 
 //==============================================================================
+void Participant::Implementation::Shared::change_profile(Profile new_profile)
+{
+  _description.profile(std::move(new_profile));
+
+  // The register_participant function does not return until it has received a
+  // response from the schedule. This will be a problem if a user calls the
+  // change_profile function from inside of a callback that inside a spinning
+  // executor, because the node will no longer be able to spin and therefore the
+  // response will never arrive and therefore the node will no longer be able to
+  // spin, creating a deadlock. We run the function in a detached thread so it
+  // can do its work without blocking. We don't care about the return value so
+  // we can just discard that without syncing.
+  std::thread t([w = _writer, d = _description]()
+    {
+      w->register_participant(d);
+    });
+  t.detach();
+}
+
+//==============================================================================
 void Participant::Implementation::Shared::correct_id(ParticipantId new_id)
 {
   _id = new_id;
@@ -489,6 +510,12 @@ PlanId Participant::assign_plan_id() const
 PlanId Participant::current_plan_id() const
 {
   return _pimpl->_shared->_current_plan_id;
+}
+
+//==============================================================================
+void Participant::change_profile(Profile new_profile)
+{
+  _pimpl->_shared->change_profile(std::move(new_profile));
 }
 
 //==============================================================================
