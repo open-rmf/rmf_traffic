@@ -698,32 +698,17 @@ SCENARIO("Test forking off of mirrors")
 
   writer->drop_packets = true;
 
-  trajectory.insert(now + 20s, {10, 10, 0}, {0, 0, 0});
-  p0.extend({{test_map, trajectory}});
-
-  writer->drop_packets = false;
-
-  trajectory.insert(now + 22s, {10, 10, 0}, {0, 0, 0});
-  p0.extend({{test_map, trajectory}});
-
   writer->rectify();
 
-  p0.delay(10s);
+  p0.cumulative_delay(p0.current_plan_id(), 10s);
 
   writer->drop_packets = true;
 
-  trajectory.insert(now + 32s, {10, 0, 0}, {0, 0, 0});
-  p0.extend({{test_map, trajectory}});
-  p0.delay(5s);
+  p0.cumulative_delay(p0.current_plan_id(), 5s);
 
   writer->failover();
 
   writer->drop_packets = false;
-
-  trajectory.erase(trajectory.begin(), trajectory.end());
-  trajectory.insert(now, {3, 2, 1}, {0, 0, 0});
-  trajectory.insert(now + 10s, {1, 2, 3}, {0, 0, 0});
-  p0.extend({{test_map, trajectory}});
 
   writer->rectify();
 
@@ -751,10 +736,7 @@ SCENARIO("Test forking off of mirrors")
 
   trajectory.insert(now + 32s, {10, 0, 0}, {0, 0, 0});
   p0.set(p0.plan_id_assigner()->assign(), {{test_map, trajectory}});
-  p0.delay(20s);
-
-  trajectory.insert(now + 10s, {0, 10, 0}, {0, 0, 0});
-  p0.extend({{test_map, trajectory}});
+  p0.cumulative_delay(p0.current_plan_id(), 20s);
 
   writer->drop_packets = false;
   writer->rectify();

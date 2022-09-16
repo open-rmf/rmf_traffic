@@ -49,7 +49,9 @@ public:
 
     bool set(PlanId plan, std::vector<Route> itinerary);
 
-    void extend(std::vector<Route> additional_routes);
+    bool cumulative_delay(PlanId plan, Duration delay, Duration tolerance);
+
+    std::optional<Duration> cumulative_delay(PlanId plan) const;
 
     void delay(Duration delay);
 
