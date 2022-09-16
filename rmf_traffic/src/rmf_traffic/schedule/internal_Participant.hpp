@@ -68,6 +68,8 @@ public:
 
     ParticipantId get_id() const;
 
+    void change_profile(Profile new_profile);
+
     void correct_id(ParticipantId new_id);
 
     const ParticipantDescription& get_description() const;
@@ -81,7 +83,7 @@ public:
 
     ParticipantId _id;
     ItineraryVersion _version;
-    const ParticipantDescription _description;
+    ParticipantDescription _description;
     std::shared_ptr<Writer> _writer;
     std::unique_ptr<RectificationRequester> _rectification;
 
