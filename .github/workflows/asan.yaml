@@ -1,50 +1,16 @@
 name: asan
 on:
+  push:
   pull_request:
   schedule:
-    - cron: '42 0 * * *'
+    - cron: '23 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  asan:
-    name: asan
-    runs-on: ubuntu-20.04
-    steps:
-      - name: create_blacklist
-        run: echo "fun:*Eigen*" > /home/runner/work/blacklist.txt
-      - name: deps
-        uses: ros-tooling/setup-ros@v0.2
-        with:
-          required-ros-distributions: foxy
-      - name: build_and_test
-        uses: ros-tooling/action-ros-ci@v0.2
-        env:
-          CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
-          CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt
-        with:
-          target-ros2-distro: foxy
-          # build all packages listed in the meta package
-          package-name: |
-            rmf_traffic
-          vcs-repo-file-url: |
-            https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
-          colcon-defaults: |
-            {
-              "build": {
-                "mixin": ["asan-gcc"],
-                "cmake-args": [
-                   "-DCMAKE_BUILD_TYPE=Debug"]
-              }
-            }
-          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-      - name: Upload failed test results
-        uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: test-results
-          path: ros_ws/build/*/test_results/*/*.catch2.xml
-      - name: upload_test_stream
-        uses: actions/upload-artifact@v2
-        with:
-          name: colcon-test-logs
-          path: ${{ steps.build_and_test.outputs.ros-workspace-directory-name }}/log
-        if: always()
+  build_and_test:
+    name: rmf_traffic
+    uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_asan.yaml@main
+    with:
+      # NOTE: Avoid adding comments in the package lines, this can break some of the called scripts in github actions
+      packages: |
+        rmf_traffic
