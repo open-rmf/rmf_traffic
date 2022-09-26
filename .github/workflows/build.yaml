@@ -10,6 +10,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         ros_distribution:
           - galactic
@@ -26,12 +27,18 @@ jobs:
     container:
       image: ${{ matrix.docker_image }}
     steps:
-      - name: pwd
-        run: pwd
       - name: setup ROS environment
         uses: ros-tooling/setup-ros@v0.3
         with:
           required-ros-distributions: ${{ matrix.ros_distribution }}
+      - name: pwd
+        run: |
+          pwd
+          lsb_release -r
+          clang --version
+          rosversion -d || true
+          echo $ROS_DISTRO || true
+          find / | grep fcl
       - name: build
         uses: ros-tooling/action-ros-ci@v0.2
         env:
