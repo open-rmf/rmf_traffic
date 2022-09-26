@@ -1,9 +1,12 @@
 name: build
 on:
-  push:
   pull_request:
   schedule:
     - cron: '55 0 * * *'
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build_and_test:
