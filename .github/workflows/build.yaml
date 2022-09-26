@@ -16,22 +16,16 @@ jobs:
           - rolling
         include:
           # Galactic Geochelone (May 2021 - November 2022)
-          - docker_image: ubuntu:focal
+          - ubuntu_distribution: focal
             ros_distribution: galactic
             ros_version: 2
           # Rolling Ridley (No End-Of-Life)
-          - docker_image: ubuntu:jammy
+          - ubuntu_distribution: jammy
             ros_distribution: rolling
             ros_version: 2
     container:
-      image: ${{ matrix.docker_image }}
+      image: osrf/ros:${{ matrix.ros_distribution }}-desktop-${{ matrix.ubuntu_distribution }}
     steps:
-      - name: pwd
-        run: pwd
-      - name: setup ROS environment
-        uses: ros-tooling/setup-ros@v0.3
-        with:
-          required-ros-distributions: ${{ matrix.ros_distribution }}
       - name: install_clang_and_tools
         run: sudo apt update && sudo apt install -y clang clang-tools lld wget python3-pip python3-colcon-coveragepy-result python3-colcon-lcov-result lcov
       # TODO: fix for cryptography>2.8 failing in galactic https://github.com/open-rmf/rmf/pull/202#pullrequestreview-1100045417
