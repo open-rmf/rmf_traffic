@@ -7,12 +7,10 @@ on:
 defaults:
   run:
     shell: bash
-
 jobs:
   build_and_test:
-    name: Build and test
-    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         ros_distribution:
           - galactic
@@ -26,6 +24,8 @@ jobs:
           - ubuntu_distribution: jammy
             ros_distribution: rolling
             ros_version: 2
+    name: Build and test
+    runs-on: ubuntu-latest
     container:
       image: osrf/ros:${{ matrix.ros_distribution }}-desktop-${{ matrix.ubuntu_distribution }}
     steps:
