@@ -931,14 +931,15 @@ SCENARIO("A Single Lane")
         {vertex_id_to_idx["C"]}
       );
 
-      p0.set(p0.plan_id_assigner()->assign(), a0_plan_0->get_itinerary());
-
       const auto a0_plan_1 = a0_planner.plan(
         {time + 8s, vertex_id_to_idx["C"], 0.0},
         {vertex_id_to_idx["A"]}
       );
 
-      p0.extend(a0_plan_1->get_itinerary());
+      auto itinerary = a0_plan_0->get_itinerary();
+      auto extension = a0_plan_1->get_itinerary();
+      itinerary.insert(itinerary.end(), extension.begin(), extension.end());
+      p0.set(p0.plan_id_assigner()->assign(), itinerary);
 
       std::vector<CentralizedNegotiation::Agent> agents;
       agents.push_back(
@@ -1539,14 +1540,15 @@ SCENARIO("A single lane with an alcove holding space")
         {vertex_id_to_idx["A"]}
       );
 
-      p1.set(p1.plan_id_assigner()->assign(), a1_plan_0->get_itinerary());
-
       const auto a1_plan_1 = a1_planner.plan(
         {time + 16s, vertex_id_to_idx["A"], 0.0},
         {vertex_id_to_idx["D"]}
       );
 
-      p1.extend(a1_plan_1->get_itinerary());
+      auto itinerary = a1_plan_0->get_itinerary();
+      auto extension = a1_plan_1->get_itinerary();
+      itinerary.insert(itinerary.end(), extension.begin(), extension.end());
+      p1.set(p1.plan_id_assigner()->assign(), itinerary);
 
       std::vector<CentralizedNegotiation::Agent> agents;
       agents.push_back(

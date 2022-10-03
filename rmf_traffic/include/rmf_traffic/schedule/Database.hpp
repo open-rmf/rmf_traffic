@@ -116,7 +116,7 @@ public:
     std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
-  Version latest_version() const final;
+  Version latest_version() const;
 
 
   //============================================================================
@@ -208,6 +208,23 @@ public:
   View query(
     const Query& parameters,
     Version after) const;
+
+  /// Excessive cumulative delays have a risk of overloading the schedule
+  /// database by taking up an excessive amount of memory to track the delay
+  /// history. Typically this would be a cumulative delay on the scale of
+  /// weeks, months, years, etc, and almost certainly indicates an error in
+  /// the schedule participant's reporting.
+  ///
+  /// Still, to avoid harmful effects of participant errors, when the database
+  /// detects an excessive cumulative delay for a participant, a new delay(~)
+  /// command will be converted into a set(~) command. This function lets you
+  /// decide what the threshold should be for that. The default is equivalent to
+  /// 2 hours.
+  void set_maximum_cumulative_delay(rmf_traffic::Duration maximum_delay);
+
+  /// Get the current cumulative delay for the participant.
+  std::optional<rmf_traffic::Duration> get_cumulative_delay(
+    ParticipantId participant) const;
 
   /// Throw away all itineraries up to the specified time.
   ///

@@ -20,6 +20,7 @@
 #include "internal_Rectifier.hpp"
 
 #include <iostream>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -109,46 +110,57 @@ bool Participant::Implementation::Shared::set(
 }
 
 //==============================================================================
-void Participant::Implementation::Shared::extend(
-  std::vector<Route> additional_routes)
+bool Participant::Implementation::Shared::cumulative_delay(
+  PlanId plan,
+  Duration new_cumulative_delay,
+  Duration tolerance)
 {
-  for (std::size_t i = 0; i < additional_routes.size(); ++i)
+  if (plan != _current_plan_id)
+    return false;
+
+  const auto change_in_delay = new_cumulative_delay - _cumulative_delay;
+  if (std::chrono::abs(change_in_delay) <= std::chrono::abs(tolerance))
+    return true;
+
+  bool no_delays = true;
+  for (auto& route : _current_itinerary)
   {
-    const auto& r = additional_routes[i];
-    if (r.trajectory().size() < 2)
+    if (route.trajectory().size() > 0)
     {
-      // *INDENT-OFF*
-      throw std::runtime_error(
-        "[Participant::extend] Route [" + std::to_string(i) + "] has a "
-        "trajectory of size [" + std::to_string(r.trajectory().size()) + "], "
-        "but the minimum acceptable size is 2.");
-      // *INDENT-ON*
+      no_delays = false;
+      route.trajectory().front().adjust_times(change_in_delay);
     }
   }
 
-  if (additional_routes.empty())
-    return;
+  if (no_delays)
+  {
+    // We don't need to make any changes, because there are no waypoints to move
+    return true;
+  }
 
-  _next_storage_base += additional_routes.size();
-  _current_itinerary.reserve(
-    _current_itinerary.size() + additional_routes.size());
-
-  for (const auto& item : additional_routes)
-    _current_itinerary.push_back(item);
-
-  _progress.resize(_current_itinerary.size());
-
+  _cumulative_delay = new_cumulative_delay;
   const ItineraryVersion itinerary_version = get_next_version();
   const ParticipantId id = _id;
   auto change =
-    [self = weak_from_this(), additional_routes, itinerary_version, id]()
+    [self = weak_from_this(), change_in_delay, itinerary_version, id]()
     {
       if (const auto me = self.lock())
-        me->_writer->extend(id, additional_routes, itinerary_version);
+        me->_writer->delay(id, change_in_delay, itinerary_version);
     };
 
   _change_history[itinerary_version] = change;
   change();
+  return true;
+}
+
+//==============================================================================
+std::optional<Duration> Participant::Implementation::Shared::cumulative_delay(
+  const PlanId plan) const
+{
+  if (plan == _current_plan_id)
+    return _cumulative_delay;
+
+  return std::nullopt;
 }
 
 //==============================================================================
@@ -208,6 +220,7 @@ void Participant::Implementation::Shared::reached(
 //==============================================================================
 void Participant::Implementation::Shared::clear()
 {
+  _cumulative_delay = std::chrono::seconds(0);
   if (_current_itinerary.empty())
   {
     // There is nothing to clear, so we can skip this change
@@ -348,6 +361,26 @@ ParticipantId Participant::Implementation::Shared::get_id() const
 }
 
 //==============================================================================
+void Participant::Implementation::Shared::change_profile(Profile new_profile)
+{
+  _description.profile(std::move(new_profile));
+
+  // The register_participant function does not return until it has received a
+  // response from the schedule. This will be a problem if a user calls the
+  // change_profile function from inside of a callback that inside a spinning
+  // executor, because the node will no longer be able to spin and therefore the
+  // response will never arrive and therefore the node will no longer be able to
+  // spin, creating a deadlock. We run the function in a detached thread so it
+  // can do its work without blocking. We don't care about the return value so
+  // we can just discard that without syncing.
+  std::thread t([w = _writer, d = _description]()
+    {
+      w->register_participant(d);
+    });
+  t.detach();
+}
+
+//==============================================================================
 void Participant::Implementation::Shared::correct_id(ParticipantId new_id)
 {
   _id = new_id;
@@ -395,9 +428,16 @@ bool Participant::set(PlanId plan, std::vector<Route> itinerary)
 }
 
 //==============================================================================
-void Participant::extend(std::vector<Route> additional_routes)
+bool Participant::cumulative_delay(
+  PlanId plan, Duration delay, Duration tolerance)
 {
-  return _pimpl->_shared->extend(additional_routes);
+  return _pimpl->_shared->cumulative_delay(plan, delay, tolerance);
+}
+
+//==============================================================================
+std::optional<Duration> Participant::cumulative_delay(PlanId plan) const
+{
+  return _pimpl->_shared->cumulative_delay(plan);
 }
 
 //==============================================================================
@@ -470,6 +510,12 @@ PlanId Participant::assign_plan_id() const
 PlanId Participant::current_plan_id() const
 {
   return _pimpl->_shared->_current_plan_id;
+}
+
+//==============================================================================
+void Participant::change_profile(Profile new_profile)
+{
+  _pimpl->_shared->change_profile(std::move(new_profile));
 }
 
 //==============================================================================
