@@ -47,6 +47,10 @@ public:
     const Planner::Options& options,
     std::optional<std::size_t> max_rollouts) const final;
 
+  std::optional<Planner::QuickestPath> quickest_path(
+    const Planner::StartSet& start_vertices,
+    std::size_t goal_vertex) const final;
+
   const Planner::Configuration& get_configuration() const final;
 
   std::unique_ptr<Debugger> debug_begin(

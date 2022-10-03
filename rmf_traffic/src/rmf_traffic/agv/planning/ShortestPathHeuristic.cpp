@@ -33,6 +33,7 @@ void expand_lane(
   FrontierTemplate<NodePtrT, C>& frontier,
   std::unordered_map<WaypointId, NodePtrT>& visited,
   const Graph::Implementation& g,
+  const LaneClosure& closures,
   const double agent_max_speed,
   const std::vector<std::size_t>& lanes)
 {
@@ -40,6 +41,9 @@ void expand_lane(
   const auto& p_0 = wp_0.get_location();
   for (const auto l : lanes)
   {
+    if (closures.is_closed(l))
+      continue;
+
     const auto& next_lane = g.lanes[l];
     const auto next_waypoint = GetNextWaypoint()(next_lane);
     if (visited.count(next_waypoint) != 0)
@@ -109,8 +113,9 @@ ShortestPath::ForwardNodePtr ShortestPath::ForwardExpander::expand(
   }
 
   const auto& g = _graph->original();
+  const auto& closures = _graph->closures();
   expand_lane<ForwardGetNextWaypoint>(
-    top, frontier, visited, g, _max_speed,
+    top, frontier, visited, g, closures, _max_speed,
     g.lanes_from[top->waypoint]);
 
   return top;
@@ -178,8 +183,9 @@ ShortestPath::ReverseNodePtr ShortestPath::ReverseExpander::expand(
   }
 
   const auto& g = _graph->original();
+  const auto& closures = _graph->closures();
   expand_lane<ReverseGetNextWaypoint>(
-    top, frontier, visited, g, _max_speed,
+    top, frontier, visited, g, closures, _max_speed,
     g.lanes_into[top->waypoint]);
 
   return top;

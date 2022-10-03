@@ -549,6 +549,58 @@ public:
     Goal goal,
     Options options) const;
 
+  /// The quickest path is a simplified version of the Planner::Result class
+  /// that can return faster but takes fewer factors into consideration. It
+  /// does not account for translational acceleration/deceleration of the agent,
+  /// nor does it consider rotational velocity or rotational acceleration. The
+  /// traffic schedule is also not accounted for in this option.
+  ///
+  /// QuickestPath will not provide detailed timing information, instead only
+  /// giving a simplified estimate of the cost and the graph indices for the
+  /// quickest path.
+  ///
+  /// This quickest path does consider speed limits on lanes when estimating the
+  /// quickest path. Besides the graph topology, lane closures, event duration
+  /// estimates, and speed limits, no other planner Configuration or Option
+  /// values are considered for the quickest path.
+  ///
+  /// This information is used internally as a heuristic for the full planner.
+  /// The results of using this feature are cached and shared with the full
+  /// planner, and vice-versa.
+  class QuickestPath
+  {
+  public:
+    /// The cost of following this path.
+    double cost() const;
+
+    /// The quickest path that was found.
+    const std::vector<std::size_t>& path() const;
+
+    class Implementation;
+  private:
+    QuickestPath();
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// Calculate the QuickestPath.
+  ///
+  /// \param[in] start
+  ///   One or more start conditions to plan from. This function ignores time
+  ///   and orientation information. Lane information is only used to know the
+  ///   speed limit to use when moving from the start location to the initial
+  ///   waypoint.
+  ///
+  ///   If the start set is left empty, the function will return a nullopt.
+  ///
+  /// \param[in] goal_vertex
+  ///   The goal vertex to plan to.
+  ///
+  /// \return The quickest path from the start to the finish, or a nullopt if
+  /// there is no path that connects the start to the finish.
+  std::optional<QuickestPath> quickest_path(
+      const StartSet& start,
+      std::size_t goal_vertex) const;
+
   class Implementation;
   class Debug;
 private:

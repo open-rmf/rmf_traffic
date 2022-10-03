@@ -561,6 +561,19 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
 {
   GIVEN("A graph")
   {
+    /*
+     *            ___11-12
+     *      9---10
+     *      |    |
+     *      |    |    8
+     *      |    |    |
+     * 4----5    6    7
+     *      |         |
+     *      |         |
+     * 0----1----2----3
+     *
+     */
+
     const std::string test_map_name = "test_map";
     rmf_traffic::agv::Graph graph;
     graph.add_waypoint(test_map_name, {-5, -5}).set_passthrough_point(true); // 0
@@ -590,11 +603,11 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
     add_bidir_lane(1, 5);
     add_bidir_lane(3, 7);
     add_bidir_lane(4, 5);
+    add_bidir_lane(5, 9);
     add_bidir_lane(6, 10);
     add_bidir_lane(7, 8);
     add_bidir_lane(9, 10);
     add_bidir_lane(10, 11);
-    add_bidir_lane(5, 9);
     add_bidir_lane(11, 12);
 
     const rmf_traffic::Profile profile = create_test_profile(UnitCircle);
@@ -673,6 +686,185 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
         CHECK(result);
       }
     }
+  }
+}
+
+SCENARIO("Quickest Path")
+{
+  /*
+   *       11
+   *        |
+   *        v
+   *     8--9--10
+   *   /         \
+   *  3--4--5  6--7
+   *     |     |
+   *     0--1--2
+   *
+   */
+
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, {1.0, 0.0}); // 0
+  graph.add_waypoint(test_map_name, {2.0, 0.0}); // 1
+  graph.add_waypoint(test_map_name, {3.0, 0.0}); // 2
+  graph.add_waypoint(test_map_name, {0.0, 1.0}); // 3
+  graph.add_waypoint(test_map_name, {1.0, 1.0}); // 4
+  graph.add_waypoint(test_map_name, {2.0, 1.0}); // 5
+  graph.add_waypoint(test_map_name, {3.0, 1.0}); // 6
+  graph.add_waypoint(test_map_name, {4.0, 1.0}); // 7
+  graph.add_waypoint(test_map_name, {1.0, 2.0}); // 8
+  graph.add_waypoint(test_map_name, {2.0, 2.0}); // 9
+  graph.add_waypoint(test_map_name, {3.0, 2.0}); // 10
+  graph.add_waypoint(test_map_name, {2.0, 4.0}); // 11
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 1); // 0, 1
+  add_bidir_lane(1, 2); // 2, 3
+  add_bidir_lane(0, 4); // 4, 5
+  add_bidir_lane(2, 6); // 6, 7
+  add_bidir_lane(3, 4); // 8, 9
+  add_bidir_lane(4, 5); // 10, 11
+  add_bidir_lane(6, 7); // 12, 13
+  add_bidir_lane(3, 8); // 14, 15
+  add_bidir_lane(7, 10); // 16, 17
+  add_bidir_lane(8, 9);  // 18, 19
+  add_bidir_lane(9, 10); // 20, 21
+  graph.add_lane(11, 9); // 22
+
+  const rmf_traffic::Profile profile = create_test_profile(UnitCircle);
+  const rmf_traffic::agv::VehicleTraits traits(
+    {1.0, 0.3}, {1.0, 0.45}, profile);
+
+  const double diagonal_time = std::sqrt(2.0);
+  rmf_traffic::agv::Planner::StartSet start_set;
+  std::size_t goal_wp = 0;
+  std::vector<std::size_t> expected_path;
+  std::optional<double> expected_cost;
+  auto planner_config = rmf_traffic::agv::Planner::Configuration(graph, traits);
+  const rmf_traffic::Time time = std::chrono::steady_clock::now();
+
+  GIVEN("Quickest Path Request from 3 -> 7")
+  {
+    start_set.push_back({time, 3, 0.0});
+    goal_wp = 7;
+
+    WHEN("No speed limits")
+    {
+      expected_path = {3, 8, 9, 10, 7};
+      expected_cost = 2.0 + 2.0 * diagonal_time;
+    }
+
+    WHEN("Modest speed limit along 8 -> 10")
+    {
+      const auto speed = 2.0/3.0;
+      planner_config.graph().get_lane(18).properties().speed_limit(speed);
+      planner_config.graph().get_lane(20).properties().speed_limit(speed);
+      expected_path = {3, 8, 9, 10, 7};
+      expected_cost = 2.0 / speed + 2.0 * diagonal_time;
+    }
+
+    WHEN("Significant speed limit along 8 -> 10")
+    {
+      const auto speed = 0.5;
+      planner_config.graph().get_lane(18).properties().speed_limit(speed);
+      planner_config.graph().get_lane(20).properties().speed_limit(speed);
+
+      // The route will change to following the bottom instead
+      expected_path = {3, 4, 0, 1, 2, 6, 7};
+      expected_cost = 6.0;
+    }
+  }
+
+  GIVEN("Quickest Path Request from multiplpe offset to 9")
+  {
+    const Eigen::Vector2d location = Eigen::Vector2d{2.0, 0.5};
+    start_set.push_back({time, 5, 0.0, location});
+    start_set.push_back({time, 6, 0.0, location, 6});
+    goal_wp = 9;
+
+    WHEN("No speed limits")
+    {
+      expected_path = {6, 7, 10, 9};
+      expected_cost =
+        (location - Eigen::Vector2d{3.0, 1.0}).norm() + 2 + diagonal_time;
+    }
+
+    WHEN("Significant speed limit from 6 -> 7")
+    {
+      planner_config.graph().get_lane(12).properties().speed_limit(0.1);
+      expected_path = {5, 4, 3, 8, 9};
+      expected_cost = 3.5 + diagonal_time;
+    }
+
+    WHEN("Significant speed limit on offset lane")
+    {
+      planner_config.graph().get_lane(6).properties().speed_limit(0.1);
+      expected_path = {5, 4, 3, 8, 9};
+      expected_cost = 3.5 + diagonal_time;
+    }
+  }
+
+  GIVEN("Quickest Path Request for unreachable 1 -> 11")
+  {
+    start_set.push_back({time, 1, 0.0});
+    goal_wp = 11;
+    expected_cost = std::nullopt;
+  }
+
+  GIVEN("Quickest Path Request for reachable 11 -> 0")
+  {
+    start_set.push_back({time, 11, 0.0});
+    goal_wp = 0;
+    expected_path = {11, 9, 8, 3, 4, 0};
+    expected_cost = 5 + diagonal_time;
+  }
+
+  GIVEN("Same start and goal")
+  {
+    start_set.push_back({time, 0, 0.0});
+    goal_wp = 0;
+    expected_path = {};
+    expected_cost = 0.0;
+  }
+
+  GIVEN("No starts")
+  {
+    // We should get back no solution
+    expected_cost = std::nullopt;
+  }
+
+  GIVEN("3 -> 7 that is impossible because of blocked lanes")
+  {
+    auto lane_closures = rmf_traffic::agv::LaneClosure();
+    start_set.push_back({time, 3, 0.0});
+    goal_wp = 7;
+    // All the graph is closed
+    for (std::size_t i = 0; i < planner_config.graph().num_lanes(); ++i)
+      lane_closures.close(i);
+    planner_config.lane_closures(lane_closures);
+    // There should be no solution
+    expected_cost = std::nullopt;
+  }
+
+  auto options = rmf_traffic::agv::Planner::Options{nullptr};
+  rmf_traffic::agv::Planner planner{planner_config, options};
+
+  auto quickest = planner.quickest_path(start_set, goal_wp);
+  if (expected_cost.has_value())
+  {
+    REQUIRE(quickest.has_value());
+    CHECK(quickest->cost() == *expected_cost);
+    CHECK(quickest->path() == expected_path);
+  }
+  else
+  {
+    CHECK_FALSE(quickest.has_value());
   }
 }
 
