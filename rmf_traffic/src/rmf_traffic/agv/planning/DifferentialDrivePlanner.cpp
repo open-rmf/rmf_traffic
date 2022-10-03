@@ -298,7 +298,7 @@ std::vector<Plan::Waypoint> find_dependencies(
       std::unordered_map<CheckpointId, Dependencies> found_dependencies;
       while (!no_conflicts)
       {
-        if (++count > 10000)
+        if (++count > 100)
         {
           // This almost certainly means there's a bug causing an infinite loop.
           // A normal value would be less than 10.
@@ -338,7 +338,7 @@ std::vector<Plan::Waypoint> find_dependencies(
                 ss << "-------------------------------------------------"
                    << "\n[rmf_traffic::agv::Planner::plan] WARNING: "
                    << "A rare anomaly has occurred in the planner. The Route "
-                   << "Validator has failed o recognize a specified route "
+                   << "Validator has failed to recognize a specified route "
                    << "dependency: " << dependent << " on {"
                    << dependency.on_participant << " " << dependency.on_plan
                    << " " << dependency.on_route << " "

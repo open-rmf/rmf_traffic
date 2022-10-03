@@ -25,6 +25,7 @@
 #include <optional>
 #include <set>
 #include <map>
+#include <unordered_map>
 
 namespace rmf_traffic {
 
