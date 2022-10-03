@@ -431,18 +431,6 @@ TimeVelocity interpolate_time_along_quadratic_straight_line(
   const Eigen::Vector2d n = (p1 - p0).normalized();
   const double s = n.dot(p - p0);
 
-  const auto choose = [](const double tau, const double tau_f)
-    -> bool
-    {
-      if (tau_f + 1e-8 < tau)
-        return false;
-
-      if (tau < -1e-8)
-        return false;
-
-      return true;
-    };
-
   const auto convert = [](
     const double tau,
     const double t0,
@@ -451,6 +439,33 @@ TimeVelocity interpolate_time_along_quadratic_straight_line(
     const Eigen::Vector2d n) -> TimeVelocity
     {
       return {Time(time::from_seconds(tau + t0)), n*(v0 + a*tau)};
+    };
+
+  const auto choose = [convert](
+      const double tau,
+      const double tau_f,
+      const double t0,
+      const double v0,
+      const double a,
+      const Eigen::Vector2d n) -> std::optional<TimeVelocity>
+    {
+      if (tau_f + 1e-3 < tau)
+        return std::nullopt;
+
+      if (tau < -1e-3)
+        return std::nullopt;
+
+      // If tau is greater than tau_f but within the acceptable threshold, then
+      // clamp it to tau_f.
+      if (tau_f < tau)
+        return convert(tau_f, t0, v0, a, n);
+
+      // If tau is less than zero but within the acceptable threshold, then
+      // clamp it to zero.
+      if (tau < 0.0)
+        return convert(0.0, t0, v0, a, n);
+
+      return convert(tau, t0, v0, a, n);
     };
 
   for (std::size_t i = 1; i < trajectory.size(); ++i)
@@ -468,23 +483,23 @@ TimeVelocity interpolate_time_along_quadratic_straight_line(
     if (std::abs(a) > 1e-16 && radicand >= 0.0)
     {
       const double tau_m = (-v0 - std::sqrt(radicand))/a;
-      if (choose(tau_m, tau_f))
+      if (auto result = choose(tau_m, tau_f, t0, v0, a, n))
       {
-        return convert(tau_m, t0, v0, a, n);
+        return *result;
       }
 
       const double tau_p = (-v0 + std::sqrt(radicand))/a;
-      if (choose(tau_p, tau_f))
+      if (auto result = choose(tau_p, tau_f, t0, v0, a, n))
       {
-        return convert(tau_p, t0, v0, a, n);
+        return *result;
       }
     }
-    else if (std::abs(v0) > 1e-16)
+    else if (std::abs(v0) > 1e-6)
     {
       const double tau = (s - s0)/v0;
-      if (choose(tau, tau_f))
+      if (auto result = choose(tau, tau_f, t0, v0, a, n))
       {
-        return convert(tau, t0, v0, a, n);
+        return *result;
       }
     }
     else if (std::abs(s - s0) < holding_point_tolerance)

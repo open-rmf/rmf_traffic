@@ -47,25 +47,40 @@ public:
   ///   The new itinerary that the participant should reflect in the schedule.
   bool set(PlanId plan, std::vector<Route> itinerary);
 
-  /// Add more routes for the participant. All of the routes currently in the
-  /// itinerary will still be in it.
+  /// The cumulative delay that has built up since the last call to
+  /// set(plan, ~). If plan does not match the current Plan ID of the itinerary
+  /// then this returns a nullopt.
   ///
-  /// \param[in] additional_routes
-  ///   The new routes to add to the itinerary.
-  void extend(std::vector<Route> additional_routes);
+  /// \note This value will not grow when there are no are itineraries for this
+  /// participant.
+  std::optional<Duration> cumulative_delay(PlanId plan) const;
+
+  /// Set the cumulative delay of the specified plan. Returns false if plan does
+  /// not match the current Plan ID of the itinerary.
+  /// \param[in] plan
+  ///   The unique plan ID that this cumulative delay is relevant for
+  ///
+  /// \param[in] delay
+  ///   The value for the cumulative delay
+  ///
+  /// \param[in] tolerance
+  ///   A tolerance threshold for reporting this delay. If the magnitude of
+  ///   change in the cumulative delay is less than or equal to the magnitude of
+  ///   this tolerance, then no change will be reported to the schedule. Use
+  ///   Duration(0) to always report any non-zero change in cumulative delay.
+  bool cumulative_delay(
+    PlanId plan,
+    Duration delay,
+    Duration tolerance = Duration(0));
 
   /// Delay the current itinerary.
   ///
   /// \param[in] delay
   ///   The amount of time to push back the relevant waypoints.
+  [[deprecated("Use cumulative_delay instead")]]
   void delay(Duration delay);
 
-  /// The cumulative delay that has built up since the last call to set().
-  ///
-  /// \note This value will not grow when there are no are itineraries for this
-  /// participant.
-  //
-  // TODO(MXG): Should extend() also reset this value? Currently it does not.
+  [[deprecated("Use cumulative_delay instead")]]
   Duration delay() const;
 
   /// Notify the schedule that a checkpoint within a plan has been reached
@@ -105,6 +120,9 @@ public:
 
   /// Get the current plan ID of the participant
   PlanId current_plan_id() const;
+
+  /// Change the profile of this participant
+  void change_profile(Profile new_profile);
 
   // This class supports moving but not copying
   Participant(Participant&&) = default;

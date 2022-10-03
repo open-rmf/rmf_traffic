@@ -67,20 +67,13 @@ public:
     return it->second;
   }
 
-  Version latest_version() const final
-  {
-    return _version;
-  }
-
   SnapshotImplementation(
     std::shared_ptr<const TimelineView<const BaseRouteEntry>> timeline,
     std::unordered_set<ParticipantId> ids,
-    ParticipantMap participants,
-    Version version)
+    ParticipantMap participants)
   : _timeline(std::move(timeline)),
     _ids(std::move(ids)),
-    _participants(std::move(participants)),
-    _version(version)
+    _participants(std::move(participants))
   {
     // Do nothing
   }
@@ -90,7 +83,6 @@ private:
   std::shared_ptr<const TimelineView<const RouteEntry>> _timeline;
   std::unordered_set<ParticipantId> _ids;
   ParticipantMap _participants;
-  Version _version;
 
 };
 
