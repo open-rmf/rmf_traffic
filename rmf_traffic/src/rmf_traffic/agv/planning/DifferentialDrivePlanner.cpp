@@ -365,13 +365,6 @@ std::vector<Plan::Waypoint> find_dependencies(
                 assert(!checkpoint_map.empty());
                 // Find the closest route waypoint less than or equal to
                 // `dependent` that is associated with a plan waypoint.
-                std::cout << __LINE__ << ": dependent " << dependent << std::endl;
-                std::cout << __LINE__ << ": checkpoint map";
-                for (auto [c, p] : checkpoint_map)
-                {
-                  std::cout << " (" << c << ", " << p << ")";
-                }
-                std::cout << std::endl;
                 auto c_it = checkpoint_map.upper_bound(dependent);
                 if (c_it == checkpoint_map.begin())
                 {
@@ -384,7 +377,6 @@ std::vector<Plan::Waypoint> find_dependencies(
                 }
 
                 --c_it;
-                std::cout << __LINE__ << ": " << c_it->first << ", " << c_it->second << std::endl;
                 route.add_dependency(c_it->first, dependency);
 
                 return c_it->second;
@@ -392,8 +384,6 @@ std::vector<Plan::Waypoint> find_dependencies(
 
               if (wp.has_value())
               {
-                std::cout << *wp << std::endl;
-                std::cout << " ---------------- " << std::endl;
                 candidates[*wp].waypoint.dependencies.push_back(dependency);
                 candidates[*wp].necessary = true;
               }
