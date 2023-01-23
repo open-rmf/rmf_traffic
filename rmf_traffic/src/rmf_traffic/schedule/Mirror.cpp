@@ -255,7 +255,7 @@ const std::unordered_set<ParticipantId>& Mirror::participant_ids() const
 
 //==============================================================================
 std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
-  std::size_t participant_id) const
+  ParticipantId participant_id) const
 {
   const auto p = _pimpl->descriptions.find(participant_id);
   if (p == _pimpl->descriptions.end())
@@ -272,7 +272,7 @@ std::optional<Version> Mirror::latest_version() const
 
 //==============================================================================
 std::optional<ItineraryView> Mirror::get_itinerary(
-  const std::size_t participant_id) const
+  const ParticipantId participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
@@ -297,7 +297,7 @@ std::optional<ItineraryView> Mirror::get_itinerary(
 
 //==============================================================================
 std::optional<PlanId> Mirror::get_current_plan_id(
-  const std::size_t participant_id) const
+  const ParticipantId participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
