@@ -2,6 +2,13 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.0.1 (2023-06-05)
+------------------
+* Switch to rst changelogs
+* Fix multi floor anomaly (`#97 <https://github.com/open-rmf/rmf_traffic/issues/97>`_)
+* Fix end_versions initialization capacity error in ``NegotiatingRouteValidator::Generator::all()`` function (`#58 <https://github.com/open-rmf/rmf_traffic/issues/58>`_)
+* Contributors: 0to1, Grey, Yadunund
+
 3.0.0 (2022-10-03)
 ------------------
 * Improve robustness of schedule failover: (`#88 <https://github.com/open-rmf/rmf_traffic/pull/88>`_)
