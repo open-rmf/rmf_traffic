@@ -4,63 +4,61 @@ Changelog for package rmf_traffic
 
 3.0.0 (2022-10-03)
 ------------------
-* Improve robustness of schedule failover: (`#88 <https://github.com/open-rmf/rmf_traffic/pull/8>`_)
-* Allow participant profiles to be changed at runtime: (`#87 <https://github.com/open-rmf/rmf_traffic/pull/8>`_)
-* Fix issues with schedule culling and incremental delays: (`#86 <https://github.com/open-rmf/rmf_traffic/pull/86/file>`_)
-* Fix `dependency_resoution` typo: (`#82 <https://github.com/open-rmf/rmf_traffic/pull/8>`_)
-* Quickest path feature: (`#84 <https://github.com/open-rmf/rmf_traffic/pull/84) [#85](https://github.com/open-rmf/rmf_traffic/pull/8>`_)
-* More graceful error handling: (`#71 <https://github.com/open-rmf/rmf_traffic/pull/71) [#76](https://github.com/open-rmf/rmf_traffic/pull/76) [#80](https://github.com/open-rmf/rmf_traffic/pull/80) [#81](https://github.com/open-rmf/rmf_traffic/pull/8>`_)
+* Improve robustness of schedule failover: (`#88 <https://github.com/open-rmf/rmf_traffic/pull/88>`_)
+* Allow participant profiles to be changed at runtime: (`#87 <https://github.com/open-rmf/rmf_traffic/pull/87>`_)
+* Fix issues with schedule culling and incremental delays: (`#86 <https://github.com/open-rmf/rmf_traffic/pull/86>`_)
+* Fix `dependency_resoution` typo: (`#82 <https://github.com/open-rmf/rmf_traffic/pull/82>`_)
+* Quickest path feature: (`#84 <https://github.com/open-rmf/rmf_traffic/pull/84>`_) (`#85 <https://github.com/open-rmf/rmf_traffic/pull/85>`_)
+* More graceful error handling: (`#71 <https://github.com/open-rmf/rmf_traffic/pull/71>`_) (`#76 <https://github.com/open-rmf/rmf_traffic/pull/76>`_) (`#80 <https://github.com/open-rmf/rmf_traffic/pull/80>`_) (`#81 <https://github.com/open-rmf/rmf_traffic/pull/81>`_)
 
 2.0.0 (2022-03-18)
 ------------------
-* Introduce traffic dependency system: (`#70 <https://github.com/open-rmf/rmf_traffic/pull/7>`_)
+* Introduce traffic dependency system: (`#70 <https://github.com/open-rmf/rmf_traffic/pull/70>`_)
 
 1.5.0 (2022-02-14)
 ------------------
-* Support lane speed limits: (`#44 <https://github.com/open-rmf/rmf_traffic/pull/4>`_)
-* Fix potential race conditions: (`#46 <https://github.com/open-rmf/rmf_traffic/pull/4>`_)
-* Add features to facilitate robust failover: (`#54 <https://github.com/open-rmf/rmf_traffic/pull/5>`_)
-* Significantly improved performance for very large scale nav graphs: (`#53 <https://github.com/open-rmf/rmf_traffic/pull/5>`_)
+* Support lane speed limits: (`#44 <https://github.com/open-rmf/rmf_traffic/pull/43>`_)
+* Fix potential race conditions: (`#46 <https://github.com/open-rmf/rmf_traffic/pull/46>`_)
+* Add features to facilitate robust failover: (`#54 <https://github.com/open-rmf/rmf_traffic/pull/54>`_)
+* Significantly improved performance for very large scale nav graphs: (`#53 <https://github.com/open-rmf/rmf_traffic/pull/53>`_)
 
 1.4.1 (2021-10-27)
 ------------------
-* Using eigen3_cmake_module to fix RHEL build: (`#47 <https://github.com/open-rmf/rmf_traffic/pull/4>`_)
+* Using eigen3_cmake_module to fix RHEL build: (`#47 <https://github.com/open-rmf/rmf_traffic/pull/47>`_)
 
 1.4.0 (2021-09-01)
 ------------------
-* Mandate use of FCL>=0.6: (`#39 <https://github.com/open-rmf/rmf_traffic/pull/3>`_)
-* Make the stubborn negotiator's strategy more flexible: (`#40 <https://github.com/open-rmf/rmf_traffic/pull/4>`_)
-* Fix participant lifecycles: (`#35 <https://github.com/open-rmf/rmf_traffic/pull/3>`_)
+* Mandate use of FCL>=0.6: (`#39 <https://github.com/open-rmf/rmf_traffic/pull/39>`_)
+* Make the stubborn negotiator's strategy more flexible: (`#40 <https://github.com/open-rmf/rmf_traffic/pull/40>`_)
+* Fix participant lifecycles: (`#35 <https://github.com/open-rmf/rmf_traffic/pull/35>`_)
 
 1.3.0 (2021-05-07)
 ------------------
-* Allow a Database to be forked off of a Mirror: (`#17 <https://github.com/open-rmf/rmf_traffic/pull/1>`_)
-* Separate participant descriptions from schedule patches: (`#14 <https://github.com/open-rmf/rmf_traffic/pull/1>`_)
-* Allow navigation graph lanes to be opened or closed: (`#11 <https://github.com/open-rmf/rmf_traffic/pull/1>`_)
-* Add persistence to Traffic Schedule Participant IDs: (`#242 <https://github.com/osrf/rmf_core/pull/24>`_)
-* Allow a minimum plan finish time to be specified: (`#307 <https://github.com/osrf/rmf_core/pull/30>`_)
-* Check itinerary endpoints when negotiating: (`#308 <https://github.com/osrf/rmf_core/pull/30>`_)
+* Allow a Database to be forked off of a Mirror: (`#17 <https://github.com/open-rmf/rmf_traffic/pull/17>`_)
+* Separate participant descriptions from schedule patches: (`#14 <https://github.com/open-rmf/rmf_traffic/pull/14>`_)
+* Allow navigation graph lanes to be opened or closed: (`#11 <https://github.com/open-rmf/rmf_traffic/pull/11>`_)
+* Add persistence to Traffic Schedule Participant IDs: (`#242 <https://github.com/osrf/rmf_core/pull/242>`_)
+* Allow a minimum plan finish time to be specified: (`#307 <https://github.com/osrf/rmf_core/pull/307>`_)
+* Check itinerary endpoints when negotiating: (`#308 <https://github.com/osrf/rmf_core/pull/308>`_)
 
 1.2.0 (2021-01-05)
 ------------------
-* Improve planner performance scaling for large graphs: (`#243 <https://github.com/osrf/rmf_core/pull/24>`_)
-* Add the blockade system for traffic light management: (`#226 <https://github.com/osrf/rmf_core/pull/22>`_)
-* Access trajectory waypoints by element index: (`#226 <https://github.com/osrf/rmf_core/pull/22>`_)
-* Get trajectory index of each plan waypoint: (`#226 <https://github.com/osrf/rmf_core/pull/22>`_)
+* Improve planner performance scaling for large graphs: (`#243 <https://github.com/osrf/rmf_core/pull/243>`_)
+* Add the blockade system for traffic light management: (`#226 <https://github.com/osrf/rmf_core/pull/226>`_)
 
 1.1.0 (2020-09-24)
 ------------------
 * Allow a Negotiation Table Viewer to see rejected and forfeited statuses, and to check for a submission: (`#140 <https://github.com/osrf/rmf_core/pull/140>`_)
 * Improve heuristic to account for events: (`#159 <https://github.com/osrf/rmf_core/pull/159>`_)
 * Fix an issue with moving robots between floors: (`#163 <https://github.com/osrf/rmf_core/pull/163>`_)
-* Add a generic waiting event: (`#158 <https://github.com/osrf/rmf_core/pull/15>`_)
-* Fix bug that caused exit events to get skipped sometimes: (`#166 <https://github.com/osrf/rmf_core/pull/16>`_)
-* Bump to C++17 and migrate to `std::optional`: (`#177 <https://github.com/osrf/rmf_core/pull/17>`_)
+* Add a generic waiting event: (`#158 <https://github.com/osrf/rmf_core/pull/158>`_)
+* Fix bug that caused exit events to get skipped sometimes: (`#166 <https://github.com/osrf/rmf_core/pull/166>`_)
+* Bump to C++17 and migrate to `std::optional`: (`#177 <https://github.com/osrf/rmf_core/pull/177>`_)
 * Contributors: Aaron Chong, Geoffrey Biggs, Grey, Kevin_Skywalker, Yadu, ddengster
 
 1.0.2 (2020-07-27)
 ------------------
-* Improved definition of "traffic conflict" for vechiles that start too close: (`#136 <https://github.com/osrf/rmf_core/pull/13>`_)
+* Improved definition of "traffic conflict" for vechiles that start too close: (`#136 <https://github.com/osrf/rmf_core/pull/136>`_)
 
 1.0.1 (2020-07-20)
 ------------------
