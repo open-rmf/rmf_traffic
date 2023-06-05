@@ -1,17 +1,16 @@
 name: build
 on:
   pull_request:
-  push:
-    branches: [ main ]
   schedule:
     - cron: '55 0 * * *'
   workflow_dispatch:
 
 jobs:
   build_and_test:
-    name: rmf_simulation
+    name: rmf_traffic
     uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_build.yaml@main
     with:
       # NOTE: Avoid adding comments in the packages lines, this can break some of the called scripts in github actions
       packages: |
         rmf_traffic
+        rmf_traffic_examples
