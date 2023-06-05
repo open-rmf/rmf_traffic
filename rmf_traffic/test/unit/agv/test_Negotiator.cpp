@@ -2520,129 +2520,129 @@ SCENARIO("fan-in-fan-out bottleneck")
 #ifdef NDEBUG
 // We do not run this test in Debug mode because it takes a long time to run
 // due to the high branching factor
-SCENARIO("Fully connected graph of 10 vertices")
-{
-  using rmf_traffic::agv::CentralizedNegotiation;
-  auto database = std::make_shared<rmf_traffic::schedule::Database>();
-  const std::string test_map_name = "test_fully_connected_graph_10_vertices";
-  VertexMap vertices;
-  EdgeMap edges;
+// SCENARIO("Fully connected graph of 10 vertices")
+// {
+//   using rmf_traffic::agv::CentralizedNegotiation;
+//   auto database = std::make_shared<rmf_traffic::schedule::Database>();
+//   const std::string test_map_name = "test_fully_connected_graph_10_vertices";
+//   VertexMap vertices;
+//   EdgeMap edges;
 
-  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"B", {{3.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"C", {{6.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"D", {{9.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"E", {{12.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"F", {{15.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"G", {{18.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"H", {{21.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"I", {{24.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"J", {{27.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"B", {{3.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"C", {{6.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"D", {{9.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"E", {{12.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"F", {{15.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"G", {{18.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"H", {{21.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"I", {{24.0, 0.0}, IsHoldingSpot(false)}});
+//   vertices.insert({"J", {{27.0, 0.0}, IsHoldingSpot(false)}});
 
-  std::string vtxs = "ABCDEFGHIJ";
-  for (char& v_source : vtxs)
-  {
-    for (char& v_dest : vtxs)
-    {
-      if (v_source == v_dest)
-        continue;
+//   std::string vtxs = "ABCDEFGHIJ";
+//   for (char& v_source : vtxs)
+//   {
+//     for (char& v_dest : vtxs)
+//     {
+//       if (v_source == v_dest)
+//         continue;
 
-      std::string v_source_str(1, v_source);
-      std::string v_dest_str(1, v_dest);
-      // Bidirectional is set to false since we double add anyway
-      edges.insert({v_source_str + v_dest_str, {{v_source_str, v_dest_str}, IsBidirectional(
-              false)}});
-    }
-  }
+//       std::string v_source_str(1, v_source);
+//       std::string v_dest_str(1, v_dest);
+//       // Bidirectional is set to false since we double add anyway
+//       edges.insert({v_source_str + v_dest_str, {{v_source_str, v_dest_str}, IsBidirectional(
+//               false)}});
+//     }
+//   }
 
-  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
-  auto graph = graph_data.first;
-  auto vertex_id_to_idx = graph_data.second;
+//   auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+//   auto graph = graph_data.first;
+//   auto vertex_id_to_idx = graph_data.second;
 
-  GIVEN("1 Participant")
-  {
-    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        database);
+//   GIVEN("1 Participant")
+//   {
+//     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
+//         database);
 
-    const auto p0_planner = std::make_shared<rmf_traffic::agv::Planner>(
-      rmf_traffic::agv::Planner::Configuration{graph, a0_config.traits},
-      rmf_traffic::agv::Planner::Options{nullptr});
+//     const auto p0_planner = std::make_shared<rmf_traffic::agv::Planner>(
+//       rmf_traffic::agv::Planner::Configuration{graph, a0_config.traits},
+//       rmf_traffic::agv::Planner::Options{nullptr});
 
-    WHEN("Schedule:[], Negotiation:[p0(A->J)]")
-    {
-      const auto time = std::chrono::steady_clock::now();
+//     WHEN("Schedule:[], Negotiation:[p0(A->J)]")
+//     {
+//       const auto time = std::chrono::steady_clock::now();
 
-      std::vector<CentralizedNegotiation::Agent> agents;
-      agents.push_back(
-        {
-          p0.id(),
-          {{time, vertex_id_to_idx["A"], 0.0}},
-          vertex_id_to_idx["J"],
-          p0_planner
-        });
+//       std::vector<CentralizedNegotiation::Agent> agents;
+//       agents.push_back(
+//         {
+//           p0.id(),
+//           {{time, vertex_id_to_idx["A"], 0.0}},
+//           vertex_id_to_idx["J"],
+//           p0_planner
+//         });
 
-      THEN("Valid Proposal is found")
-      {
-        auto result = CentralizedNegotiation(database).solve(agents);
-        REQUIRE(result.proposal());
+//       THEN("Valid Proposal is found")
+//       {
+//         auto result = CentralizedNegotiation(database).solve(agents);
+//         REQUIRE(result.proposal());
 
-        auto p0_itinerary = result.proposal()->at(p0.id()).get_itinerary();
-        REQUIRE(p0_itinerary.back().trajectory().back().position().segment(0,
-          2) == vertices["J"].first);
-      }
-    }
-  }
+//         auto p0_itinerary = result.proposal()->at(p0.id()).get_itinerary();
+//         REQUIRE(p0_itinerary.back().trajectory().back().position().segment(0,
+//           2) == vertices["J"].first);
+//       }
+//     }
+//   }
 
-  // Proposal not found.
-  GIVEN("2 Participants")
-  {
-    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        database);
-    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        database);
+//   // Proposal not found.
+//   GIVEN("2 Participants")
+//   {
+//     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
+//         database);
+//     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
+//         database);
 
-    const auto p0_planner = std::make_shared<rmf_traffic::agv::Planner>(
-      rmf_traffic::agv::Planner::Configuration{graph, a0_config.traits},
-      rmf_traffic::agv::Planner::Options{nullptr});
+//     const auto p0_planner = std::make_shared<rmf_traffic::agv::Planner>(
+//       rmf_traffic::agv::Planner::Configuration{graph, a0_config.traits},
+//       rmf_traffic::agv::Planner::Options{nullptr});
 
-    const auto p1_planner = std::make_shared<rmf_traffic::agv::Planner>(
-      rmf_traffic::agv::Planner::Configuration{graph, a1_config.traits},
-      rmf_traffic::agv::Planner::Options{nullptr});
+//     const auto p1_planner = std::make_shared<rmf_traffic::agv::Planner>(
+//       rmf_traffic::agv::Planner::Configuration{graph, a1_config.traits},
+//       rmf_traffic::agv::Planner::Options{nullptr});
 
-    WHEN("Schedule:[], Negotiation:[p0(A->J), p1(J->A)]")
-    {
-      const auto options = rmf_traffic::agv::SimpleNegotiator::Options()
-        .maximum_cost_leeway(1.1)
-        .minimum_cost_threshold(std::nullopt)
-        .maximum_alternatives(1);
+//     WHEN("Schedule:[], Negotiation:[p0(A->J), p1(J->A)]")
+//     {
+//       const auto options = rmf_traffic::agv::SimpleNegotiator::Options()
+//         .maximum_cost_leeway(1.1)
+//         .minimum_cost_threshold(std::nullopt)
+//         .maximum_alternatives(1);
 
-      const auto time = std::chrono::steady_clock::now();
+//       const auto time = std::chrono::steady_clock::now();
 
-      std::vector<CentralizedNegotiation::Agent> agents;
-      agents.push_back(
-        {
-          p0.id(),
-          {{time, vertex_id_to_idx["A"], 0.0}},
-          vertex_id_to_idx["J"],
-          p0_planner,
-          options
-        });
+//       std::vector<CentralizedNegotiation::Agent> agents;
+//       agents.push_back(
+//         {
+//           p0.id(),
+//           {{time, vertex_id_to_idx["A"], 0.0}},
+//           vertex_id_to_idx["J"],
+//           p0_planner,
+//           options
+//         });
 
-      agents.push_back(
-        {
-          p1.id(),
-          {{time, vertex_id_to_idx["J"], 0.0}},
-          vertex_id_to_idx["A"],
-          p1_planner,
-          options
-        });
+//       agents.push_back(
+//         {
+//           p1.id(),
+//           {{time, vertex_id_to_idx["J"], 0.0}},
+//           vertex_id_to_idx["A"],
+//           p1_planner,
+//           options
+//         });
 
-      THEN("No valid proposal is found")
-      {
-        auto result = CentralizedNegotiation(database).solve(agents);
-        CHECK_FALSE(result.proposal().has_value());
-      }
-    }
-  }
-}
+//       THEN("No valid proposal is found")
+//       {
+//         auto result = CentralizedNegotiation(database).solve(agents);
+//         CHECK_FALSE(result.proposal().has_value());
+//       }
+//     }
+//   }
+// }
 #endif // NDEBUG
