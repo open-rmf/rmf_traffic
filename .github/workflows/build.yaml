@@ -1,63 +1,16 @@
 name: build
 on:
-  push:
   pull_request:
   schedule:
     - cron: '55 0 * * *'
+  workflow_dispatch:
 
 jobs:
   build_and_test:
-    name: Build and test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ros_distribution:
-          - galactic
-          - rolling
-        include:
-          # Galactic Geochelone (May 2021 - November 2022)
-          - docker_image: ubuntu:focal
-            ros_distribution: galactic
-            ros_version: 2
-          # Rolling Ridley (No End-Of-Life)
-          - docker_image: ubuntu:jammy
-            ros_distribution: rolling
-            ros_version: 2
-    container:
-      image: ${{ matrix.docker_image }}
-    steps:
-      - name: pwd
-        run: pwd
-      - name: setup ROS environment
-        uses: ros-tooling/setup-ros@v0.3
-        with:
-          required-ros-distributions: ${{ matrix.ros_distribution }}
-      - name: build
-        uses: ros-tooling/action-ros-ci@v0.2
-        with:
-          target-ros2-distro: ${{ matrix.ros_distribution }}
-          # build all packages listed in the meta package
-          package-name: |
-            rmf_traffic
-          vcs-repo-file-url: |
-            https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
-          colcon-defaults: |
-            {
-              "build": {
-                "mixin": ["coverage-gcc"]
-              }
-            }
-          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-      - name: Upload failed test results
-        uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: test-results
-          path: ros_ws/build/*/test_results/*/*.catch2.xml
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          files: ros_ws/lcov/total_coverage.info
-          flags: tests
-          name: lean_and_mean_codecov_bot
-
+    name: rmf_traffic
+    uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_build.yaml@main
+    with:
+      # NOTE: Avoid adding comments in the packages lines, this can break some of the called scripts in github actions
+      packages: |
+        rmf_traffic
+        rmf_traffic_examples

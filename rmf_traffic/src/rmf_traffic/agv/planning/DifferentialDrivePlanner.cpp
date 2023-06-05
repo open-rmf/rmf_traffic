@@ -289,6 +289,9 @@ std::vector<Plan::Waypoint> find_dependencies(
     {
       auto& route = itinerary[i];
       auto& checkpoint_map = checkpoint_maps[i];
+      if (checkpoint_map.empty())
+        continue;
+
       assert(route.trajectory().start_time());
       const auto initial_time = *route.trajectory().start_time();
 
@@ -357,19 +360,40 @@ std::vector<Plan::Waypoint> find_dependencies(
 
               no_conflicts = false;
               found_deps.push_back(dependency);
-              const auto wp = [&]()
+              const auto wp = [&]() -> std::optional<CheckpointId>
               {
                 assert(!checkpoint_map.empty());
                 // Find the closest route waypoint less than or equal to
                 // `dependent` that is associated with a plan waypoint.
-                const auto c_it = --checkpoint_map.upper_bound(dependent);
+                auto c_it = checkpoint_map.upper_bound(dependent);
+                if (c_it == checkpoint_map.begin())
+                {
+                  // If the upper bound is the first element in the checkpoint
+                  // map, then the real dependent is the previous route of this
+                  // plan. We don't have a way to express that in today's RMF,
+                  // so instead we will set the first checkpoint of this route
+                  // as a dependent and then skip further dependency checking.
+                  return std::nullopt;
+                }
+
+                --c_it;
                 route.add_dependency(c_it->first, dependency);
 
                 return c_it->second;
               } ();
 
-              candidates[wp].waypoint.dependencies.push_back(dependency);
-              candidates[wp].necessary = true;
+              if (wp.has_value())
+              {
+                candidates[*wp].waypoint.dependencies.push_back(dependency);
+                candidates[*wp].necessary = true;
+              }
+              else
+              {
+                candidates.front().waypoint.dependencies.push_back(dependency);
+                candidates.front().necessary = true;
+                anomaly_happened = true;
+                break;
+              }
             }
           }
         }
@@ -1369,14 +1393,14 @@ public:
       }
 
 #ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
-      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time
+      std::cout << "Cost " << approach_cost + entry_event_cost + alt->cost
         + exit_event_cost << " = " << "Approach: " << approach_cost
-                << " | Entry: " << entry_event_cost << " | Alt: " << alt->time
+                << " | Entry: " << entry_event_cost << " | Alt: " << alt->cost
                 << " | Exit: " << exit_event_cost << std::endl;
       std::cout << "Previous cost " << top->current_cost << " + Cost "
-                << approach_cost + entry_event_cost + alt->time
+                << approach_cost + entry_event_cost + alt->cost
         + exit_event_cost << " = " << top->current_cost
-        + approach_cost + entry_event_cost + alt->time
+        + approach_cost + entry_event_cost + alt->cost
         + exit_event_cost << std::endl;
 #endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 

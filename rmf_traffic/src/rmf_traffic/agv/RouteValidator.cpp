@@ -280,7 +280,7 @@ NegotiatingRouteValidator::Generator::all() const
   std::vector<schedule::Version> current_versions;
   current_versions.reserve(N_alts);
   std::vector<schedule::Version> end_versions;
-  current_versions.reserve(N_alts);
+  end_versions.reserve(N_alts);
   schedule::Negotiation::VersionedKeySequence keys;
   keys.reserve(N_alts);
   for (const auto& alts : _pimpl->data->viewer->alternatives())

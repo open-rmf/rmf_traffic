@@ -1,8 +1,13 @@
 ## Changelog for package rmf_traffic
 
-2.1.0 (XXXX-YY-ZZ)
+3.0.0 (XXXX-YY-ZZ)
 ------------------
-* Quickest path feature: [#84](https://github.com/open-rmf/rmf_traffic/pull/84)
+* Improve robustness of schedule failover: [#88](https://github.com/open-rmf/rmf_traffic/pull/88)
+* Allow participant profiles to be changed at runtime: [#87](https://github.com/open-rmf/rmf_traffic/pull/87)
+* Fix issues with schedule culling and incremental delays: [#86](https://github.com/open-rmf/rmf_traffic/pull/86/files)
+* Fix `dependency_resoution` typo: [#82](https://github.com/open-rmf/rmf_traffic/pull/82)
+* Quickest path feature: [#84](https://github.com/open-rmf/rmf_traffic/pull/84) [#85](https://github.com/open-rmf/rmf_traffic/pull/85)
+* More graceful error handling: [#71](https://github.com/open-rmf/rmf_traffic/pull/71) [#76](https://github.com/open-rmf/rmf_traffic/pull/76) [#80](https://github.com/open-rmf/rmf_traffic/pull/80) [#81](https://github.com/open-rmf/rmf_traffic/pull/81)
 
 2.0.0 (2022-03-18)
 ------------------
