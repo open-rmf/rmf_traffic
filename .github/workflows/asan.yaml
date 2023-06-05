@@ -1,6 +1,5 @@
 name: asan
 on:
-  push:
   pull_request:
   schedule:
     - cron: '23 0 * * *'
@@ -14,3 +13,4 @@ jobs:
       # NOTE: Avoid adding comments in the package lines, this can break some of the called scripts in github actions
       packages: |
         rmf_traffic
+        rmf_traffic_examples
