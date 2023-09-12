@@ -1185,11 +1185,8 @@ std::vector<Plan::Start> compute_plan_starts(
   {
     const auto& lane = graph.get_lane(i);
     const auto& wp0 = graph.get_waypoint(lane.entry().waypoint_index());
-    if (wp0.get_map_name() != map_name)
-      continue;
-
     const auto& wp1 = graph.get_waypoint(lane.exit().waypoint_index());
-    if (wp1.get_map_name() != map_name)
+    if (wp0.get_map_name() != map_name && wp1.get_map_name() != map_name)
       continue;
 
     const Eigen::Vector2d p0 = wp0.get_location();
@@ -1197,9 +1194,22 @@ std::vector<Plan::Start> compute_plan_starts(
 
     const double lane_length = (p1 - p0).norm();
 
-    // This "lane" is effectively a single point, so we'll skip it
+    // This "lane" is either two points stacked very close or is moving
+    // vertically through a lift.
     if (lane_length < min_lane_length)
+    {
+      const double dp0 = (p_location - p0).norm();
+      const double dp1 = (p_location - p1).norm();
+      if (dp0 < max_merge_lane_distance || dp1 < max_merge_lane_distance)
+      {
+        starts.emplace_back(
+          Plan::Start(
+            start_time, lane.exit().waypoint_index(),
+            start_yaw, p_location, i));
+      }
+
       continue;
+    }
 
     const Eigen::Vector2d pn = (p1 - p0) / lane_length;
     const Eigen::Vector2d p_l = p_location - p0;
