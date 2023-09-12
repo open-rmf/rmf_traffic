@@ -114,8 +114,6 @@ struct OrientationTimeMap
 
         const auto& node_low = it_low->second;
         const auto& node_high = it_high->second;
-        assert(node_low->route_from_parent.back().map()
-          == node_high->route_from_parent.back().map());
 
         const auto& start_wp =
           node_low->route_from_parent.back().trajectory().back();
@@ -920,11 +918,56 @@ public:
     const auto& wp = _supergraph->original().waypoints[target_waypoint_index];
     const Eigen::Vector2d wp_location = wp.get_location();
 
+    SearchNodePtr node = top;
+    if (start.lane().has_value() && start.location().has_value())
+    {
+      const auto lane_index = start.lane().value();
+      const Eigen::Vector2d p = start.location().value();
+      const auto& lane = _supergraph->original().lanes[lane_index];
+      if (lane.entry().event())
+      {
+        Graph::Lane::EventPtr entry_event = lane.entry().event()->clone();
+        const double event_cost = time::to_seconds(entry_event->duration());
+        Trajectory hold;
+        Eigen::Vector3d p_start = {p.x(), p.y(), start.orientation()};
+        const auto zero = Eigen::Vector3d::Zero();
+        hold.insert(node->time, p_start, zero);
+        hold.insert(node->time + entry_event->duration(), p_start, zero);
+        Route route{wp.get_map_name(), std::move(hold)};
+        if (_validator && !is_valid(node, route))
+        {
+          // If we cannot wait for the entry event to happen then this is not a
+          // feasible start.
+          return;
+        }
+
+        node = std::make_shared<SearchNode>(
+          SearchNode{
+            std::nullopt,
+            top->waypoint,
+            {},
+            p,
+            start.orientation(),
+            node->time + entry_event->duration(),
+            node->remaining_cost_estimate,
+            {std::move(route)},
+            std::move(entry_event),
+            node->current_cost + event_cost,
+            std::nullopt,
+            node
+          });
+      }
+    }
+
+    Graph::Lane::EventPtr entry_event;
+    double entry_event_cost = 0.0;
+    Duration entry_event_duration = Duration(0);
+
     // If this start node did not have a waypoint, then it must have a location
     assert(start.location().has_value());
 
     const auto approach_info = make_start_approach_trajectories(
-      top->start.value(), top->current_cost);
+      top->start.value(), node->current_cost);
 
     if (approach_info.trajectories.empty())
     {
@@ -974,7 +1017,7 @@ public:
       for (const auto& map : map_names)
       {
         Route route{map, approach_trajectory};
-        if (_validator && !is_valid(top, route))
+        if (_validator && !is_valid(node, route))
         {
           all_valid = false;
           break;
@@ -998,7 +1041,7 @@ public:
         for (const auto& map : map_names)
         {
           Route route{map, hold};
-          if (_validator && !is_valid(top, route))
+          if (_validator && !is_valid(node, route))
           {
             all_valid = false;
             break;
@@ -1018,7 +1061,7 @@ public:
       // TODO(MXG): We can actually specify the orientation for this. We just
       // need to be smarter with make_start_approach_trajectories(). We should
       // really have it return a Traversal.
-      auto node = std::make_shared<SearchNode>(
+      node = std::make_shared<SearchNode>(
         SearchNode{
           std::nullopt,
           target_waypoint_index,
@@ -1026,12 +1069,12 @@ public:
           wp_location,
           approach_yaw,
           approach_time,
-          top->remaining_cost_estimate - approach_cost,
+          node->remaining_cost_estimate - approach_cost,
           std::move(approach_routes),
           exit_event,
-          top->current_cost + approach_cost,
+          node->current_cost + approach_cost,
           std::nullopt,
-          top
+          node
         });
 
       if (exit_event)
