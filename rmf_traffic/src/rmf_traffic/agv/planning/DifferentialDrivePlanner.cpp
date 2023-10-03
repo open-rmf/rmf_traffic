@@ -32,6 +32,24 @@ namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
+class Printer : public rmf_traffic::agv::Graph::Lane::Executor
+{
+public:
+  Printer()
+  {
+    // Do nothing
+  }
+
+  void execute(const DoorOpen&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const DoorClose&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const LiftSessionBegin&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const LiftDoorOpen&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const LiftSessionEnd&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const LiftMove&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const Wait&) override { std::cout << "event " << __LINE__ << std::endl;; }
+  void execute(const Dock& dock) override { std::cout << "event " << __LINE__ << std::endl;; }
+};
+
 //==============================================================================
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
@@ -45,6 +63,22 @@ std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
   }
 
   std::reverse(node_sequence.begin(), node_sequence.end());
+  std::cout << " --- node sequence --- " << std::endl;
+  const auto t0 = node_sequence.front()->time;
+  for (const NodePtr node : node_sequence)
+  {
+    std::cout << " -- LINE:" << node->line << " | t=" << time::to_seconds(node->time - t0) << " ";
+    if (node->waypoint.has_value())
+      std::cout << "index " << *node->waypoint << " ";
+    std::cout << " <" << node->position.transpose() << "> yaw=" << node->yaw << " ";
+    std::cout << std::endl;
+    if (node->event)
+    {
+      Printer printer;
+      node->event->execute(printer);
+    }
+  }
+
   return node_sequence;
 }
 
@@ -184,6 +218,7 @@ std::vector<NodePtr> reconstruct_nodes(
   const double alpha_nom,
   const double rotational_threshold)
 {
+  std::cout << "==================================" << std::endl;
   auto node_sequence = reconstruct_nodes(finish_node);
 
   // Remove "cruft" from plans. This means making sure vehicles don't do any
@@ -723,6 +758,7 @@ public:
     double current_cost;
     std::optional<Planner::Start> start;
     SearchNodePtr parent;
+    std::size_t line;
 
     double get_total_cost_estimate() const
     {
@@ -754,7 +790,8 @@ public:
       Graph::Lane::EventPtr event_,
       double current_cost_,
       std::optional<Planner::Start> start_,
-      SearchNodePtr parent_)
+      SearchNodePtr parent_,
+      std::size_t line_)
     : entry(entry_),
       waypoint(waypoint_),
       approach_lanes(std::move(approach_lanes_)),
@@ -766,7 +803,8 @@ public:
       event(event_),
       current_cost(current_cost_),
       start(std::move(start_)),
-      parent(std::move(parent_))
+      parent(std::move(parent_)),
+      line(line_)
     {
       assert(!route_from_parent.empty());
 
@@ -954,7 +992,8 @@ public:
             std::move(entry_event),
             node->current_cost + event_cost,
             std::nullopt,
-            node
+            node,
+          __LINE__
           });
       }
     }
@@ -1074,7 +1113,8 @@ public:
           exit_event,
           node->current_cost + approach_cost,
           std::nullopt,
-          node
+          node,
+          __LINE__
         });
 
       if (exit_event)
@@ -1092,7 +1132,8 @@ public:
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node
+            node,
+          __LINE__
           });
       }
 
@@ -1134,7 +1175,8 @@ public:
           nullptr,
           top->current_cost + hold_cost,
           start,
-          top
+          top,
+          __LINE__
         }));
   }
 
@@ -1180,7 +1222,8 @@ public:
         nullptr,
         top->current_cost + cost,
         std::nullopt,
-        top
+        top,
+          __LINE__
       });
   }
 
@@ -1236,7 +1279,8 @@ public:
         nullptr,
         top->current_cost + cost,
         std::nullopt,
-        top
+        top,
+          __LINE__
       });
   }
 
@@ -1468,6 +1512,19 @@ public:
         const double cost = calculate_cost(approach_route.trajectory());
         const double yaw = approach_wp.position()[2];
         const auto time = approach_wp.time();
+        auto parent = node;
+        std::vector<Route> route_from_parent;
+        if (approach_route.trajectory().size() < 2)
+        {
+          // This is just an entry event so we will skip the unnecessary
+          // intermediate node
+          parent = node->parent;
+          route_from_parent = node->route_from_parent;
+        }
+        else
+        {
+          route_from_parent = {std::move(approach_route)};
+        }
 
         node = std::make_shared<SearchNode>(
           SearchNode{
@@ -1483,11 +1540,12 @@ public:
             time,
             *remaining_cost_estimate
             + entry_event_cost + alt->cost + exit_event_cost,
-            {std::move(approach_route)},
+            route_from_parent,
             traversal.entry_event,
             node->current_cost + cost,
             std::nullopt,
-            node
+            parent,
+          __LINE__
           });
       }
 
@@ -1526,7 +1584,8 @@ public:
           traversal.exit_event,
           node->current_cost + entry_event_cost + alt->cost,
           std::nullopt,
-          node
+          node,
+          __LINE__
         });
 
       if (traversal.exit_event && exit_event_route.trajectory().size() >= 2)
@@ -1544,7 +1603,8 @@ public:
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node
+            node,
+          __LINE__
           });
       }
 
@@ -1594,7 +1654,8 @@ public:
             solution_root->info.event,
             search_node->current_cost + approach_info.cost,
             std::nullopt,
-            search_node
+            search_node,
+          __LINE__
           });
       }
 
@@ -1642,7 +1703,8 @@ public:
             solution_node->info.event,
             search_node->current_cost + solution_node->info.cost_from_parent,
             std::nullopt,
-            search_node
+            search_node,
+          __LINE__
           });
 
         solution_node = solution_node->child;
@@ -1945,7 +2007,8 @@ public:
         nullptr,
         0.0,
         start,
-        nullptr
+        nullptr,
+          __LINE__
       });
   }
 

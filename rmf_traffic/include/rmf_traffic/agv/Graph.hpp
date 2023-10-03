@@ -79,7 +79,6 @@ public:
     /// Set this Waypoint to be a parking spot.
     Waypoint& set_parking_spot(bool _is_parking_spot);
 
-
     /// Returns true if this Waypoint is a charger spot. Robots are routed to
     /// these spots when their batteries charge levels drop below the threshold
     /// value.
@@ -87,6 +86,14 @@ public:
 
     /// Set this Waypoint to be a parking spot.
     Waypoint& set_charger(bool _is_charger);
+
+    /// If this waypoint is inside the lift then this will return a pointer to
+    /// a string of the lift's name. Otherwise this will be a nullptr.
+    const std::string* in_lift() const;
+
+    /// Set the name of the lift that the waypoint is inside of, or provide a
+    /// nullopt if it is not inside a lift.
+    Waypoint& set_in_lift(std::optional<std::string> lift_name);
 
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.

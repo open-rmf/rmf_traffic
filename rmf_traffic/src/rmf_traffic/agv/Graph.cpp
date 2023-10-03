@@ -46,6 +46,8 @@ public:
 
   bool charger = false;
 
+  std::optional<std::string> in_lift;
+
   template<typename... Args>
   static Waypoint make(Args&& ... args)
   {
@@ -137,6 +139,22 @@ bool Graph::Waypoint::is_charger() const
 auto Graph::Waypoint::set_charger(bool _is_charger) -> Waypoint&
 {
   _pimpl->charger = _is_charger;
+  return *this;
+}
+
+//==============================================================================
+const std::string* Graph::Waypoint::in_lift() const
+{
+  if (_pimpl->in_lift.has_value())
+    return &*_pimpl->in_lift;
+  return nullptr;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_in_lift(
+  std::optional<std::string> lift_name) -> Waypoint&
+{
+  _pimpl->in_lift = lift_name;
   return *this;
 }
 
