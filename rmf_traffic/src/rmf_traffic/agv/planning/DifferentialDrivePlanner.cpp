@@ -32,24 +32,6 @@ namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
-class Printer : public rmf_traffic::agv::Graph::Lane::Executor
-{
-public:
-  Printer()
-  {
-    // Do nothing
-  }
-
-  void execute(const DoorOpen&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const DoorClose&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const LiftSessionBegin&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const LiftDoorOpen&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const LiftSessionEnd&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const LiftMove&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const Wait&) override { std::cout << "event " << __LINE__ << std::endl;; }
-  void execute(const Dock& dock) override { std::cout << "event " << __LINE__ << std::endl;; }
-};
-
 //==============================================================================
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
@@ -63,21 +45,6 @@ std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
   }
 
   std::reverse(node_sequence.begin(), node_sequence.end());
-  std::cout << " --- node sequence --- " << std::endl;
-  const auto t0 = node_sequence.front()->time;
-  for (const NodePtr node : node_sequence)
-  {
-    std::cout << " -- LINE:" << node->line << " | t=" << time::to_seconds(node->time - t0) << " ";
-    if (node->waypoint.has_value())
-      std::cout << "index " << *node->waypoint << " ";
-    std::cout << " <" << node->position.transpose() << "> yaw=" << node->yaw << " ";
-    std::cout << std::endl;
-    if (node->event)
-    {
-      Printer printer;
-      node->event->execute(printer);
-    }
-  }
 
   return node_sequence;
 }
@@ -218,7 +185,6 @@ std::vector<NodePtr> reconstruct_nodes(
   const double alpha_nom,
   const double rotational_threshold)
 {
-  std::cout << "==================================" << std::endl;
   auto node_sequence = reconstruct_nodes(finish_node);
 
   // Remove "cruft" from plans. This means making sure vehicles don't do any
