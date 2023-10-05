@@ -26,6 +26,84 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+class Graph::LiftProperties::Implementation
+{
+public:
+  std::string name;
+  Eigen::Vector2d location;
+  double orientation;
+  Eigen::Vector2d half_dimensions;
+  Eigen::Isometry2d tf_inv;
+};
+
+//==============================================================================
+const std::string& Graph::LiftProperties::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::LiftProperties::location() const
+{
+  return _pimpl->location;
+}
+
+//==============================================================================
+double Graph::LiftProperties::orientation() const
+{
+  return _pimpl->orientation;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::LiftProperties::dimensions() const
+{
+  return 2.0 * _pimpl->half_dimensions;
+}
+
+//==============================================================================
+bool Graph::LiftProperties::is_in_lift(Eigen::Vector2d position) const
+{
+  Eigen::Vector2d p_local = _pimpl->tf_inv * position;
+  for (int i = 0; i < 2; ++i)
+  {
+    if (p_local[i] < -_pimpl->half_dimensions[i])
+      return false;
+
+    if (_pimpl->half_dimensions[i] < p_local[i])
+      return false;
+  }
+
+  return true;
+}
+
+//==============================================================================
+Eigen::Isometry2d make_lift_tf_inv(Eigen::Vector2d location, double orientation)
+{
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+  tf.translate(location);
+  tf.rotate(orientation);
+  return tf.inverse();
+}
+
+//==============================================================================
+Graph::LiftProperties::LiftProperties(
+  std::string name,
+  Eigen::Vector2d location,
+  double orientation,
+  Eigen::Vector2d dimensions)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation {
+        std::move(name),
+        location,
+        orientation,
+        dimensions / 2.0,
+        make_lift_tf_inv(location, orientation)
+      }))
+{
+  // Do nothing
+}
+
+//==============================================================================
 class Graph::Waypoint::Implementation
 {
 public:
@@ -46,7 +124,7 @@ public:
 
   bool charger = false;
 
-  std::optional<std::string> in_lift;
+  LiftPropertiesPtr in_lift = nullptr;
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -143,18 +221,15 @@ auto Graph::Waypoint::set_charger(bool _is_charger) -> Waypoint&
 }
 
 //==============================================================================
-const std::string* Graph::Waypoint::in_lift() const
+auto Graph::Waypoint::in_lift() const -> LiftPropertiesPtr
 {
-  if (_pimpl->in_lift.has_value())
-    return &*_pimpl->in_lift;
-  return nullptr;
+  return _pimpl->in_lift;
 }
 
 //==============================================================================
-auto Graph::Waypoint::set_in_lift(
-  std::optional<std::string> lift_name) -> Waypoint&
+auto Graph::Waypoint::set_in_lift(LiftPropertiesPtr lift) -> Waypoint&
 {
-  _pimpl->in_lift = lift_name;
+  _pimpl->in_lift = lift;
   return *this;
 }
 
@@ -965,6 +1040,18 @@ auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) -> Lane*
     return nullptr;
 
   return &_pimpl->lanes.at(it->second);
+}
+
+//==============================================================================
+auto Graph::known_lifts() const -> const std::unordered_set<LiftPropertiesPtr>&
+{
+  return _pimpl->lifts;
+}
+
+//==============================================================================
+auto Graph::known_lifts() -> std::unordered_set<LiftPropertiesPtr>&
+{
+  return _pimpl->lifts;
 }
 
 //==============================================================================

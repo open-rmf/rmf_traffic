@@ -31,6 +31,7 @@ public:
   std::vector<Waypoint> waypoints;
   std::vector<Lane> lanes;
   std::unordered_map<std::string, std::size_t> keys;
+  std::unordered_set<LiftPropertiesPtr> lifts;
 
   // A map from a waypoint index to the set of lanes that can exit from it
   std::vector<std::vector<std::size_t>> lanes_from;

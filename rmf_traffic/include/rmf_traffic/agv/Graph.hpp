@@ -27,6 +27,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
 
 namespace rmf_traffic {
@@ -37,10 +38,45 @@ class Graph
 {
 public:
 
+  /// Properties related to lifts (elevators) that exist in the graph
+  class LiftProperties
+  {
+  public:
+    /// Get the name of the lift.
+    const std::string& name() const;
+
+    /// Get the (x, y) location of the lift in RMF canonical coordinates.
+    Eigen::Vector2d location() const;
+
+    /// Get the orientation (in radians) of the lift in RMF canonical
+    /// coordinates.
+    double orientation() const;
+
+    /// Get the dimensions of the lift, aligned with the lift's local (x, y)
+    /// coordinates.
+    Eigen::Vector2d dimensions() const;
+
+    /// Get whether the specified position, given in RMF canonical coordinates,
+    /// is inside the lift.
+    bool is_in_lift(Eigen::Vector2d position) const;
+
+    /// Constructor
+    LiftProperties(
+      std::string name,
+      Eigen::Vector2d location,
+      double orientations,
+      Eigen::Vector2d dimensions);
+
+  private:
+    class Implementation;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+  using LiftPropertiesPtr = std::shared_ptr<const LiftProperties>;
+
+  /// Properties assigned to each waypoint (vertex) in the graph
   class Waypoint
   {
   public:
-
     /// Get the name of the map that this Waypoint exists on.
     const std::string& get_map_name() const;
 
@@ -88,12 +124,12 @@ public:
     Waypoint& set_charger(bool _is_charger);
 
     /// If this waypoint is inside the lift then this will return a pointer to
-    /// a string of the lift's name. Otherwise this will be a nullptr.
-    const std::string* in_lift() const;
+    /// the properties of the lift. Otherwise this will be a nullptr.
+    LiftPropertiesPtr in_lift() const;
 
-    /// Set the name of the lift that the waypoint is inside of, or provide a
-    /// nullopt if it is not inside a lift.
-    Waypoint& set_in_lift(std::optional<std::string> lift_name);
+    /// Set the properties of the lift that the waypoint is inside of, or
+    /// provide a nullptr if it is not inside a lift.
+    Waypoint& set_in_lift(LiftPropertiesPtr properties);
 
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
@@ -595,6 +631,15 @@ public:
 
   /// const-qualified lane_from()
   const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
+
+  /// Get the lifts that are known to exist for this graph.
+  /// NOTE: There is no mechanism to automatically keep known_lifts synced with
+  /// the actual lifts used by the vertices, so this must be kept in sync
+  /// manually.
+  const std::unordered_set<LiftPropertiesPtr>& known_lifts() const;
+
+  /// Mutable reference to the known lifts
+  std::unordered_set<LiftPropertiesPtr>& known_lifts();
 
   class Implementation;
 private:
