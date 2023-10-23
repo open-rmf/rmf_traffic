@@ -186,6 +186,20 @@ std::vector<NodePtr> reconstruct_nodes(
   const double rotational_threshold)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
+  std::optional<rmf_traffic::agv::Plan::Start> start;
+  if (!node_sequence.empty())
+  {
+    start = node_sequence.front()->start;
+    if (!start.has_value())
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[rmf_traffic::agv::Planner::plan][1] The root node of a solved plan "
+        "is missing its Start information. This should not happen. Please "
+        "report this critical bug to the maintainers of rmf_traffic.");
+      // *INDENT-ON*
+    }
+  }
 
   // Remove "cruft" from plans. This means making sure vehicles don't do any
   // unnecessary motions.
@@ -234,7 +248,12 @@ std::vector<NodePtr> reconstruct_nodes(
       duplicate.squash(validator);
   }
 
-  return reconstruct_nodes(finish_node);
+  auto final_node_sequence = reconstruct_nodes(finish_node);
+  if (!final_node_sequence.empty())
+  {
+    final_node_sequence.front()->start = start;
+  }
+  return final_node_sequence;
 }
 
 //==============================================================================
@@ -679,8 +698,8 @@ Plan::Start find_start(NodePtr node)
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[rmf_traffic::agv::Planner::plan] The root node of a solved plan is "
-      "missing its Start information. This should not happen. Please report "
+      "[rmf_traffic::agv::Planner::plan][2] The root node of a processed plan "
+      "is missing its Start information. This should not happen. Please report "
       "this critical bug to the maintainers of rmf_traffic.");
     // *INDENT-ON*
   }
@@ -1485,6 +1504,11 @@ public:
           // This is just an entry event so we will skip the unnecessary
           // intermediate node
           parent = node->parent;
+          if (!parent)
+          {
+            // If the top node is a root node, then don't skip it
+            parent = node;
+          }
           route_from_parent = node->route_from_parent;
         }
         else
