@@ -162,6 +162,17 @@ public:
       const std::string& name_format = "%s",
       const std::string& index_format = "#%d") const;
 
+    /// Get the mutex group that this waypoint is associated with. An empty
+    /// string implies that it is not associated with any mutex group.
+    ///
+    /// Only one robot at a time is allowed to occupy any waypoint or lane
+    /// associated with a particular mutex group.
+    const std::string& in_mutex_group() const;
+
+    /// Set what mutex group this waypoint is associated with. Passing in an
+    /// empty string will disasscoiate the waypoint from any mutex group.
+    Waypoint& set_in_mutex_group(std::string group_name);
+
     class Implementation;
   private:
     Waypoint();
@@ -511,6 +522,7 @@ public:
 
       /// Construct a default set of properties
       /// * speed_limit: nullopt
+      /// * mutex_group: ""
       Properties();
 
       /// Get the speed limit along this lane. If a std::nullopt is returned,
@@ -520,6 +532,17 @@ public:
       /// Set the speed limit along this lane. Providing a std::nullopt
       /// indicates that there is no speed limit for the lane.
       Properties& speed_limit(std::optional<double> value);
+
+      /// Get the mutex group that this lane is associated with. An empty string
+      /// implies that it is not associated with any mutex group.
+      ///
+      /// Only one robot at a time is allowed to occupy any waypoint or lane
+      /// associated with a particular mutex group.
+      const std::string& in_mutex_group() const;
+
+      /// Set what mutex group this lane is associated with. Passing in an
+      /// empty string will disassociate the lane from any mutex group.
+      Properties& set_in_mutex_group(std::string group_name);
 
       class Implementation;
     private:

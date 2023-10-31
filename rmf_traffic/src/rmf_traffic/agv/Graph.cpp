@@ -126,6 +126,8 @@ public:
 
   LiftPropertiesPtr in_lift = nullptr;
 
+  std::string mutex_group = "";
+
   template<typename... Args>
   static Waypoint make(Args&& ... args)
   {
@@ -271,6 +273,19 @@ std::string Graph::Waypoint::name_or_index(
   return index_format.substr(0, it)
     + std::to_string(_pimpl->index)
     + index_format.substr(it+2);
+}
+
+//==============================================================================
+const std::string& Graph::Waypoint::in_mutex_group() const
+{
+  return _pimpl->mutex_group;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_in_mutex_group(std::string group_name) -> Waypoint&
+{
+  _pimpl->mutex_group = std::move(group_name);
+  return *this;
 }
 
 //==============================================================================
@@ -769,6 +784,7 @@ class Graph::Lane::Properties::Implementation
 public:
 
   std::optional<double> speed_limit;
+  std::string mutex_group;
 
 };
 
@@ -790,6 +806,20 @@ auto Graph::Lane::Properties::speed_limit(std::optional<double> value)
 -> Properties&
 {
   _pimpl->speed_limit = value;
+  return *this;
+}
+
+//==============================================================================
+const std::string& Graph::Lane::Properties::in_mutex_group() const
+{
+  return _pimpl->mutex_group;
+}
+
+//==============================================================================
+auto Graph::Lane::Properties::set_in_mutex_group(std::string group_name)
+-> Properties&
+{
+  _pimpl->mutex_group = std::move(group_name);
   return *this;
 }
 
