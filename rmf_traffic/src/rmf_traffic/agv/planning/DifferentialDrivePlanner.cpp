@@ -1150,7 +1150,7 @@ public:
       std::make_shared<SearchNode>(
         SearchNode{
           std::nullopt,
-          std::nullopt,
+          top->waypoint,
           {},
           p,
           yaw,
@@ -1721,7 +1721,15 @@ public:
     if (!top->waypoint.has_value())
     {
       // If the node does not have a waypoint, then it must be a start node.
-      assert(top->start.has_value());
+      if (!top->start.has_value())
+      {
+        throw std::runtime_error(
+          "[rmf_traffic::agv::planning::DifferentialDrivePlanner::expand] "
+          "Node has no waypoint and also no start information. It was produced "
+          "on line [" + std::to_string(top->line) + "]. This should not be "
+          "possible. Please report this critical bug to the maintainers of "
+          "rmf_traffic.");
+      }
       expand_start(top, queue);
       return;
     }
