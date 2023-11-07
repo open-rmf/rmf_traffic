@@ -941,7 +941,7 @@ public:
     const auto& wp = _supergraph->original().waypoints[target_waypoint_index];
     const Eigen::Vector2d wp_location = wp.get_location();
 
-    SearchNodePtr node = top;
+    SearchNodePtr parent = top;
     if (start.lane().has_value() && start.location().has_value())
     {
       const auto lane_index = start.lane().value();
@@ -954,30 +954,30 @@ public:
         Trajectory hold;
         Eigen::Vector3d p_start = {p.x(), p.y(), start.orientation()};
         const auto zero = Eigen::Vector3d::Zero();
-        hold.insert(node->time, p_start, zero);
-        hold.insert(node->time + entry_event->duration(), p_start, zero);
+        hold.insert(parent->time, p_start, zero);
+        hold.insert(parent->time + entry_event->duration(), p_start, zero);
         Route route{wp.get_map_name(), std::move(hold)};
-        if (_validator && !is_valid(node, route))
+        if (_validator && !is_valid(parent, route))
         {
           // If we cannot wait for the entry event to happen then this is not a
           // feasible start.
           return;
         }
 
-        node = std::make_shared<SearchNode>(
+        parent = std::make_shared<SearchNode>(
           SearchNode{
             std::nullopt,
             top->waypoint,
             {},
             p,
             start.orientation(),
-            node->time + entry_event->duration(),
-            node->remaining_cost_estimate,
+            parent->time + entry_event->duration(),
+            parent->remaining_cost_estimate,
             {std::move(route)},
             std::move(entry_event),
-            node->current_cost + event_cost,
+            parent->current_cost + event_cost,
             std::nullopt,
-            node,
+            parent,
           __LINE__
           });
       }
@@ -991,7 +991,7 @@ public:
     assert(start.location().has_value());
 
     const auto approach_info = make_start_approach_trajectories(
-      top->start.value(), node->current_cost);
+      top->start.value(), parent->current_cost);
 
     if (approach_info.trajectories.empty())
     {
@@ -1041,7 +1041,7 @@ public:
       for (const auto& map : map_names)
       {
         Route route{map, approach_trajectory};
-        if (_validator && !is_valid(node, route))
+        if (_validator && !is_valid(parent, route))
         {
           all_valid = false;
           break;
@@ -1065,7 +1065,7 @@ public:
         for (const auto& map : map_names)
         {
           Route route{map, hold};
-          if (_validator && !is_valid(node, route))
+          if (_validator && !is_valid(parent, route))
           {
             all_valid = false;
             break;
@@ -1085,7 +1085,7 @@ public:
       // TODO(MXG): We can actually specify the orientation for this. We just
       // need to be smarter with make_start_approach_trajectories(). We should
       // really have it return a Traversal.
-      node = std::make_shared<SearchNode>(
+      auto node = std::make_shared<SearchNode>(
         SearchNode{
           std::nullopt,
           target_waypoint_index,
@@ -1093,12 +1093,12 @@ public:
           wp_location,
           approach_yaw,
           approach_time,
-          node->remaining_cost_estimate - approach_cost,
+          parent->remaining_cost_estimate - approach_cost,
           std::move(approach_routes),
           exit_event,
-          node->current_cost + approach_cost,
+          parent->current_cost + approach_cost,
           std::nullopt,
-          node,
+          parent,
           __LINE__
         });
 
@@ -1122,6 +1122,7 @@ public:
           });
       }
 
+      std::cout << "----> pushing " << node << ": " << std::to_string(node->line) << std::endl;
       queue.push(node);
     }
 
@@ -1710,6 +1711,7 @@ public:
 
   void expand(const SearchNodePtr& top, SearchQueue& queue) const
   {
+    std::cout << "----> checking node" << std::endl;
     if (!_should_expand_from(top))
     {
       // This means we have already expanded from this location before, at
@@ -1723,6 +1725,7 @@ public:
       // If the node does not have a waypoint, then it must be a start node.
       if (!top->start.has_value())
       {
+        std::cout << "----> bad node: " << top << std::endl;
         throw std::runtime_error(
           "[rmf_traffic::agv::planning::DifferentialDrivePlanner::expand] "
           "Node has no waypoint and also no start information. It was produced "
@@ -2103,6 +2106,7 @@ public:
     while (!rollout_queue.empty() && !(_interrupter && _interrupter()))
     {
       const auto top = rollout_queue.back();
+      std::cout << "----> expanding " << top.node << ": " << std::to_string(top.node->line) << std::endl;
       rollout_queue.pop_back();
 
       const auto current_span = top.span();
@@ -2125,6 +2129,7 @@ public:
       expand(top.node, search_queue);
       while (!search_queue.empty())
       {
+        std::cout << "----> rolling " << search_queue.top() << ": " << std::to_string(search_queue.top()->line) << std::endl;
         rollout_queue.emplace_back(
           RolloutEntry{
             top.initial_time,
