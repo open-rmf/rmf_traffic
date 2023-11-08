@@ -1122,7 +1122,6 @@ public:
           });
       }
 
-      std::cout << "----> pushing " << node << ": " << std::to_string(node->line) << std::endl;
       queue.push(node);
     }
 
@@ -1711,7 +1710,6 @@ public:
 
   void expand(const SearchNodePtr& top, SearchQueue& queue) const
   {
-    std::cout << "----> checking node" << std::endl;
     if (!_should_expand_from(top))
     {
       // This means we have already expanded from this location before, at
@@ -1725,7 +1723,6 @@ public:
       // If the node does not have a waypoint, then it must be a start node.
       if (!top->start.has_value())
       {
-        std::cout << "----> bad node: " << top << std::endl;
         throw std::runtime_error(
           "[rmf_traffic::agv::planning::DifferentialDrivePlanner::expand] "
           "Node has no waypoint and also no start information. It was produced "
@@ -2106,7 +2103,6 @@ public:
     while (!rollout_queue.empty() && !(_interrupter && _interrupter()))
     {
       const auto top = rollout_queue.back();
-      std::cout << "----> expanding " << top.node << ": " << std::to_string(top.node->line) << std::endl;
       rollout_queue.pop_back();
 
       const auto current_span = top.span();
@@ -2129,7 +2125,6 @@ public:
       expand(top.node, search_queue);
       while (!search_queue.empty())
       {
-        std::cout << "----> rolling " << search_queue.top() << ": " << std::to_string(search_queue.top()->line) << std::endl;
         rollout_queue.emplace_back(
           RolloutEntry{
             top.initial_time,
