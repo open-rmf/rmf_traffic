@@ -1499,11 +1499,13 @@ public:
         const auto time = approach_wp.time();
         auto parent = node;
         std::vector<Route> route_from_parent;
+        std::vector<std::size_t> approach_lanes;
         if (approach_route.trajectory().size() < 2)
         {
           // This is just an entry event so we will skip the unnecessary
           // intermediate node
           parent = node->parent;
+          approach_lanes = node->approach_lanes;
           if (!parent)
           {
             // If the top node is a root node, then don't skip it
@@ -1524,7 +1526,7 @@ public:
               Side::Start
             },
             initial_waypoint_index,
-            {},
+            approach_lanes,
             p0,
             yaw,
             time,
