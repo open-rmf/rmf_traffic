@@ -68,11 +68,39 @@ public:
       double orientations,
       Eigen::Vector2d dimensions);
 
-  private:
     class Implementation;
+  private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
-  using LiftPropertiesPtr = std::shared_ptr<const LiftProperties>;
+  using LiftPropertiesPtr = std::shared_ptr<LiftProperties>;
+
+  class DoorProperties
+  {
+  public:
+    /// Get the name of the door.
+    const std::string& name() const;
+
+    /// Get the start position of the door.
+    Eigen::Vector2d start() const;
+
+    /// Get the end position of the door.
+    Eigen::Vector2d end() const;
+
+    /// Get the name of the map that this door is on.
+    const std::string& map() const;
+
+    /// Constructor
+    DoorProperties(
+      std::string name,
+      Eigen::Vector2d start,
+      Eigen::Vector2d end,
+      std::string map);
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+  using DoorPropertiesPtr = std::shared_ptr<DoorProperties>;
 
   /// Properties assigned to each waypoint (vertex) in the graph
   class Waypoint
@@ -656,14 +684,27 @@ public:
   /// const-qualified lane_from()
   const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
 
-  /// Get the lifts that are known to exist for this graph.
-  /// NOTE: There is no mechanism to automatically keep known_lifts synced with
-  /// the actual lifts used by the vertices, so this must be kept in sync
-  /// manually.
-  const std::unordered_set<LiftPropertiesPtr>& known_lifts() const;
+  /// Add a known lift to the graph. If this lift has the same name as one
+  /// previously added, we will continue to use the same pointer as the original
+  /// and override the properties because lift names are expected to be unique.
+  LiftPropertiesPtr set_known_lift(LiftProperties lift);
 
-  /// Mutable reference to the known lifts
-  std::unordered_set<LiftPropertiesPtr>& known_lifts();
+  /// Get all the known lifts.
+  std::vector<LiftPropertiesPtr> all_known_lifts() const;
+
+  /// Find a known lift based on its name.
+  LiftPropertiesPtr find_known_lift(const std::string& name) const;
+
+  /// Add a known door to the graph. If this door has the same name as one
+  /// previously added, we will continue to use the same pointer as the original
+  /// and override the properties because door names are expected to be unique.
+  DoorPropertiesPtr set_known_door(DoorProperties door);
+
+  /// Get all the known doors.
+  std::vector<DoorPropertiesPtr> all_known_doors() const;
+
+  /// Find a known door based on its name.
+  DoorPropertiesPtr find_known_door(const std::string& name) const;
 
   class Implementation;
 private:

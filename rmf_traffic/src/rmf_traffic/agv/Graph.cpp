@@ -34,6 +34,13 @@ public:
   double orientation;
   Eigen::Vector2d half_dimensions;
   Eigen::Isometry2d tf_inv;
+
+  static void update(
+    LiftProperties& original,
+    const LiftProperties& incoming)
+  {
+    *original._pimpl = *incoming._pimpl;
+  }
 };
 
 //==============================================================================
@@ -101,6 +108,57 @@ Graph::LiftProperties::LiftProperties(
         dimensions / 2.0,
         make_lift_tf_inv(location, orientation)
       }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+class Graph::DoorProperties::Implementation
+{
+public:
+  std::string name;
+  Eigen::Vector2d start;
+  Eigen::Vector2d end;
+  std::string map;
+};
+
+//==============================================================================
+const std::string& Graph::DoorProperties::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::DoorProperties::start() const
+{
+  return _pimpl->start;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::DoorProperties::end() const
+{
+  return _pimpl->end;
+}
+
+//==============================================================================
+const std::string& Graph::DoorProperties::map() const
+{
+  return _pimpl->map;
+}
+
+//==============================================================================
+Graph::DoorProperties::DoorProperties(
+  std::string name,
+  Eigen::Vector2d start,
+  Eigen::Vector2d end,
+  std::string map)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation {
+      std::move(name),
+      start,
+      end,
+      std::move(map)
+    }))
 {
   // Do nothing
 }
@@ -1075,22 +1133,88 @@ auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) -> Lane*
 }
 
 //==============================================================================
-auto Graph::known_lifts() const -> const std::unordered_set<LiftPropertiesPtr>&
-{
-  return _pimpl->lifts;
-}
-
-//==============================================================================
-auto Graph::known_lifts() -> std::unordered_set<LiftPropertiesPtr>&
-{
-  return _pimpl->lifts;
-}
-
-//==============================================================================
 auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) const
 -> const Lane*
 {
   return const_cast<Graph&>(*this).lane_from(from_wp, to_wp);
+}
+
+//==============================================================================
+auto Graph::set_known_lift(LiftProperties lift) -> LiftPropertiesPtr
+{
+  const auto [l_it, inserted] = _pimpl->lifts.insert({lift.name(), nullptr});
+  if (inserted)
+  {
+    l_it->second = std::make_shared<LiftProperties>(std::move(lift));
+  }
+  else
+  {
+    *l_it->second = std::move(lift);
+  }
+
+  return l_it->second;
+}
+
+//==============================================================================
+auto Graph::all_known_lifts() const -> std::vector<LiftPropertiesPtr>
+{
+  std::vector<LiftPropertiesPtr> lifts;
+  lifts.reserve(_pimpl->lifts.size());
+  for (const auto& [_, lift] : _pimpl->lifts)
+  {
+    lifts.push_back(lift);
+  }
+
+  return lifts;
+}
+
+//==============================================================================
+auto Graph::find_known_lift(const std::string& name) const -> LiftPropertiesPtr
+{
+  const auto l_it = _pimpl->lifts.find(name);
+  if (l_it == _pimpl->lifts.end())
+    return nullptr;
+
+  return l_it->second;
+}
+
+//==============================================================================
+auto Graph::set_known_door(DoorProperties door) -> DoorPropertiesPtr
+{
+  const auto [d_it, inserted] = _pimpl->doors.insert({door.name(), nullptr});
+  if (inserted)
+  {
+    d_it->second = std::make_shared<DoorProperties>(std::move(door));
+  }
+  else
+  {
+    *d_it->second = std::move(door);
+  }
+
+  return d_it->second;
+}
+
+//==============================================================================
+auto Graph::all_known_doors() const -> std::vector<DoorPropertiesPtr>
+{
+  std::vector<DoorPropertiesPtr> doors;
+  doors.reserve(_pimpl->doors.size());
+  for (const auto& [_, door] : _pimpl->doors)
+  {
+    doors.push_back(door);
+  }
+
+  return doors;
+}
+
+//==============================================================================
+auto Graph::find_known_door(const std::string& name) const -> DoorPropertiesPtr
+{
+  const auto d_it = _pimpl->doors.find(name);
+  if (d_it == _pimpl->doors.end())
+    return nullptr;
+
+  return d_it->second;
 }
 
 } // namespace avg
