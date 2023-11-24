@@ -147,6 +147,77 @@ const std::string& Graph::DoorProperties::map() const
 }
 
 //==============================================================================
+namespace {
+double distance_from_point_to_segment(
+  Eigen::Vector2d q,
+  Eigen::Vector2d p0,
+  Eigen::Vector2d p1)
+{
+  const double endpoint_distance = std::min((q - p0).norm(), (q - p1).norm());
+  const auto L = (p1 - p0).norm();
+  if (L < 1e-3)
+  {
+    return endpoint_distance;
+  }
+
+  const Eigen::Vector2d n = (p1 - p0) / L;
+  const Eigen::Vector2d v = q - p0;
+  const Eigen::Vector2d q_proj = (v.dot(n)) * n;
+  const double ortho_distance = (q - q_proj).norm();
+  return std::min(ortho_distance, endpoint_distance);
+}
+} // anonymous namespace
+
+//==============================================================================
+bool Graph::DoorProperties::intersects(
+  Eigen::Vector2d p0,
+  Eigen::Vector2d p1,
+  double envelope) const
+{
+  const auto q0 = _pimpl->start;
+  const auto q1 = _pimpl->end;
+  for (const auto test : std::vector<std::function<double()>>{
+      [&]{ return distance_from_point_to_segment(p0, q0, q1); },
+      [&]{ return distance_from_point_to_segment(p1, q0, q1); },
+      [&]{ return distance_from_point_to_segment(q0, p0, p1); },
+      [&]{ return distance_from_point_to_segment(_pimpl->end, p0, p1); }
+    })
+  {
+    const double distance = test();
+    if (distance <= envelope)
+      return true;
+  }
+
+  // If none of the endpoints are within range of the other lines, then the only
+  // way for an intersection to exist is if the lines truly cross each other.
+  const double det = (p0.x() - p1.x()) * (q0.y() - q1.y())
+    - (p0.y() - p1.y()) * (q0.x() - q1.x());
+
+  if (std::abs(det) < 1e-8)
+  {
+    // The lines are essentially parallel and their endpoints aren't close
+    // enough, so there is no intersection.
+    return false;
+  }
+
+  const double t = ( (p0.x() - q0.x()) * (q0.y() - q1.y())
+    - (p0.y() - q0.y()) * (q0.x() - q1.x()) )
+    / det;
+
+  if (t < 0.0 || 1.0 < t)
+    return false;
+
+  const double u = ( (p0.x() - q0.x()) * (p0.y() - p1.y())
+    - (p0.y() - q0.y()) * (p0.x() - p1.x()) )
+    / det;
+
+  if (u < 0.0 || 1.0 < u)
+    return false;
+
+  return true;
+}
+
+//==============================================================================
 Graph::DoorProperties::DoorProperties(
   std::string name,
   Eigen::Vector2d start,

@@ -89,6 +89,12 @@ public:
     /// Get the name of the map that this door is on.
     const std::string& map() const;
 
+    /// Check if the line formed by p0 -> p1 intersects this door.
+    bool intersects(
+      Eigen::Vector2d p0,
+      Eigen::Vector2d p1,
+      double envelope = 0.0) const;
+
     /// Constructor
     DoorProperties(
       std::string name,
