@@ -57,8 +57,9 @@ public:
     Eigen::Vector2d dimensions() const;
 
     /// Get whether the specified position, given in RMF canonical coordinates,
-    /// is inside the lift.
-    bool is_in_lift(Eigen::Vector2d position) const;
+    /// is inside the lift. The envelope will expand the footprint of the lift
+    /// that is used in the calculation.
+    bool is_in_lift(Eigen::Vector2d position, double envelope = 0.0) const;
 
     /// Constructor
     LiftProperties(

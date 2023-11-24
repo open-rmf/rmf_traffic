@@ -61,15 +61,17 @@ Eigen::Vector2d Graph::LiftProperties::dimensions() const
 }
 
 //==============================================================================
-bool Graph::LiftProperties::is_in_lift(Eigen::Vector2d position) const
+bool Graph::LiftProperties::is_in_lift(
+  Eigen::Vector2d position,
+  double envelope) const
 {
   Eigen::Vector2d p_local = _pimpl->tf_inv * position;
   for (int i = 0; i < 2; ++i)
   {
-    if (p_local[i] < -_pimpl->half_dimensions[i])
+    if (p_local[i]  < -_pimpl->half_dimensions[i] - envelope)
       return false;
 
-    if (_pimpl->half_dimensions[i] < p_local[i])
+    if (_pimpl->half_dimensions[i] + envelope < p_local[i])
       return false;
   }
 
