@@ -208,6 +208,14 @@ public:
     /// empty string will disasscoiate the waypoint from any mutex group.
     Waypoint& set_in_mutex_group(std::string group_name);
 
+    /// Get a merge radius specific to this waypoint, if it has one. The radius
+    /// indicates that any robot within this distance of the waypoint can merge
+    /// onto this waypoint.
+    std::optional<double> merge_radius() const;
+
+    /// Set the merge radius specific to this waypoint.
+    Waypoint& set_merge_radius(std::optional<double> valeu);
+
     class Implementation;
   private:
     Waypoint();

@@ -259,6 +259,8 @@ public:
 
   std::string mutex_group = "";
 
+  std::optional<double> merge_radius = std::nullopt;
+
   template<typename... Args>
   static Waypoint make(Args&& ... args)
   {
@@ -416,6 +418,19 @@ const std::string& Graph::Waypoint::in_mutex_group() const
 auto Graph::Waypoint::set_in_mutex_group(std::string group_name) -> Waypoint&
 {
   _pimpl->mutex_group = std::move(group_name);
+  return *this;
+}
+
+//==============================================================================
+std::optional<double> Graph::Waypoint::merge_radius() const
+{
+  return _pimpl->merge_radius;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_merge_radius(std::optional<double> value) -> Waypoint&
+{
+  _pimpl->merge_radius = value;
   return *this;
 }
 
