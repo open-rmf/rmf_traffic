@@ -186,6 +186,21 @@ std::vector<NodePtr> reconstruct_nodes(
   const double rotational_threshold)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
+  std::stringstream ss;
+  ss << " ---------- Plan Nodes";
+  for (const auto& node : node_sequence)
+  {
+    ss << "\n -- line " << node->line;
+    if (node->waypoint.has_value())
+      ss << " wp:" << *node->waypoint;
+    else
+      ss << " wp:(null)";
+    ss << " " << node->position.transpose() << " approach: ";
+    for (const auto& l : node->approach_lanes)
+      ss << " " << l;
+  }
+  std::cout << ss.str() << std::endl;
+
   std::optional<rmf_traffic::agv::Plan::Start> start;
   if (!node_sequence.empty())
   {
@@ -297,6 +312,7 @@ std::vector<Plan::Waypoint> find_dependencies(
       // There may be duplicate insertions because of event waypoints, but
       // that's okay. We just use the first relevant plan waypoint and allow the
       // insertion to fail for the rest.
+      std::cout << "inserting candidate " << c.route_id << ":" << c.checkpoint_id << std::endl;
       checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
     }
   }
@@ -654,8 +670,48 @@ reconstruct_waypoints(
       }
       else
       {
-        itinerary.push_back(next_route);
-        extended_route = &itinerary.back();
+        bool merged = false;
+        if (last_route.trajectory().size() < 2)
+        {
+          // The last itinerary did not have enough waypoints, so we should
+          // discard it.
+          std::cout << "popping back route " << itinerary.size()-1 << std::endl;
+          const std::size_t remove = itinerary.size() - 1;
+          itinerary.pop_back();
+          for (auto& candidate : candidates)
+          {
+            const auto r_it = std::remove_if(
+              candidate.waypoint.arrival.begin(),
+              candidate.waypoint.arrival.end(),
+              [remove](const Plan::Checkpoint& c)
+              {
+                return c.route_id == remove;
+              });
+            candidate.waypoint.arrival.erase(
+              r_it,
+              candidate.waypoint.arrival.end());
+          }
+
+          if (!itinerary.empty())
+          {
+            Route& last_route = itinerary.back();
+            if (next_route.map() == last_route.map())
+            {
+              merged = true;
+              extended_route = &last_route;
+              for (const auto& waypoint : next_route.trajectory())
+              {
+                last_route.trajectory().insert(waypoint);
+              }
+            }
+          }
+        }
+
+        if (!merged)
+        {
+          itinerary.push_back(next_route);
+          extended_route = &itinerary.back();
+        }
       }
 
       if (!node->approach_lanes.empty())
@@ -672,13 +728,58 @@ reconstruct_waypoints(
             candidate.velocity).it->index();
 
           candidate.waypoint.arrival.push_back({itinerary.size()-1, index});
+          std::cout << __LINE__ << " push candidate " << candidate.waypoint.arrival.back().route_id
+            << ":" << candidate.waypoint.arrival.back().checkpoint_id << std::endl;
         }
       }
 
       candidates.back().waypoint.arrival
         .push_back({itinerary.size()-1, itinerary.back().trajectory().size()-1});
+      std::cout << __LINE__ << " push candidate " << candidates.back().waypoint.arrival.back().route_id
+        << ":" << candidates.back().waypoint.arrival.back().checkpoint_id << std::endl;
     }
   }
+
+  std::stringstream ss;
+  std::vector<std::size_t> removals;
+  for (std::size_t i=0; i < itinerary.size(); ++i)
+  {
+    if (itinerary[i].trajectory().size() < 2)
+    {
+      ss << "\n -- removing " << i;
+      removals.push_back(i);
+    }
+  }
+
+  for (auto r_it = removals.rbegin(); r_it != removals.rend(); ++r_it)
+  {
+    std::size_t remove = *r_it;
+    itinerary.erase(itinerary.begin() + remove);
+    for (WaypointCandidate& candidate : candidates)
+    {
+      auto c_it = candidate.waypoint.arrival.begin();
+      while (c_it != candidate.waypoint.arrival.end())
+      {
+        Plan::Checkpoint& c = *c_it;
+        if (c.route_id == remove)
+        {
+          ss << "\n -- erasing " << c.route_id << ":" << c.checkpoint_id;
+          candidate.waypoint.arrival.erase(c_it);
+          continue;
+        }
+
+        if (c.route_id > remove)
+        {
+          ss << "\n -- decrementing " << c.route_id << ":" << c.checkpoint_id;
+          --c.route_id;
+        }
+
+        ++c_it;
+      }
+    }
+  }
+
+  std::cout << ss.str() << std::endl;
 
   auto plan_waypoints = find_dependencies(
       itinerary, candidates, validator,
