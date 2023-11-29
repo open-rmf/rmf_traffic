@@ -469,11 +469,8 @@ public:
       template<typename DerivedExecutor>
       DerivedExecutor& execute(DerivedExecutor& executor) const
       {
-        Executor& base_executor = static_cast<Executor&>(executor);
-        std::cout << "executing " << this << " : " << &executor
-          << " -> " << &base_executor << std::endl;
-
-        return static_cast<DerivedExecutor&>(execute(base_executor));
+        return static_cast<DerivedExecutor&>(
+          execute(static_cast<Executor&>(executor)));
       }
 
       /// Execute this event
