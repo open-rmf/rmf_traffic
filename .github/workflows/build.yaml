@@ -12,9 +12,14 @@ jobs:
     strategy:
       matrix:
         ros_distribution:
+          - humble
           - iron
           - rolling
         include:
+          # Humble Hawksbill (May 2022 - May 2027)
+          - docker_image: ubuntu:jammy
+            ros_distribution: humble
+            ros_version: 2
           # Iron Irwini (May 2023 - November 2024)
           - docker_image: ubuntu:jammy
             ros_distribution: iron
