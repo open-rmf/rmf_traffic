@@ -8,11 +8,9 @@ jobs:
   tsan:
     name: tsan
     runs-on: ubuntu-22.04
+    container:
+      image: osrf/ros:iron-desktop-jammy
     steps:
-      - name: deps
-        uses: ros-tooling/setup-ros@0.7.1
-        with:
-          required-ros-distributions: iron
       - name: tsan_build_test
         uses: ros-tooling/action-ros-ci@0.3.5
         id: tsan_build_test
