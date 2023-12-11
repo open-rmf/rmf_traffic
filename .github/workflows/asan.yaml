@@ -12,7 +12,10 @@ jobs:
       image: osrf/ros:iron-desktop-jammy
     steps:
       - name: create_blacklist
-        run: echo "fun:*Eigen*" > /home/runner/work/blacklist.txt
+        run: |
+          mkdir -p ${{ github.workspace }}/
+          touch ${{ github.workspace }}/blacklist.txt
+          echo "fun:*Eigen*" > ${{ github.workspace }}/blacklist.txt
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@0.3.5
         env:

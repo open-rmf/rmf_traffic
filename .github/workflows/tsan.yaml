@@ -14,9 +14,6 @@ jobs:
       - name: tsan_build_test
         uses: ros-tooling/action-ros-ci@0.3.5
         id: tsan_build_test
-        env:
-          CC: clang
-          CXX: clang++
         with:
           target-ros2-distro: iron
           # build all packages listed in the meta package
