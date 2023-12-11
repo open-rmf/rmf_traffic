@@ -12,11 +12,11 @@ jobs:
       - name: create_blacklist
         run: echo "fun:*Eigen*" > /home/runner/work/blacklist.txt
       - name: deps
-        uses: ros-tooling/setup-ros@v0.2
+        uses: ros-tooling/setup-ros@0.7.1
         with:
           required-ros-distributions: foxy
       - name: build_and_test
-        uses: ros-tooling/action-ros-ci@v0.3
+        uses: ros-tooling/action-ros-ci@0.3.5
         env:
           CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
           CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt

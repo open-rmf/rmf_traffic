@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: deps
-        uses: ros-tooling/setup-ros@v0.2
+        uses: ros-tooling/setup-ros@0.7.1
         with:
           required-ros-distributions: foxy
       - name: tsan_build_test
-        uses: ros-tooling/action-ros-ci@v0.3
+        uses: ros-tooling/action-ros-ci@0.3.5
         id: tsan_build_test
         env:
           CC: clang

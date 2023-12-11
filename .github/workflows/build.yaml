@@ -29,11 +29,11 @@ jobs:
       - name: pwd
         run: pwd
       - name: setup ROS environment
-        uses: ros-tooling/setup-ros@v0.3
+        uses: ros-tooling/setup-ros@0.7.1
         with:
           required-ros-distributions: ${{ matrix.ros_distribution }}
       - name: build
-        uses: ros-tooling/action-ros-ci@v0.3
+        uses: ros-tooling/action-ros-ci@0.3.5
         with:
           target-ros2-distro: ${{ matrix.ros_distribution }}
           # build all packages listed in the meta package
