@@ -12,12 +12,12 @@ jobs:
     strategy:
       matrix:
         ros_distribution:
-          - galactic
+          - iron
           - rolling
         include:
-          # Galactic Geochelone (May 2021 - November 2022)
-          - docker_image: ubuntu:focal
-            ros_distribution: galactic
+          # Iron Irwini (May 2023 - November 2024)
+          - docker_image: ubuntu:jammy
+            ros_distribution: iron
             ros_version: 2
           # Rolling Ridley (No End-Of-Life)
           - docker_image: ubuntu:jammy

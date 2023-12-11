@@ -14,14 +14,14 @@ jobs:
       - name: deps
         uses: ros-tooling/setup-ros@0.7.1
         with:
-          required-ros-distributions: foxy
+          required-ros-distributions: iron
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@0.3.5
         env:
           CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
           CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt
         with:
-          target-ros2-distro: foxy
+          target-ros2-distro: iron
           # build all packages listed in the meta package
           package-name: |
             rmf_traffic
