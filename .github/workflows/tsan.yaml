@@ -11,7 +11,12 @@ jobs:
     container:
       image: osrf/ros:iron-desktop-jammy
     steps:
+      - name: install_clang_and_tools
+        run: sudo apt update && sudo apt install -y clang clang-tools lld wget python3-pip python3-colcon-coveragepy-result python3-colcon-lcov-result lcov
       - name: tsan_build_test
+        env:
+          CC: clang
+          CXX: clang++
         uses: ros-tooling/action-ros-ci@0.3.5
         id: tsan_build_test
         with:
