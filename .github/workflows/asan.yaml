@@ -16,14 +16,13 @@ jobs:
           mkdir -p ${{ github.workspace }}/
           touch ${{ github.workspace }}/blacklist.txt
           echo "fun:*Eigen*" > ${{ github.workspace }}/blacklist.txt
-
       - name: install_clang_and_tools
         run: sudo apt update && sudo apt install -y clang clang-tools lld wget python3-pip python3-colcon-coveragepy-result python3-colcon-lcov-result lcov
       - name: build_and_test
         uses: ros-tooling/action-ros-ci@0.3.5
         env:
-          CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
-          CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt
+          CC: clang -fsanitize-blacklist=${{ github.workspace }}/blacklist.txt
+          CXX: clang++ -fsanitize-blacklist=${{ github.workspace }}/blacklist.txt
         with:
           target-ros2-distro: iron
           # build all packages listed in the meta package
