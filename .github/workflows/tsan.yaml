@@ -14,7 +14,7 @@ jobs:
         with:
           required-ros-distributions: foxy
       - name: tsan_build_test
-        uses: ros-tooling/action-ros-ci@v0.2
+        uses: ros-tooling/action-ros-ci@v0.3
         id: tsan_build_test
         env:
           CC: clang

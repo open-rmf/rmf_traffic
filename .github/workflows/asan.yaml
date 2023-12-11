@@ -16,7 +16,7 @@ jobs:
         with:
           required-ros-distributions: foxy
       - name: build_and_test
-        uses: ros-tooling/action-ros-ci@v0.2
+        uses: ros-tooling/action-ros-ci@v0.3
         env:
           CC: clang -fsanitize-blacklist=/home/runner/work/blacklist.txt
           CXX: clang++ -fsanitize-blacklist=/home/runner/work/blacklist.txt
