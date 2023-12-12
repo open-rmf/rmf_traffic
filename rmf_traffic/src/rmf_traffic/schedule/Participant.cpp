@@ -483,6 +483,12 @@ ItineraryVersion Participant::version() const
 }
 
 //==============================================================================
+ProgressVersion Participant::progress_version() const
+{
+  return _pimpl->_shared->_progress.version;
+}
+
+//==============================================================================
 const ParticipantDescription& Participant::description() const
 {
   return _pimpl->_shared->_description;

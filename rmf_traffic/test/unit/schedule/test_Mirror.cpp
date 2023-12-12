@@ -327,10 +327,18 @@ SCENARIO("Testing specialized mirrors")
       db.changes(query, rmf_utils::nullopt);
 
     REQUIRE(changes.size() > 0);
-    CHECK(changes.size() == 1);
-    CHECK(changes.begin()->participant_id() == p1.id());
-    REQUIRE(changes.begin()->additions().items().size() == 1);
-    CHECK(changes.begin()->additions().items().begin()->storage_id == 0);
+    // Progress will always be updated when a full update is asked for
+    CHECK(changes.size() == 2);
+
+    rmf_traffic::schedule::Patch::const_iterator p_it = changes.begin();
+    for (; p_it != changes.end(); ++p_it)
+    {
+      if (p_it->participant_id() == p1.id())
+        break;
+    }
+    REQUIRE(p_it != changes.end());
+    REQUIRE(p_it->additions().items().size() == 1);
+    CHECK(p_it->additions().items().begin()->storage_id == 0);
   }
 
   GIVEN("Query patch with spacetime region overlapping with t2")
@@ -356,10 +364,18 @@ SCENARIO("Testing specialized mirrors")
       db.changes(query, rmf_utils::nullopt);
 
     REQUIRE(changes.size() > 0);
-    CHECK(changes.size() == 1);
-    CHECK(changes.begin()->participant_id() == p1.id());
-    REQUIRE(changes.begin()->additions().items().size() == 1);
-    CHECK(changes.begin()->additions().items().begin()->storage_id == 1);
+    // Progress will always be updated when a full update is asked for
+    CHECK(changes.size() == 2);
+
+    rmf_traffic::schedule::Patch::const_iterator p_it = changes.begin();
+    for (; p_it != changes.end(); ++p_it)
+    {
+      if (p_it->participant_id() == p1.id())
+        break;
+    }
+    REQUIRE(p_it != changes.end());
+    REQUIRE(p_it->additions().items().size() == 1);
+    CHECK(p_it->additions().items().begin()->storage_id == 1);
   }
 
 //  // COMMENTED DUE TO NON-DETERMINISTIC BEHAVIOR OF FCL
@@ -413,7 +429,8 @@ SCENARIO("Testing specialized mirrors")
     rmf_traffic::schedule::Patch changes =
       db.changes(query, rmf_utils::nullopt);
     REQUIRE(changes.size() > 0);
-    CHECK(changes.size() == 1);
+    // Progress will always be updated when a full update is asked for
+    CHECK(changes.size() == 2);
     CHECK(changes.begin()->participant_id() == p2.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
     CHECK(changes.begin()->additions().items().begin()->storage_id == 0);

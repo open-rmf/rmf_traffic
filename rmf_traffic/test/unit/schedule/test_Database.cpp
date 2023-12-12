@@ -200,7 +200,8 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.size() == 0);
+      // Progress will always be reported for each participant in a full update
+      CHECK(changes.size() == 1);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
 
@@ -230,7 +231,8 @@ SCENARIO("Test Database Conflicts")
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
-      CHECK(changes.size() == 0);
+      // Progress will always be reported for each participant in a full update
+      CHECK(changes.size() == 1);
       CHECK_FALSE(changes.cull());
       CHECK(changes.latest_version() == db.latest_version());
 

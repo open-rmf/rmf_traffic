@@ -1185,21 +1185,38 @@ std::vector<Plan::Start> compute_plan_starts(
   {
     const auto& lane = graph.get_lane(i);
     const auto& wp0 = graph.get_waypoint(lane.entry().waypoint_index());
-    if (wp0.get_map_name() != map_name)
+    const auto& wp1 = graph.get_waypoint(lane.exit().waypoint_index());
+    if (wp0.get_map_name() != map_name && wp1.get_map_name() != map_name)
       continue;
 
-    const auto& wp1 = graph.get_waypoint(lane.exit().waypoint_index());
-    if (wp1.get_map_name() != map_name)
-      continue;
+    const std::optional<double> wp0_merge_radius = wp0.merge_radius();
+    const std::optional<double> wp1_merge_radius = wp1.merge_radius();
 
     const Eigen::Vector2d p0 = wp0.get_location();
     const Eigen::Vector2d p1 = wp1.get_location();
 
     const double lane_length = (p1 - p0).norm();
 
-    // This "lane" is effectively a single point, so we'll skip it
+    // This "lane" is either two points stacked very close or is moving
+    // vertically through a lift.
+    const double merge_dist = std::max(
+      wp0_merge_radius.value_or(max_merge_lane_distance),
+      wp1_merge_radius.value_or(max_merge_lane_distance));
+
     if (lane_length < min_lane_length)
+    {
+      const double dp0 = (p_location - p0).norm();
+      const double dp1 = (p_location - p1).norm();
+      if (dp0 < merge_dist || dp1 < merge_dist)
+      {
+        starts.emplace_back(
+          Plan::Start(
+            start_time, lane.exit().waypoint_index(),
+            start_yaw, p_location, i));
+      }
+
       continue;
+    }
 
     const Eigen::Vector2d pn = (p1 - p0) / lane_length;
     const Eigen::Vector2d p_l = p_location - p0;
@@ -1211,7 +1228,9 @@ std::vector<Plan::Start> compute_plan_starts(
       const double dist_to_entry = p_l.norm();
       const std::size_t entry_waypoint_index = lane.entry().waypoint_index();
 
-      if (dist_to_entry < max_merge_lane_distance)
+      const double merge_dist =
+        wp0_merge_radius.value_or(max_merge_lane_distance);
+      if (dist_to_entry < merge_dist)
       {
         if (!raw_starts.insert(entry_waypoint_index).second)
           continue;
@@ -1228,7 +1247,9 @@ std::vector<Plan::Start> compute_plan_starts(
       const double dist_to_exit = (p_location - p1).norm();
       const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
 
-      if (dist_to_exit < max_merge_lane_distance)
+      const double merge_dist =
+        wp1_merge_radius.value_or(max_merge_lane_distance);
+      if (dist_to_exit < merge_dist)
       {
         if (!raw_starts.insert(exit_waypoint_index).second)
           continue;
@@ -1244,8 +1265,11 @@ std::vector<Plan::Start> compute_plan_starts(
     {
       const double lane_dist = (p_l - p_l_projection*pn).norm();
       const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
+      double merge_dist = max_merge_lane_distance;
+      if (wp0_merge_radius.has_value() && wp1_merge_radius.has_value())
+        merge_dist = std::max(*wp0_merge_radius, *wp1_merge_radius);
 
-      if (lane_dist < max_merge_lane_distance)
+      if (lane_dist < merge_dist)
       {
         starts.emplace_back(
           Plan::Start(
