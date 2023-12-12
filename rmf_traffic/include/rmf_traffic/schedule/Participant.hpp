@@ -100,6 +100,9 @@ public:
   // TODO(MXG): This function needs to be unit tested.
   ItineraryVersion version() const;
 
+  /// Get the current progress version for this participant.
+  ProgressVersion progress_version() const;
+
   /// Get the description of this participant.
   const ParticipantDescription& description() const;
 

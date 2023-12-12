@@ -367,6 +367,13 @@ public:
   /// \return a copy of the iterator before it was decremented
   base_iterator operator--(int);
 
+  /// Get the iterator that would be offset from this one by the specified
+  /// amount
+  base_iterator operator+(int offset) const;
+
+  /// Get the iterator that would be offset from this one by the specified
+  /// amount in the opposite direction.
+  base_iterator operator-(int offset) const;
 
   // TODO(MXG): Consider the spaceship operator when we can use C++20
 
