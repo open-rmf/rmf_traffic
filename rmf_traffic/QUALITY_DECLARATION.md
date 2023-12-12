@@ -158,7 +158,7 @@ This is assumed to be **Quality Level 4** due to its provided feature documentat
 ### Target platforms [6.i]
 
 `rmf_traffic` does not support all of the tier 1 platforms as described in [REP-2000](https://www.ros.org/reps/rep-2000.html#support-tiers).
-`rmf_traffic` supports ROS Foxy.
+`rmf_traffic` supports ROS Iron.
 
 ## Security [7]
 

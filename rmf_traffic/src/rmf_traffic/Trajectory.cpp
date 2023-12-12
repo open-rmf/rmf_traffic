@@ -691,6 +691,38 @@ auto Trajectory::base_iterator<SegT>::operator--(int) -> base_iterator
 }
 
 //==============================================================================
+template<typename SegT>
+auto Trajectory::base_iterator<SegT>::operator+(int offset) const
+-> base_iterator
+{
+  const std::size_t N = std::abs(offset);
+  const bool negative = offset < 0;
+
+  base_iterator result = *this;
+  for (std::size_t i=0; i < N; ++i)
+  {
+    if (negative)
+    {
+      --result;
+    }
+    else
+    {
+      ++result;
+    }
+  }
+
+  return result;
+}
+
+//==============================================================================
+template<typename SegT>
+auto Trajectory::base_iterator<SegT>::operator-(int offset) const
+-> base_iterator
+{
+  return *this + (-offset);
+}
+
+//==============================================================================
 #define DEFINE_BASIC_ITERATOR_OP(op) \
   template<typename SegT> \
   bool Trajectory::base_iterator<SegT>::operator op( \

@@ -26,6 +26,215 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+class Graph::LiftProperties::Implementation
+{
+public:
+  std::string name;
+  Eigen::Vector2d location;
+  double orientation;
+  Eigen::Vector2d half_dimensions;
+  Eigen::Isometry2d tf_inv;
+
+  static void update(
+    LiftProperties& original,
+    const LiftProperties& incoming)
+  {
+    *original._pimpl = *incoming._pimpl;
+  }
+};
+
+//==============================================================================
+const std::string& Graph::LiftProperties::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::LiftProperties::location() const
+{
+  return _pimpl->location;
+}
+
+//==============================================================================
+double Graph::LiftProperties::orientation() const
+{
+  return _pimpl->orientation;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::LiftProperties::dimensions() const
+{
+  return 2.0 * _pimpl->half_dimensions;
+}
+
+//==============================================================================
+bool Graph::LiftProperties::is_in_lift(
+  Eigen::Vector2d position,
+  double envelope) const
+{
+  Eigen::Vector2d p_local = _pimpl->tf_inv * position;
+  for (int i = 0; i < 2; ++i)
+  {
+    if (p_local[i]  < -_pimpl->half_dimensions[i] - envelope)
+      return false;
+
+    if (_pimpl->half_dimensions[i] + envelope < p_local[i])
+      return false;
+  }
+
+  return true;
+}
+
+//==============================================================================
+Eigen::Isometry2d make_lift_tf_inv(Eigen::Vector2d location, double orientation)
+{
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+  tf.translate(location);
+  tf.rotate(orientation);
+  return tf.inverse();
+}
+
+//==============================================================================
+Graph::LiftProperties::LiftProperties(
+  std::string name,
+  Eigen::Vector2d location,
+  double orientation,
+  Eigen::Vector2d dimensions)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation {
+        std::move(name),
+        location,
+        orientation,
+        dimensions / 2.0,
+        make_lift_tf_inv(location, orientation)
+      }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+class Graph::DoorProperties::Implementation
+{
+public:
+  std::string name;
+  Eigen::Vector2d start;
+  Eigen::Vector2d end;
+  std::string map;
+};
+
+//==============================================================================
+const std::string& Graph::DoorProperties::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::DoorProperties::start() const
+{
+  return _pimpl->start;
+}
+
+//==============================================================================
+Eigen::Vector2d Graph::DoorProperties::end() const
+{
+  return _pimpl->end;
+}
+
+//==============================================================================
+const std::string& Graph::DoorProperties::map() const
+{
+  return _pimpl->map;
+}
+
+//==============================================================================
+namespace {
+double distance_from_point_to_segment(
+  Eigen::Vector2d q,
+  Eigen::Vector2d p0,
+  Eigen::Vector2d p1)
+{
+  const double endpoint_distance = std::min((q - p0).norm(), (q - p1).norm());
+  const auto L = (p1 - p0).norm();
+  if (L < 1e-3)
+  {
+    return endpoint_distance;
+  }
+
+  const Eigen::Vector2d n = (p1 - p0) / L;
+  const Eigen::Vector2d v = q - p0;
+  const Eigen::Vector2d q_proj = (v.dot(n)) * n;
+  const double ortho_distance = (q - q_proj).norm();
+  return std::min(ortho_distance, endpoint_distance);
+}
+} // anonymous namespace
+
+//==============================================================================
+bool Graph::DoorProperties::intersects(
+  Eigen::Vector2d p0,
+  Eigen::Vector2d p1,
+  double envelope) const
+{
+  const auto q0 = _pimpl->start;
+  const auto q1 = _pimpl->end;
+  for (const auto test : std::vector<std::function<double()>>{
+      [&]{ return distance_from_point_to_segment(p0, q0, q1); },
+      [&]{ return distance_from_point_to_segment(p1, q0, q1); },
+      [&]{ return distance_from_point_to_segment(q0, p0, p1); },
+      [&]{ return distance_from_point_to_segment(_pimpl->end, p0, p1); }
+    })
+  {
+    const double distance = test();
+    if (distance <= envelope)
+      return true;
+  }
+
+  // If none of the endpoints are within range of the other lines, then the only
+  // way for an intersection to exist is if the lines truly cross each other.
+  const double det = (p0.x() - p1.x()) * (q0.y() - q1.y())
+    - (p0.y() - p1.y()) * (q0.x() - q1.x());
+
+  if (std::abs(det) < 1e-8)
+  {
+    // The lines are essentially parallel and their endpoints aren't close
+    // enough, so there is no intersection.
+    return false;
+  }
+
+  const double t = ( (p0.x() - q0.x()) * (q0.y() - q1.y())
+    - (p0.y() - q0.y()) * (q0.x() - q1.x()) )
+    / det;
+
+  if (t < 0.0 || 1.0 < t)
+    return false;
+
+  const double u = ( (p0.x() - q0.x()) * (p0.y() - p1.y())
+    - (p0.y() - q0.y()) * (p0.x() - p1.x()) )
+    / det;
+
+  if (u < 0.0 || 1.0 < u)
+    return false;
+
+  return true;
+}
+
+//==============================================================================
+Graph::DoorProperties::DoorProperties(
+  std::string name,
+  Eigen::Vector2d start,
+  Eigen::Vector2d end,
+  std::string map)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation {
+      std::move(name),
+      start,
+      end,
+      std::move(map)
+    }))
+{
+  // Do nothing
+}
+
+//==============================================================================
 class Graph::Waypoint::Implementation
 {
 public:
@@ -45,6 +254,12 @@ public:
   bool parking_spot = false;
 
   bool charger = false;
+
+  LiftPropertiesPtr in_lift = nullptr;
+
+  std::string mutex_group = "";
+
+  std::optional<double> merge_radius = std::nullopt;
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -141,6 +356,19 @@ auto Graph::Waypoint::set_charger(bool _is_charger) -> Waypoint&
 }
 
 //==============================================================================
+auto Graph::Waypoint::in_lift() const -> LiftPropertiesPtr
+{
+  return _pimpl->in_lift;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_in_lift(LiftPropertiesPtr lift) -> Waypoint&
+{
+  _pimpl->in_lift = lift;
+  return *this;
+}
+
+//==============================================================================
 std::size_t Graph::Waypoint::index() const
 {
   return _pimpl->index;
@@ -178,6 +406,32 @@ std::string Graph::Waypoint::name_or_index(
   return index_format.substr(0, it)
     + std::to_string(_pimpl->index)
     + index_format.substr(it+2);
+}
+
+//==============================================================================
+const std::string& Graph::Waypoint::in_mutex_group() const
+{
+  return _pimpl->mutex_group;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_in_mutex_group(std::string group_name) -> Waypoint&
+{
+  _pimpl->mutex_group = std::move(group_name);
+  return *this;
+}
+
+//==============================================================================
+std::optional<double> Graph::Waypoint::merge_radius() const
+{
+  return _pimpl->merge_radius;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_merge_radius(std::optional<double> value) -> Waypoint&
+{
+  _pimpl->merge_radius = value;
+  return *this;
 }
 
 //==============================================================================
@@ -676,6 +930,7 @@ class Graph::Lane::Properties::Implementation
 public:
 
   std::optional<double> speed_limit;
+  std::string mutex_group;
 
 };
 
@@ -697,6 +952,20 @@ auto Graph::Lane::Properties::speed_limit(std::optional<double> value)
 -> Properties&
 {
   _pimpl->speed_limit = value;
+  return *this;
+}
+
+//==============================================================================
+const std::string& Graph::Lane::Properties::in_mutex_group() const
+{
+  return _pimpl->mutex_group;
+}
+
+//==============================================================================
+auto Graph::Lane::Properties::set_in_mutex_group(std::string group_name)
+-> Properties&
+{
+  _pimpl->mutex_group = std::move(group_name);
   return *this;
 }
 
@@ -954,6 +1223,84 @@ auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) const
 -> const Lane*
 {
   return const_cast<Graph&>(*this).lane_from(from_wp, to_wp);
+}
+
+//==============================================================================
+auto Graph::set_known_lift(LiftProperties lift) -> LiftPropertiesPtr
+{
+  const auto [l_it, inserted] = _pimpl->lifts.insert({lift.name(), nullptr});
+  if (inserted)
+  {
+    l_it->second = std::make_shared<LiftProperties>(std::move(lift));
+  }
+  else
+  {
+    *l_it->second = std::move(lift);
+  }
+
+  return l_it->second;
+}
+
+//==============================================================================
+auto Graph::all_known_lifts() const -> std::vector<LiftPropertiesPtr>
+{
+  std::vector<LiftPropertiesPtr> lifts;
+  lifts.reserve(_pimpl->lifts.size());
+  for (const auto& [_, lift] : _pimpl->lifts)
+  {
+    lifts.push_back(lift);
+  }
+
+  return lifts;
+}
+
+//==============================================================================
+auto Graph::find_known_lift(const std::string& name) const -> LiftPropertiesPtr
+{
+  const auto l_it = _pimpl->lifts.find(name);
+  if (l_it == _pimpl->lifts.end())
+    return nullptr;
+
+  return l_it->second;
+}
+
+//==============================================================================
+auto Graph::set_known_door(DoorProperties door) -> DoorPropertiesPtr
+{
+  const auto [d_it, inserted] = _pimpl->doors.insert({door.name(), nullptr});
+  if (inserted)
+  {
+    d_it->second = std::make_shared<DoorProperties>(std::move(door));
+  }
+  else
+  {
+    *d_it->second = std::move(door);
+  }
+
+  return d_it->second;
+}
+
+//==============================================================================
+auto Graph::all_known_doors() const -> std::vector<DoorPropertiesPtr>
+{
+  std::vector<DoorPropertiesPtr> doors;
+  doors.reserve(_pimpl->doors.size());
+  for (const auto& [_, door] : _pimpl->doors)
+  {
+    doors.push_back(door);
+  }
+
+  return doors;
+}
+
+//==============================================================================
+auto Graph::find_known_door(const std::string& name) const -> DoorPropertiesPtr
+{
+  const auto d_it = _pimpl->doors.find(name);
+  if (d_it == _pimpl->doors.end())
+    return nullptr;
+
+  return d_it->second;
 }
 
 } // namespace avg

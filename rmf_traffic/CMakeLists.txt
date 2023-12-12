@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_traffic VERSION 3.0.1)
+project(rmf_traffic VERSION 3.0.2)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
