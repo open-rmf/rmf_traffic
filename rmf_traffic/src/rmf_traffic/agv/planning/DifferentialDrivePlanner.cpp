@@ -220,9 +220,11 @@ std::vector<NodePtr> reconstruct_nodes(
       else
         last_midlane_node = node;
     }
-
-    const auto wp = *node->waypoint;
-    cruft_map[wp].insert(node);
+    else
+    {
+      const auto wp = *node->waypoint;
+      cruft_map[wp].insert(node);
+    }
   }
 
   if (first_midlane_node && last_midlane_node)
