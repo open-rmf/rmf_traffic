@@ -2,6 +2,11 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fix UB in plan squashing (`#106 <https://github.com/open-rmf/rmf_traffic/pull/106>`_)
+* Contributors: Grey
+
 3.0.2 (2023-12-15)
 ------------------
 * New graph elements and various fixes (`#103 <https://github.com/open-rmf/rmf_traffic/pull/103>`_)
