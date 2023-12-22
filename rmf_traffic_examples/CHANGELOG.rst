@@ -2,6 +2,9 @@
 Changelog for package rmf_traffic_examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.1.1 (2023-12-15)
 ------------------
 * New graph elements and various fixes (`#103 <https://github.com/open-rmf/rmf_traffic/pull/103>`_)
