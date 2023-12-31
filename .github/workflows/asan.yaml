@@ -2,52 +2,18 @@ name: asan
 on:
   pull_request:
   schedule:
-    - cron: '42 0 * * *'
+    - cron: '23 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  asan:
-    name: asan
-    runs-on: ubuntu-22.04
-    container:
-      image: osrf/ros:iron-desktop-jammy
-    steps:
-      - name: create_blacklist
-        run: |
-          mkdir -p ${{ github.workspace }}/
-          touch ${{ github.workspace }}/blacklist.txt
-          echo "fun:*Eigen*" > ${{ github.workspace }}/blacklist.txt
-      - name: install_clang_and_tools
-        run: sudo apt update && sudo apt install -y clang clang-tools lld wget python3-pip python3-colcon-coveragepy-result python3-colcon-lcov-result lcov
-      - name: build_and_test
-        uses: ros-tooling/action-ros-ci@0.3.5
-        env:
-          CC: clang -fsanitize-blacklist=${{ github.workspace }}/blacklist.txt
-          CXX: clang++ -fsanitize-blacklist=${{ github.workspace }}/blacklist.txt
-        with:
-          target-ros2-distro: iron
-          # build all packages listed in the meta package
-          package-name: |
-            rmf_traffic
-          vcs-repo-file-url: |
-            https://raw.githubusercontent.com/open-rmf/rmf/main/rmf.repos
-          colcon-defaults: |
-            {
-              "build": {
-                "mixin": ["asan-gcc"],
-                "cmake-args": [
-                   "-DCMAKE_BUILD_TYPE=Debug"]
-              }
-            }
-          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-      - name: Upload failed test results
-        uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: test-results
-          path: ros_ws/build/*/test_results/*/*.catch2.xml
-      - name: upload_test_stream
-        uses: actions/upload-artifact@v2
-        with:
-          name: colcon-test-logs
-          path: ${{ steps.build_and_test.outputs.ros-workspace-directory-name }}/log
-        if: always()
+  build_and_test:
+    name: rmf_traffic-asan
+    uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_asan.yaml@main
+    with:
+      dist-matrix: |
+          [{"ros_distribution": "humble",
+            "ubuntu_distribution": "jammy"}]
+      # NOTE: Avoid adding comments in the package lines, this can break some of the called scripts in github actions
+      packages: |
+        rmf_traffic
+        rmf_traffic_examples
