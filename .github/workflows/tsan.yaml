@@ -7,20 +7,20 @@ on:
 jobs:
   tsan:
     name: tsan
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
+    container:
+      image: osrf/ros:iron-desktop-jammy
     steps:
-      - name: deps
-        uses: ros-tooling/setup-ros@v0.2
-        with:
-          required-ros-distributions: foxy
+      - name: install_clang_and_tools
+        run: sudo apt update && sudo apt install -y clang clang-tools lld wget python3-pip python3-colcon-coveragepy-result python3-colcon-lcov-result lcov
       - name: tsan_build_test
-        uses: ros-tooling/action-ros-ci@v0.2
-        id: tsan_build_test
         env:
           CC: clang
           CXX: clang++
+        uses: ros-tooling/action-ros-ci@0.3.5
+        id: tsan_build_test
         with:
-          target-ros2-distro: foxy
+          target-ros2-distro: iron
           # build all packages listed in the meta package
           package-name: |
             rmf_traffic
