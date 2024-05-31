@@ -45,6 +45,7 @@ std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
   }
 
   std::reverse(node_sequence.begin(), node_sequence.end());
+
   return node_sequence;
 }
 
@@ -114,8 +115,6 @@ struct OrientationTimeMap
 
         const auto& node_low = it_low->second;
         const auto& node_high = it_high->second;
-        assert(node_low->route_from_parent.back().map()
-          == node_high->route_from_parent.back().map());
 
         const auto& start_wp =
           node_low->route_from_parent.back().trajectory().back();
@@ -187,6 +186,20 @@ std::vector<NodePtr> reconstruct_nodes(
   const double rotational_threshold)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
+  std::optional<rmf_traffic::agv::Plan::Start> start;
+  if (!node_sequence.empty())
+  {
+    start = node_sequence.front()->start;
+    if (!start.has_value())
+    {
+      // *INDENT-OFF*
+      throw std::runtime_error(
+        "[rmf_traffic::agv::Planner::plan][1] The root node of a solved plan "
+        "is missing its Start information. This should not happen. Please "
+        "report this critical bug to the maintainers of rmf_traffic.");
+      // *INDENT-ON*
+    }
+  }
 
   // Remove "cruft" from plans. This means making sure vehicles don't do any
   // unnecessary motions.
@@ -207,9 +220,11 @@ std::vector<NodePtr> reconstruct_nodes(
       else
         last_midlane_node = node;
     }
-
-    const auto wp = *node->waypoint;
-    cruft_map[wp].insert(node);
+    else
+    {
+      const auto wp = *node->waypoint;
+      cruft_map[wp].insert(node);
+    }
   }
 
   if (first_midlane_node && last_midlane_node)
@@ -235,7 +250,12 @@ std::vector<NodePtr> reconstruct_nodes(
       duplicate.squash(validator);
   }
 
-  return reconstruct_nodes(finish_node);
+  auto final_node_sequence = reconstruct_nodes(finish_node);
+  if (!final_node_sequence.empty())
+  {
+    final_node_sequence.front()->start = start;
+  }
+  return final_node_sequence;
 }
 
 //==============================================================================
@@ -636,8 +656,47 @@ reconstruct_waypoints(
       }
       else
       {
-        itinerary.push_back(next_route);
-        extended_route = &itinerary.back();
+        bool merged = false;
+        if (last_route.trajectory().size() < 2)
+        {
+          // The last itinerary did not have enough waypoints, so we should
+          // discard it.
+          const std::size_t remove = itinerary.size() - 1;
+          itinerary.pop_back();
+          for (auto& candidate : candidates)
+          {
+            const auto r_it = std::remove_if(
+              candidate.waypoint.arrival.begin(),
+              candidate.waypoint.arrival.end(),
+              [remove](const Plan::Checkpoint& c)
+              {
+                return c.route_id == remove;
+              });
+            candidate.waypoint.arrival.erase(
+              r_it,
+              candidate.waypoint.arrival.end());
+          }
+
+          if (!itinerary.empty())
+          {
+            Route& last_route = itinerary.back();
+            if (next_route.map() == last_route.map())
+            {
+              merged = true;
+              extended_route = &last_route;
+              for (const auto& waypoint : next_route.trajectory())
+              {
+                last_route.trajectory().insert(waypoint);
+              }
+            }
+          }
+        }
+
+        if (!merged)
+        {
+          itinerary.push_back(next_route);
+          extended_route = &itinerary.back();
+        }
       }
 
       if (!node->approach_lanes.empty())
@@ -662,6 +721,41 @@ reconstruct_waypoints(
     }
   }
 
+  std::vector<std::size_t> removals;
+  for (std::size_t i=0; i < itinerary.size(); ++i)
+  {
+    if (itinerary[i].trajectory().size() < 2)
+    {
+      removals.push_back(i);
+    }
+  }
+
+  for (auto r_it = removals.rbegin(); r_it != removals.rend(); ++r_it)
+  {
+    std::size_t remove = *r_it;
+    itinerary.erase(itinerary.begin() + remove);
+    for (WaypointCandidate& candidate : candidates)
+    {
+      auto c_it = candidate.waypoint.arrival.begin();
+      while (c_it != candidate.waypoint.arrival.end())
+      {
+        Plan::Checkpoint& c = *c_it;
+        if (c.route_id == remove)
+        {
+          candidate.waypoint.arrival.erase(c_it);
+          continue;
+        }
+
+        if (c.route_id > remove)
+        {
+          --c.route_id;
+        }
+
+        ++c_it;
+      }
+    }
+  }
+
   auto plan_waypoints = find_dependencies(
       itinerary, candidates, validator,
       dependency_window, dependency_resolution);
@@ -680,8 +774,8 @@ Plan::Start find_start(NodePtr node)
   {
     // *INDENT-OFF*
     throw std::runtime_error(
-      "[rmf_traffic::agv::Planner::plan] The root node of a solved plan is "
-      "missing its Start information. This should not happen. Please report "
+      "[rmf_traffic::agv::Planner::plan][2] The root node of a processed plan "
+      "is missing its Start information. This should not happen. Please report "
       "this critical bug to the maintainers of rmf_traffic.");
     // *INDENT-ON*
   }
@@ -725,6 +819,7 @@ public:
     double current_cost;
     std::optional<Planner::Start> start;
     SearchNodePtr parent;
+    std::size_t line;
 
     double get_total_cost_estimate() const
     {
@@ -756,7 +851,8 @@ public:
       Graph::Lane::EventPtr event_,
       double current_cost_,
       std::optional<Planner::Start> start_,
-      SearchNodePtr parent_)
+      SearchNodePtr parent_,
+      std::size_t line_)
     : entry(entry_),
       waypoint(waypoint_),
       approach_lanes(std::move(approach_lanes_)),
@@ -768,7 +864,8 @@ public:
       event(event_),
       current_cost(current_cost_),
       start(std::move(start_)),
-      parent(std::move(parent_))
+      parent(std::move(parent_)),
+      line(line_)
     {
       assert(!route_from_parent.empty());
 
@@ -920,11 +1017,57 @@ public:
     const auto& wp = _supergraph->original().waypoints[target_waypoint_index];
     const Eigen::Vector2d wp_location = wp.get_location();
 
+    SearchNodePtr parent = top;
+    if (start.lane().has_value() && start.location().has_value())
+    {
+      const auto lane_index = start.lane().value();
+      const Eigen::Vector2d p = start.location().value();
+      const auto& lane = _supergraph->original().lanes[lane_index];
+      if (lane.entry().event())
+      {
+        Graph::Lane::EventPtr entry_event = lane.entry().event()->clone();
+        const double event_cost = time::to_seconds(entry_event->duration());
+        Trajectory hold;
+        Eigen::Vector3d p_start = {p.x(), p.y(), start.orientation()};
+        const auto zero = Eigen::Vector3d::Zero();
+        hold.insert(parent->time, p_start, zero);
+        hold.insert(parent->time + entry_event->duration(), p_start, zero);
+        Route route{wp.get_map_name(), std::move(hold)};
+        if (_validator && !is_valid(parent, route))
+        {
+          // If we cannot wait for the entry event to happen then this is not a
+          // feasible start.
+          return;
+        }
+
+        parent = std::make_shared<SearchNode>(
+          SearchNode{
+            std::nullopt,
+            top->waypoint,
+            {},
+            p,
+            start.orientation(),
+            parent->time + entry_event->duration(),
+            parent->remaining_cost_estimate,
+            {std::move(route)},
+            std::move(entry_event),
+            parent->current_cost + event_cost,
+            std::nullopt,
+            parent,
+          __LINE__
+          });
+      }
+    }
+
+    Graph::Lane::EventPtr entry_event;
+    double entry_event_cost = 0.0;
+    Duration entry_event_duration = Duration(0);
+
     // If this start node did not have a waypoint, then it must have a location
     assert(start.location().has_value());
 
     const auto approach_info = make_start_approach_trajectories(
-      top->start.value(), top->current_cost);
+      top->start.value(), parent->current_cost);
 
     if (approach_info.trajectories.empty())
     {
@@ -974,7 +1117,7 @@ public:
       for (const auto& map : map_names)
       {
         Route route{map, approach_trajectory};
-        if (_validator && !is_valid(top, route))
+        if (_validator && !is_valid(parent, route))
         {
           all_valid = false;
           break;
@@ -998,7 +1141,7 @@ public:
         for (const auto& map : map_names)
         {
           Route route{map, hold};
-          if (_validator && !is_valid(top, route))
+          if (_validator && !is_valid(parent, route))
           {
             all_valid = false;
             break;
@@ -1026,12 +1169,13 @@ public:
           wp_location,
           approach_yaw,
           approach_time,
-          top->remaining_cost_estimate - approach_cost,
+          parent->remaining_cost_estimate - approach_cost,
           std::move(approach_routes),
           exit_event,
-          top->current_cost + approach_cost,
+          parent->current_cost + approach_cost,
           std::nullopt,
-          top
+          parent,
+          __LINE__
         });
 
       if (exit_event)
@@ -1049,7 +1193,8 @@ public:
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node
+            node,
+          __LINE__
           });
       }
 
@@ -1081,7 +1226,7 @@ public:
       std::make_shared<SearchNode>(
         SearchNode{
           std::nullopt,
-          std::nullopt,
+          top->waypoint,
           {},
           p,
           yaw,
@@ -1091,7 +1236,8 @@ public:
           nullptr,
           top->current_cost + hold_cost,
           start,
-          top
+          top,
+          __LINE__
         }));
   }
 
@@ -1137,7 +1283,8 @@ public:
         nullptr,
         top->current_cost + cost,
         std::nullopt,
-        top
+        top,
+          __LINE__
       });
   }
 
@@ -1193,7 +1340,8 @@ public:
         nullptr,
         top->current_cost + cost,
         std::nullopt,
-        top
+        top,
+          __LINE__
       });
   }
 
@@ -1425,6 +1573,26 @@ public:
         const double cost = calculate_cost(approach_route.trajectory());
         const double yaw = approach_wp.position()[2];
         const auto time = approach_wp.time();
+        auto parent = node;
+        std::vector<Route> route_from_parent;
+        std::vector<std::size_t> approach_lanes;
+        if (approach_route.trajectory().size() < 2)
+        {
+          // This is just an entry event so we will skip the unnecessary
+          // intermediate node
+          parent = node->parent;
+          approach_lanes = node->approach_lanes;
+          if (!parent)
+          {
+            // If the top node is a root node, then don't skip it
+            parent = node;
+          }
+          route_from_parent = node->route_from_parent;
+        }
+        else
+        {
+          route_from_parent = {std::move(approach_route)};
+        }
 
         node = std::make_shared<SearchNode>(
           SearchNode{
@@ -1434,17 +1602,18 @@ public:
               Side::Start
             },
             initial_waypoint_index,
-            {},
+            approach_lanes,
             p0,
             yaw,
             time,
             *remaining_cost_estimate
             + entry_event_cost + alt->cost + exit_event_cost,
-            {std::move(approach_route)},
+            route_from_parent,
             traversal.entry_event,
             node->current_cost + cost,
             std::nullopt,
-            node
+            parent,
+          __LINE__
           });
       }
 
@@ -1483,7 +1652,8 @@ public:
           traversal.exit_event,
           node->current_cost + entry_event_cost + alt->cost,
           std::nullopt,
-          node
+          node,
+          __LINE__
         });
 
       if (traversal.exit_event && exit_event_route.trajectory().size() >= 2)
@@ -1501,7 +1671,8 @@ public:
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node
+            node,
+          __LINE__
           });
       }
 
@@ -1551,7 +1722,8 @@ public:
             solution_root->info.event,
             search_node->current_cost + approach_info.cost,
             std::nullopt,
-            search_node
+            search_node,
+          __LINE__
           });
       }
 
@@ -1599,7 +1771,8 @@ public:
             solution_node->info.event,
             search_node->current_cost + solution_node->info.cost_from_parent,
             std::nullopt,
-            search_node
+            search_node,
+          __LINE__
           });
 
         solution_node = solution_node->child;
@@ -1626,7 +1799,15 @@ public:
     if (!top->waypoint.has_value())
     {
       // If the node does not have a waypoint, then it must be a start node.
-      assert(top->start.has_value());
+      if (!top->start.has_value())
+      {
+        throw std::runtime_error(
+          "[rmf_traffic::agv::planning::DifferentialDrivePlanner::expand] "
+          "Node has no waypoint and also no start information. It was produced "
+          "on line [" + std::to_string(top->line) + "]. This should not be "
+          "possible. Please report this critical bug to the maintainers of "
+          "rmf_traffic.");
+      }
       expand_start(top, queue);
       return;
     }
@@ -1902,7 +2083,8 @@ public:
         nullptr,
         0.0,
         start,
-        nullptr
+        nullptr,
+          __LINE__
       });
   }
 
@@ -1941,7 +2123,7 @@ public:
     for (const auto& void_node : nodes)
     {
       bool skip = false;
-      const auto original_node =
+      auto original_node =
         std::static_pointer_cast<SearchNode>(void_node.first);
 
       const auto original_t = void_node.second;
@@ -1974,6 +2156,14 @@ public:
       }
 
       if (skip)
+        continue;
+
+      while (original_node && !original_node->waypoint.has_value() && !original_node->start.has_value())
+      {
+        original_node = original_node->parent;
+      }
+
+      if (!original_node)
         continue;
 
       rollout_queue.emplace_back(

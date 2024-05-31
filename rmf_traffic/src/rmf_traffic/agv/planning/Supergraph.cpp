@@ -80,6 +80,8 @@ struct TraversalNode
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
 
+  std::string mutex_group;
+
   // TODO(MXG): Replace this with a more intelligent way of handling speed limit
   // changes that may occur when traversing multiple consecutive lanes
   std::optional<double> lowest_speed_limit;
@@ -299,6 +301,7 @@ void perform_traversal(
   node.initial_waypoint_index = wp_index_0;
   node.finish_waypoint_index = wp_index_1;
   node.lowest_speed_limit = lane.properties().speed_limit();
+  node.mutex_group = lane.properties().in_mutex_group();
 
   if (parent)
   {
@@ -306,6 +309,31 @@ void perform_traversal(
     {
       // If this lane has an entry event, then we cannot continue the traversal.
       // A new traversal will have to begin from this waypoint.
+      return;
+    }
+
+    const auto& wp0_mutex = wp0.in_mutex_group();
+    if (!parent->mutex_group.empty() && wp0_mutex.empty())
+    {
+      // We are exiting a mutex group, so we should do a quick stop here to make
+      // sure that we release the mutex.
+      return;
+    }
+
+    if (!node.mutex_group.empty() && parent->mutex_group != node.mutex_group)
+    {
+      // The lane belongs to a different mutex group than the parent, so we
+      // cannot continuously traverse.
+      return;
+    }
+
+    const auto& wp1_mutex = wp1.in_mutex_group();
+    if (!wp1_mutex.empty() && wp1_mutex != node.mutex_group)
+    {
+      // The end waypoint of this lane belongs to a different mutex group than
+      // the lane leading up to it. The waypoint's mutex must be locked before
+      // traversing this lane, so we should stop before traversing this lane
+      // instead of continuing from a parent.
       return;
     }
 

@@ -1488,10 +1488,10 @@ auto Database::changes(
   }
 
   std::vector<Patch::Participant> part_patches;
-  for (const auto& p : changes)
+  for (const auto p : _pimpl->participant_ids)
   {
-    const auto& changeset = p.second;
-    const auto& state = _pimpl->states.at(p.first);
+    const auto& changeset = changes[p];
+    const auto& state = _pimpl->states.at(p);
 
     std::vector<Change::Delay> delays;
     for (const auto& d : changeset.delays)
@@ -1500,15 +1500,6 @@ auto Database::changes(
         Change::Delay{
           d.second.duration
         });
-    }
-
-    if (changeset.erasures.empty()
-      && delays.empty()
-      && changeset.additions.empty())
-    {
-      // There aren't actually any changes for this participant, so we will
-      // leave it out of the patch.
-      continue;
     }
 
     std::optional<Change::Progress> progress;
@@ -1522,13 +1513,23 @@ auto Database::changes(
       }
     }
 
+    if (changeset.erasures.empty()
+      && delays.empty()
+      && changeset.additions.empty()
+      && !progress.has_value())
+    {
+      // There aren't actually any changes for this participant, so we will
+      // leave it out of the patch.
+      continue;
+    }
+
     part_patches.emplace_back(
       Patch::Participant{
-        p.first,
+        p,
         state.tracker->last_known_version(),
-        Change::Erase(std::move(p.second.erasures)),
+        Change::Erase(std::move(changeset.erasures)),
         std::move(delays),
-        Change::Add(state.latest_plan_id, std::move(p.second.additions)),
+        Change::Add(state.latest_plan_id, std::move(changeset.additions)),
         std::move(progress)
       });
   }

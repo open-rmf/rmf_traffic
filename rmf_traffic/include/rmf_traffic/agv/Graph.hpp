@@ -27,7 +27,9 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
+#include <iostream>
 
 namespace rmf_traffic {
 namespace agv {
@@ -37,10 +39,80 @@ class Graph
 {
 public:
 
+  /// Properties related to lifts (elevators) that exist in the graph
+  class LiftProperties
+  {
+  public:
+    /// Get the name of the lift.
+    const std::string& name() const;
+
+    /// Get the (x, y) location of the lift in RMF canonical coordinates.
+    Eigen::Vector2d location() const;
+
+    /// Get the orientation (in radians) of the lift in RMF canonical
+    /// coordinates.
+    double orientation() const;
+
+    /// Get the dimensions of the lift, aligned with the lift's local (x, y)
+    /// coordinates.
+    Eigen::Vector2d dimensions() const;
+
+    /// Get whether the specified position, given in RMF canonical coordinates,
+    /// is inside the lift. The envelope will expand the footprint of the lift
+    /// that is used in the calculation.
+    bool is_in_lift(Eigen::Vector2d position, double envelope = 0.0) const;
+
+    /// Constructor
+    LiftProperties(
+      std::string name,
+      Eigen::Vector2d location,
+      double orientations,
+      Eigen::Vector2d dimensions);
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+  using LiftPropertiesPtr = std::shared_ptr<LiftProperties>;
+
+  class DoorProperties
+  {
+  public:
+    /// Get the name of the door.
+    const std::string& name() const;
+
+    /// Get the start position of the door.
+    Eigen::Vector2d start() const;
+
+    /// Get the end position of the door.
+    Eigen::Vector2d end() const;
+
+    /// Get the name of the map that this door is on.
+    const std::string& map() const;
+
+    /// Check if the line formed by p0 -> p1 intersects this door.
+    bool intersects(
+      Eigen::Vector2d p0,
+      Eigen::Vector2d p1,
+      double envelope = 0.0) const;
+
+    /// Constructor
+    DoorProperties(
+      std::string name,
+      Eigen::Vector2d start,
+      Eigen::Vector2d end,
+      std::string map);
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+  using DoorPropertiesPtr = std::shared_ptr<DoorProperties>;
+
+  /// Properties assigned to each waypoint (vertex) in the graph
   class Waypoint
   {
   public:
-
     /// Get the name of the map that this Waypoint exists on.
     const std::string& get_map_name() const;
 
@@ -79,7 +151,6 @@ public:
     /// Set this Waypoint to be a parking spot.
     Waypoint& set_parking_spot(bool _is_parking_spot);
 
-
     /// Returns true if this Waypoint is a charger spot. Robots are routed to
     /// these spots when their batteries charge levels drop below the threshold
     /// value.
@@ -87,6 +158,14 @@ public:
 
     /// Set this Waypoint to be a parking spot.
     Waypoint& set_charger(bool _is_charger);
+
+    /// If this waypoint is inside the lift then this will return a pointer to
+    /// the properties of the lift. Otherwise this will be a nullptr.
+    LiftPropertiesPtr in_lift() const;
+
+    /// Set the properties of the lift that the waypoint is inside of, or
+    /// provide a nullptr if it is not inside a lift.
+    Waypoint& set_in_lift(LiftPropertiesPtr properties);
 
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
@@ -118,6 +197,25 @@ public:
     std::string name_or_index(
       const std::string& name_format = "%s",
       const std::string& index_format = "#%d") const;
+
+    /// Get the mutex group that this waypoint is associated with. An empty
+    /// string implies that it is not associated with any mutex group.
+    ///
+    /// Only one robot at a time is allowed to occupy any waypoint or lane
+    /// associated with a particular mutex group.
+    const std::string& in_mutex_group() const;
+
+    /// Set what mutex group this waypoint is associated with. Passing in an
+    /// empty string will disasscoiate the waypoint from any mutex group.
+    Waypoint& set_in_mutex_group(std::string group_name);
+
+    /// Get a merge radius specific to this waypoint, if it has one. The radius
+    /// indicates that any robot within this distance of the waypoint can merge
+    /// onto this waypoint.
+    std::optional<double> merge_radius() const;
+
+    /// Set the merge radius specific to this waypoint.
+    Waypoint& set_merge_radius(std::optional<double> valeu);
 
     class Implementation;
   private:
@@ -371,8 +469,8 @@ public:
       template<typename DerivedExecutor>
       DerivedExecutor& execute(DerivedExecutor& executor) const
       {
-        return static_cast<DerivedExecutor&>(execute(
-            static_cast<Executor&>(executor)));
+        return static_cast<DerivedExecutor&>(
+          execute(static_cast<Executor&>(executor)));
       }
 
       /// Execute this event
@@ -468,6 +566,7 @@ public:
 
       /// Construct a default set of properties
       /// * speed_limit: nullopt
+      /// * mutex_group: ""
       Properties();
 
       /// Get the speed limit along this lane. If a std::nullopt is returned,
@@ -477,6 +576,17 @@ public:
       /// Set the speed limit along this lane. Providing a std::nullopt
       /// indicates that there is no speed limit for the lane.
       Properties& speed_limit(std::optional<double> value);
+
+      /// Get the mutex group that this lane is associated with. An empty string
+      /// implies that it is not associated with any mutex group.
+      ///
+      /// Only one robot at a time is allowed to occupy any waypoint or lane
+      /// associated with a particular mutex group.
+      const std::string& in_mutex_group() const;
+
+      /// Set what mutex group this lane is associated with. Passing in an
+      /// empty string will disassociate the lane from any mutex group.
+      Properties& set_in_mutex_group(std::string group_name);
 
       class Implementation;
     private:
@@ -588,6 +698,28 @@ public:
 
   /// const-qualified lane_from()
   const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
+
+  /// Add a known lift to the graph. If this lift has the same name as one
+  /// previously added, we will continue to use the same pointer as the original
+  /// and override the properties because lift names are expected to be unique.
+  LiftPropertiesPtr set_known_lift(LiftProperties lift);
+
+  /// Get all the known lifts.
+  std::vector<LiftPropertiesPtr> all_known_lifts() const;
+
+  /// Find a known lift based on its name.
+  LiftPropertiesPtr find_known_lift(const std::string& name) const;
+
+  /// Add a known door to the graph. If this door has the same name as one
+  /// previously added, we will continue to use the same pointer as the original
+  /// and override the properties because door names are expected to be unique.
+  DoorPropertiesPtr set_known_door(DoorProperties door);
+
+  /// Get all the known doors.
+  std::vector<DoorPropertiesPtr> all_known_doors() const;
+
+  /// Find a known door based on its name.
+  DoorPropertiesPtr find_known_door(const std::string& name) const;
 
   class Implementation;
 private:
