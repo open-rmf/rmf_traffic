@@ -2,6 +2,9 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.1 (2023-12-22)
 ------------------
 * Fix UB in plan squashing (`#106 <https://github.com/open-rmf/rmf_traffic/pull/106>`_)
