@@ -2,6 +2,9 @@
 Changelog for package rmf_traffic_examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.2 (2024-06-15)
 ------------------
 
