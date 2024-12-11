@@ -557,15 +557,12 @@ reconstruct_waypoints(
     const auto& prev_candidate = candidates.back();
     const auto& prev_wp = prev_candidate.waypoint;
     const auto& current_wp = node->waypoint;
-    const bool same_stack =
-      prev_wp.graph_index.has_value() && current_wp.has_value()
-      && prev_wp.graph_index == current_wp;
     const Eigen::Vector2d prev_pos =
       Eigen::Vector2d{prev_wp.position[0], prev_wp.position[1]};
     const bool same_pos = (prev_pos - node->position).norm() < 1e-3;
     const bool same_ori =
       std::abs(prev_wp.position[2] - node->yaw)*180.0 / M_PI < 1e-2;
-    if (!(same_stack || same_pos) && !same_ori)
+    if (!same_pos && !same_ori)
     {
       candidates.push_back(WaypointCandidate{
         true,
