@@ -9,7 +9,7 @@ jobs:
     name: asan
     runs-on: ubuntu-22.04
     container:
-      image: osrf/ros:iron-desktop-jammy
+      image: osrf/ros:jazzy-desktop-noble
     steps:
       - name: create_blacklist
         run: |
@@ -24,7 +24,7 @@ jobs:
           CC: clang -fsanitize-blacklist=${{ github.workspace }}/blacklist.txt
           CXX: clang++ -fsanitize-blacklist=${{ github.workspace }}/blacklist.txt
         with:
-          target-ros2-distro: iron
+          target-ros2-distro: jazzy
           # build all packages listed in the meta package
           package-name: |
             rmf_traffic
