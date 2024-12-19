@@ -9,7 +9,7 @@ jobs:
     name: tsan
     runs-on: ubuntu-22.04
     container:
-      image: osrf/ros:iron-desktop-jammy
+      image: osrf/ros:jazzy-desktop-noble
     steps:
       - name: install_clang_and_tools
         run: sudo apt update && sudo apt install -y clang clang-tools lld wget python3-pip python3-colcon-coveragepy-result python3-colcon-lcov-result lcov
@@ -17,10 +17,10 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-        uses: ros-tooling/action-ros-ci@0.3.5
+        uses: ros-tooling/action-ros-ci@v0.3
         id: tsan_build_test
         with:
-          target-ros2-distro: iron
+          target-ros2-distro: jazzy
           # build all packages listed in the meta package
           package-name: |
             rmf_traffic
@@ -35,13 +35,13 @@ jobs:
             }
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
       - name: Upload failed test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-results
           path: ros_ws/build/*/test_results/*/*.catch2.xml
       - name: upload_test_stream
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: colcon-test-logs
           path: ${{ steps.tsan_build_test.outputs.ros-workspace-directory-name }}/log
