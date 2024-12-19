@@ -38,7 +38,7 @@ jobs:
         with:
           required-ros-distributions: ${{ matrix.ros_distribution }}
       - name: build
-        uses: ros-tooling/action-ros-ci@0.3.5
+        uses: ros-tooling/action-ros-ci@v0.3
         with:
           target-ros2-distro: ${{ matrix.ros_distribution }}
           # build all packages listed in the meta package

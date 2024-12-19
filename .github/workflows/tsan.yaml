@@ -17,7 +17,7 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-        uses: ros-tooling/action-ros-ci@0.3.5
+        uses: ros-tooling/action-ros-ci@v0.3
         id: tsan_build_test
         with:
           target-ros2-distro: jazzy
