@@ -5,6 +5,8 @@
 
 The `rmf_traffic` package implements the algorithms and data structures that are used for scheduling and negotiating mobile robot traffic between multiple agents.
 
+Full API documentation is available [here](https://docs.ros.org/en/rolling/p/rmf_traffic/)
+
 ## RMF
 
 More about RMF, including build instructions, can be found [here](https://github.com/open-rmf/rmf).
