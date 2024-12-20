@@ -51,11 +51,11 @@ public:
 
   // Documentation inherited from Viewer
   std::shared_ptr<const ParticipantDescription> get_participant(
-    std::size_t participant_id) const final;
+    ParticipantId participant_id) const final;
 
   // Documentation inherited from Viewer
   std::optional<ItineraryView> get_itinerary(
-    std::size_t participant_id) const final;
+    ParticipantId participant_id) const final;
 
   // Documentation inherited from Viewer
   std::optional<Version> latest_version() const;
