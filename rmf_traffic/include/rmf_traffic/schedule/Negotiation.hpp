@@ -174,6 +174,9 @@ public:
         /// The ID of the route for this endpoint
         RouteId route_id() const;
 
+        /// The ID for the checkpoint of this endpoint
+        CheckpointId checkpoint_id() const;
+
         /// The first or last (depending on context) waypoint
         const rmf_traffic::Trajectory::Waypoint& waypoint() const;
 

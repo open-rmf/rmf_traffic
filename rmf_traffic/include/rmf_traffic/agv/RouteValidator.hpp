@@ -60,6 +60,10 @@ public:
   virtual std::optional<Conflict> find_conflict(
     const Route& route) const = 0;
 
+  virtual void print_routes() const {
+    // Do nothing
+  }
+
   /// Create a clone of the underlying RouteValidator object.
   virtual std::unique_ptr<RouteValidator> clone() const = 0;
 
@@ -143,6 +147,8 @@ public:
 
   // Documentation inherited
   std::optional<Conflict> find_conflict(const Route& route) const final;
+
+  void print_routes() const override;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;
@@ -251,6 +257,8 @@ public:
 
   // Documentation inherited
   rmf_utils::optional<Conflict> find_conflict(const Route& route) const final;
+
+  void print_routes() const override;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;

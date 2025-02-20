@@ -18,6 +18,9 @@
 #include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -136,6 +139,21 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
   }
 
   return std::nullopt;
+}
+
+//==============================================================================
+void ScheduleRouteValidator::print_routes() const {
+  std::cout << "Printing routes from schedule validator ..." << std::endl;
+  std::stringstream ss;
+  const auto view = _pimpl->viewer->query(rmf_traffic::schedule::query_all());
+  for (const rmf_traffic::schedule::Viewer::View::Element& element : view)
+  {
+    ss << "\n -- " << element.description.name() << " plan " << element.plan_id
+      << ", route " << element.route_id << ": " << element.route->map()
+      << " " << element.route->trajectory().size() << std::endl;
+  }
+
+  std::cout << ss.str() << std::endl;
 }
 
 //==============================================================================
@@ -486,6 +504,13 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
         v.route->trajectory(),
         nullptr))
     {
+      std::cout << " !>> [" << this << "] Conflict: participant " << v.participant
+        << " plan " << v.plan_id
+        << " route " << v.route_id
+        << ":" << v.route->trajectory().index_after(conflict->time)
+        << " at time " << rmf_traffic::time::to_seconds(conflict->time.time_since_epoch())
+        << std::endl;
+
       return Conflict{
         Dependency{
           v.participant,
@@ -541,7 +566,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
             other.first,
             ep.plan_id(),
             ep.route_id(),
-            other_start.index_after(conflict->time)
+            ep.checkpoint_id()
           },
           conflict->time,
           std::make_shared<Route>(route.map(), std::move(other_start))
@@ -592,7 +617,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
             other.first,
             ep.plan_id(),
             ep.route_id(),
-            other_finish.index_after(conflict->time)
+            ep.checkpoint_id()
           },
           conflict->time,
           std::make_shared<Route>(route.map(), std::move(other_finish))
@@ -602,6 +627,27 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
   }
 
   return std::nullopt;
+}
+
+//==============================================================================
+void NegotiatingRouteValidator::print_routes() const
+{
+  std::cout << "Printing routes from negotiating validator [" << this << "] ..." << std::endl;
+  std::stringstream ss;
+
+  const auto view = _pimpl->data->viewer->query(
+    rmf_traffic::schedule::Query::Spacetime(),
+    _pimpl->rollouts
+  );
+  for (const rmf_traffic::schedule::Viewer::View::Element& element : view)
+  {
+    ss << "\n -- " << element.description.name() << " participant " << element.participant
+      << " plan " << element.plan_id
+      << ", route " << element.route_id << ": " << element.route->map()
+      << " " << element.route->trajectory().size() << std::endl;
+  }
+
+  std::cout << ss.str() << std::endl;
 }
 
 //==============================================================================

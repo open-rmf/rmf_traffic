@@ -126,6 +126,7 @@ public:
   ParticipantId participant;
   PlanId plan_id;
   RouteId route_id;
+  CheckpointId checkpoint_id;
   std::shared_ptr<const Route> route;
   std::shared_ptr<const ParticipantDescription> description;
 
@@ -133,6 +134,7 @@ public:
     ParticipantId participant,
     PlanId plan_id,
     RouteId route_id,
+    CheckpointId checkpoint_id,
     std::shared_ptr<const Route> route,
     std::shared_ptr<const ParticipantDescription> description)
   {
@@ -143,6 +145,7 @@ public:
         participant,
         plan_id,
         route_id,
+        checkpoint_id,
         std::move(route),
         std::move(description)
       });
@@ -154,6 +157,7 @@ public:
     ParticipantId participant,
     PlanId plan_id,
     RouteId route_id,
+    CheckpointId checkpoint_id,
     std::shared_ptr<const Route> route,
     std::shared_ptr<const ParticipantDescription> description)
   {
@@ -164,6 +168,7 @@ public:
         participant,
         plan_id,
         route_id,
+        checkpoint_id,
         std::move(route),
         std::move(description)
       });
@@ -219,6 +224,7 @@ public:
   {
     ConstRoutePtr initial = nullptr;
     std::optional<RouteId> route_id;
+    std::optional<CheckpointId> checkpoint_id;
     for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
       const auto& r = itinerary[i];
@@ -227,6 +233,7 @@ public:
       {
         initial = std::make_shared<Route>(r);
         route_id = i;
+        checkpoint_id = 0;
       }
     }
 
@@ -236,7 +243,7 @@ public:
         {
           participant,
           Endpoint::Implementation::make_initial(
-            participant, plan_id, itinerary.size()+1, initial, description)
+            participant, plan_id, route_id.value(), checkpoint_id.value(), initial, description)
         });
     }
   }
@@ -250,6 +257,7 @@ public:
   {
     ConstRoutePtr final = nullptr;
     std::optional<RouteId> route_id;
+    std::optional<CheckpointId> checkpoint_id;
     for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
       const auto& r = itinerary[i];
@@ -258,6 +266,7 @@ public:
       {
         final = std::make_shared<Route>(r);
         route_id = i;
+        checkpoint_id = final->trajectory().size() - 1;
       }
     }
 
@@ -267,7 +276,7 @@ public:
         {
           participant,
           Endpoint::Implementation::make_final(
-            participant, plan_id, itinerary.size()+2, final, description)
+            participant, plan_id, route_id.value(), checkpoint_id.value(), final, description)
         });
     }
   }
@@ -1214,6 +1223,12 @@ PlanId Negotiation::Table::Viewer::Endpoint::plan_id() const
 RouteId Negotiation::Table::Viewer::Endpoint::route_id() const
 {
   return _pimpl->route_id;
+}
+
+//==============================================================================
+CheckpointId Negotiation::Table::Viewer::Endpoint::checkpoint_id() const
+{
+  return _pimpl->checkpoint_id;
 }
 
 //==============================================================================

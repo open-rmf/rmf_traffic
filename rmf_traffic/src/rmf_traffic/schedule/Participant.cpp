@@ -72,6 +72,18 @@ bool Participant::Implementation::Shared::set(
     return true;
   }
 
+  std::stringstream ss;
+  ss << " !!!!!!!!!!! " << _description.name() << " setting plan " << plan << " to";
+  std::size_t i = 0;
+  for (const auto& route : itinerary)
+  {
+    ss << "\n -- [" << i << "] " << route.map() << ": " << route.trajectory().size()
+      << " waypoints and " << route.checkpoints().size() << " checkpoints" << std::endl;
+    ++i;
+  }
+
+  std::cout << ss.str() << std::endl;
+
   _change_history.clear();
   _cumulative_delay = std::chrono::seconds(0);
   _current_plan_id = plan;
