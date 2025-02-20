@@ -312,8 +312,6 @@ std::vector<Plan::Waypoint> find_dependencies(
 
   if (validator && dependency_window.has_value())
   {
-    std::cout << " vvv CHECKING DEPENDENCIES AGAINST vvv" << std::endl;
-    validator->print_routes();
     for (std::size_t i = 0; i < itinerary.size(); ++i)
     {
       auto& route = itinerary[i];
@@ -346,7 +344,6 @@ std::vector<Plan::Waypoint> find_dependencies(
              t < *dependency_window; t += dependency_resolution)
         {
           route.trajectory().front().adjust_times(-dependency_resolution);
-          std::cout << "performing next check with [" << validator << "]" << std::endl;
           const auto conflict = validator->find_conflict(route);
           if (conflict.has_value())
           {
@@ -357,19 +354,9 @@ std::vector<Plan::Waypoint> find_dependencies(
               // trajectory then we ignore it because it is not physically
               // meaningful and there isn't anything we could do about it
               // anyway.
-              std::cout << "Trajectory index of conflict: " << it->index() << std::endl;
               --it;
               const auto dependent = it->index();
               const Dependency dependency = conflict->dependency;
-              std::cout << " >!! [" << validator << "] Found dependency on participant "
-                << dependency.on_participant << " at time " << rmf_traffic::time::to_seconds(conflict->time.time_since_epoch())
-                << ": " << dependency.on_route << ":" << dependency.on_checkpoint
-                << " for plan " << dependency.on_plan << std::endl;
-
-              if (dependency.on_route > 0)
-              {
-                validator->print_routes();
-              }
 
               auto& found_deps = found_dependencies[dependent];
               const auto f_it = std::find(
@@ -445,9 +432,6 @@ std::vector<Plan::Waypoint> find_dependencies(
         route.trajectory().front().adjust_times(delta_t);
       }
     }
-
-    validator->print_routes();
-    std::cout << " ^^^ DONE CHECKING DEPENDENCIES AGAINST ^^^" << std::endl;
   }
 
   bool merge_happened = true;
