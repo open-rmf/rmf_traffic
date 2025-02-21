@@ -309,6 +309,7 @@ std::vector<Plan::Waypoint> find_dependencies(
     }
   }
 
+
   if (validator && dependency_window.has_value())
   {
     for (std::size_t i = 0; i < itinerary.size(); ++i)
