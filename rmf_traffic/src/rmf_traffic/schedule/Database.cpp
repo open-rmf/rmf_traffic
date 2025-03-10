@@ -1405,6 +1405,14 @@ auto Database::watch_dependency(
 
   if (state.latest_plan_id == dep.on_plan)
   {
+    if (state.storage.empty())
+    {
+      // This plan has already been cleared from the schedule, so any
+      // dependencies on it are deprecated.
+      shared->deprecate();
+      return subscription;
+    }
+
     if (dep.on_route < state.progress.reached_checkpoints.size())
     {
       const auto latest_checkpoint =
