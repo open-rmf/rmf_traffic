@@ -1169,8 +1169,10 @@ std::vector<Plan::Start> compute_plan_starts(
       continue;
 
     const Eigen::Vector2d wp_location = wp.get_location();
+    const auto merge_radius =
+      wp.merge_radius().value_or(max_merge_waypoint_distance);
 
-    if ( (p_location - wp_location).norm() < max_merge_waypoint_distance)
+    if ( (p_location - wp_location).norm() < merge_radius)
     {
       return {Plan::Start(start_time, wp.index(), start_yaw)};
     }
