@@ -113,7 +113,7 @@ public:
 
   // Documentation inherited from Viewer
   std::shared_ptr<const ParticipantDescription> get_participant(
-    std::size_t participant_id) const final;
+    ParticipantId participant_id) const final;
 
   // Documentation inherited from Viewer
   Version latest_version() const;
@@ -125,11 +125,11 @@ public:
 
   // Documentation inherited from ItineraryViewer
   std::optional<ItineraryView> get_itinerary(
-    std::size_t participant_id) const final;
+    ParticipantId participant_id) const final;
 
   // Documentation inherited from ItineraryViewer
   std::optional<PlanId> get_current_plan_id(
-    std::size_t participant_id) const final;
+    ParticipantId participant_id) const final;
 
   // Documentation inherited from ItineraryViewer
   const std::vector<CheckpointId>* get_current_progress(
