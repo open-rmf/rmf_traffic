@@ -1654,6 +1654,30 @@ auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
   return tables[choice];
 }
 
+std::size_t Negotiation::count_tables() const
+{
+  std::vector<TablePtr> queue;
+  for (const auto& [_, table] : _pimpl->tables)
+  {
+    queue.push_back(table);
+  }
+
+  std::size_t count = 0;
+  while (!queue.empty())
+  {
+    count += 1;
+    const auto top = queue.back();
+    queue.pop_back();
+
+    for (const auto& [_, child] : top->_pimpl->descendants)
+    {
+      queue.push_back(child);
+    }
+  }
+
+  return count;
+}
+
 //==============================================================================
 Negotiation::Negotiation()
 {
