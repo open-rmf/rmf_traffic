@@ -1735,5 +1735,42 @@ StorageId Database::next_storage_base(ParticipantId participant) const
   return p_it->second.next_storage_id;
 }
 
+//==============================================================================
+std::size_t Database::waypoints_in_storage() const
+{
+  std::size_t count = 0;
+  for (const auto& [_, state] : _pimpl->states)
+  {
+    for (const auto& [_, route_storage] : state.storage)
+    {
+      auto route_entry = route_storage.entry;
+      while (route_entry)
+      {
+        if (route_entry->route)
+        {
+          count += route_entry->route->trajectory().size();
+        }
+
+        if (route_entry->transition)
+        {
+          route_entry = route_entry->transition->predecessor.entry;
+        }
+        else
+        {
+          route_entry = nullptr;
+        }
+      }
+    }
+  }
+
+  return count;
+}
+
+//==============================================================================
+std::size_t Database::entries_in_timeline() const
+{
+  return _pimpl->timeline.entry_count();
+}
+
 } // namespace schedule
 } // namespace rmf_traffic

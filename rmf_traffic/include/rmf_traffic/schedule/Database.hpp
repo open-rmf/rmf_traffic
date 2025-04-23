@@ -258,6 +258,12 @@ public:
   /// Get the last Storage ID used by this participant.
   StorageId next_storage_base(ParticipantId participant) const;
 
+  /// Get a count of how many waypoints are currently being stored as active in
+  /// the database.
+  std::size_t waypoints_in_storage() const;
+
+  std::size_t entries_in_timeline() const;
+
   class Implementation;
   class Debug;
 private:
