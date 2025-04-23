@@ -120,6 +120,10 @@ public:
   // inconsistencies that might show up with the patches, e.g. replacing or
   // erasing a trajectory that was never received in the first place.
 
+  std::size_t waypoints_in_storage() const;
+
+  std::size_t entries_in_timeline() const;
+
   class Implementation;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
