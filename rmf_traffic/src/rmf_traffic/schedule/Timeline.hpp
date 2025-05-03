@@ -182,6 +182,21 @@ public:
 
   template<typename> friend class Timeline;
 
+  inline std::size_t entry_count() const
+  {
+    std::size_t count = 0;
+    count += _all_bucket->size();
+    for (const auto& [_, buckets] : _timelines)
+    {
+      for (const auto& [_, bucket] : buckets)
+      {
+        count += bucket->size();
+      }
+    }
+
+    return count;
+  }
+
 protected:
 
   template<typename Inspector, typename ParticipantFilter>
@@ -575,6 +590,21 @@ public:
       if (end_it != timeline.begin())
         timeline.erase(timeline.begin(), end_it);
     }
+
+    const auto r_it = std::remove_if(
+      this->_all_bucket->begin(),
+      this->_all_bucket->end(),
+      [time](const auto& entry)
+      {
+        if (!entry->route)
+        {
+          return true;
+        }
+
+        return entry->route->trajectory().back().time() < time;
+      });
+
+    this->_all_bucket->erase(r_it, this->_all_bucket->end());
   }
 
   /// Create an immutable snapshot of the current timeline. A single instance of

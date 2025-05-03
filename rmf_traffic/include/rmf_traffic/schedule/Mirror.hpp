@@ -120,6 +120,14 @@ public:
   // inconsistencies that might show up with the patches, e.g. replacing or
   // erasing a trajectory that was never received in the first place.
 
+  /// Get a count of how many waypoints are currently being stored as active in
+  /// the mirror. This gives some sense of the memory utilization of the mirror.
+  std::size_t waypoints_in_storage() const;
+
+  /// Get a count of how many entries are being stored in the timeline of the
+  /// mirror. This gives some sense of the memory utilization of the mirror.
+  std::size_t entries_in_timeline() const;
+
   class Implementation;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
