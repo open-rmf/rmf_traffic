@@ -541,7 +541,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
             other.first,
             ep.plan_id(),
             ep.route_id(),
-            other_start.index_after(conflict->time)
+            ep.checkpoint_id()
           },
           conflict->time,
           std::make_shared<Route>(route.map(), std::move(other_start))
@@ -592,7 +592,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
             other.first,
             ep.plan_id(),
             ep.route_id(),
-            other_finish.index_after(conflict->time)
+            ep.checkpoint_id()
           },
           conflict->time,
           std::make_shared<Route>(route.map(), std::move(other_finish))

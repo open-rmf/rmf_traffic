@@ -57,8 +57,8 @@ public:
   struct ParticipantState;
 
   struct Transition;
-  using TransitionPtr = std::unique_ptr<Transition>;
-  using ConstTransitionPtr = std::unique_ptr<const Transition>;
+  using TransitionPtr = std::shared_ptr<Transition>;
+  using ConstTransitionPtr = std::shared_ptr<const Transition>;
 
   struct RouteEntry;
   using RouteEntryPtr = std::shared_ptr<RouteEntry>;
@@ -290,7 +290,7 @@ public:
       auto new_route = std::make_shared<Route>(*route_entry->route);
       new_route->trajectory().front().adjust_times(delay);
 
-      auto transition = std::make_unique<Transition>(
+      auto transition = std::make_shared<Transition>(
         Transition{
           Change::Delay::Implementation{delay},
           std::move(entry_storage)
@@ -334,7 +334,7 @@ public:
       auto route = entry_storage.entry->route;
       const auto route_id = entry_storage.entry->route_id;
 
-      auto transition = std::make_unique<Transition>(
+      auto transition = std::make_shared<Transition>(
         Transition{
           std::nullopt,
           std::move(entry_storage)
@@ -375,7 +375,7 @@ public:
       auto& entry_storage = s_it->second;
       const auto& entry = *entry_storage.entry;
 
-      auto transition = std::make_unique<Transition>(
+      auto transition = std::make_shared<Transition>(
         Transition{
           rmf_utils::nullopt,
           std::move(entry_storage)
@@ -394,8 +394,37 @@ public:
           RouteEntryPtr()
         });
 
+      // We need to hang onto the very last transition in order to know when to
+      // erase the route, but we can eliminate transitions from before then.
       entry_storage.entry->transition->predecessor.entry->successor =
         entry_storage.entry;
+
+      // Prevent stack overflow due to recursive deallocation by queuing all the
+      // transitions and popping them front to back.
+      std::deque<TransitionPtr> transitions;
+      auto dead_transition =
+        entry_storage.entry->transition->predecessor.entry->transition;
+      while (dead_transition)
+      {
+        transitions.push_back(dead_transition);
+        if (dead_transition->predecessor.entry)
+        {
+          auto next_dead_transition = dead_transition->predecessor.entry->transition;
+          // Sever these transitions which are no longer needed so that the
+          // transition chain doesn't grow indefinitely.
+          dead_transition->predecessor.entry->transition = nullptr;
+          dead_transition = next_dead_transition;
+        }
+        else
+        {
+          dead_transition = nullptr;
+        }
+      }
+
+      while (!transitions.empty())
+      {
+        transitions.pop_front();
+      }
 
       entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
@@ -1405,6 +1434,14 @@ auto Database::watch_dependency(
 
   if (state.latest_plan_id == dep.on_plan)
   {
+    if (state.storage.empty())
+    {
+      // This plan has already been cleared from the schedule, so any
+      // dependencies on it are deprecated.
+      shared->deprecate();
+      return subscription;
+    }
+
     if (dep.on_route < state.progress.reached_checkpoints.size())
     {
       const auto latest_checkpoint =
@@ -1725,6 +1762,43 @@ StorageId Database::next_storage_base(ParticipantId participant) const
   }
 
   return p_it->second.next_storage_id;
+}
+
+//==============================================================================
+std::size_t Database::waypoints_in_storage() const
+{
+  std::size_t count = 0;
+  for (const auto& [_, state] : _pimpl->states)
+  {
+    for (const auto& [_, route_storage] : state.storage)
+    {
+      auto route_entry = route_storage.entry;
+      while (route_entry)
+      {
+        if (route_entry->route)
+        {
+          count += route_entry->route->trajectory().size();
+        }
+
+        if (route_entry->transition)
+        {
+          route_entry = route_entry->transition->predecessor.entry;
+        }
+        else
+        {
+          route_entry = nullptr;
+        }
+      }
+    }
+  }
+
+  return count;
+}
+
+//==============================================================================
+std::size_t Database::entries_in_timeline() const
+{
+  return _pimpl->timeline.entry_count();
 }
 
 } // namespace schedule

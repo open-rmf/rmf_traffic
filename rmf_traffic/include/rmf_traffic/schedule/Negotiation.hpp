@@ -174,6 +174,9 @@ public:
         /// The ID of the route for this endpoint
         RouteId route_id() const;
 
+        /// The ID for the checkpoint of this endpoint
+        CheckpointId checkpoint_id() const;
+
         /// The first or last (depending on context) waypoint
         const rmf_traffic::Trajectory::Waypoint& waypoint() const;
 
@@ -377,6 +380,7 @@ public:
 
     class Implementation;
   private:
+    friend class Negotiation;
     Table();
     rmf_utils::unique_impl_ptr<Implementation> _pimpl;
   };
@@ -507,6 +511,10 @@ public:
   /// Table::proposal() on this return value to see the full proposal. If there
   /// was no
   ConstTablePtr evaluate(const Evaluator& evaluator) const;
+
+  /// Count the number of tables present in this negotiation. This gives a rough
+  /// idea of how much memory the negotiation is taking up.
+  std::size_t count_tables() const;
 
   class Implementation;
 private:

@@ -281,6 +281,12 @@ void stream_trajectory(
 }
 
 //==============================================================================
+inline bool same_orientation(double yaw0, double yaw1)
+{
+  return std::abs(rmf_utils::wrap_to_pi(yaw0 - yaw1))*180.0 / M_PI < 1e-2;
+}
+
+//==============================================================================
 std::vector<Plan::Waypoint> find_dependencies(
   std::vector<Route>& itinerary,
   std::vector<WaypointCandidate> candidates,
@@ -302,6 +308,7 @@ std::vector<Plan::Waypoint> find_dependencies(
       checkpoint_maps.at(c.route_id).insert({c.checkpoint_id, i});
     }
   }
+
 
   if (validator && dependency_window.has_value())
   {
@@ -473,6 +480,72 @@ std::vector<Plan::Waypoint> find_dependencies(
     }
   }
 
+  std::size_t c_last = 0;
+  std::size_t c = 1;
+  std::size_t c_next = 2;
+  for (; c_next < candidates.size(); ++c_last, ++c, ++c_next)
+  {
+    auto& candidate = candidates[c];
+    if (candidate.waypoint.arrival.empty())
+    {
+      // This was a manually inserted turn-in-place, so let's try to match it
+      // with a trajectory checkpoint
+      const auto p_candidate = candidate.waypoint.position;
+      for (std::size_t r = 0; r < itinerary.size(); ++r)
+      {
+        std::optional<std::size_t> floor_opt;
+        for (const auto& checkpoint : candidates[c_last].waypoint.arrival)
+        {
+          if (checkpoint.route_id != r)
+            continue;
+
+          const auto id = checkpoint.checkpoint_id;
+          if (!floor_opt.has_value())
+            floor_opt = id;
+          else if (*floor_opt < id)
+            floor_opt = id;
+        }
+
+        if (!floor_opt.has_value())
+          continue;
+        const auto floor_id = floor_opt.value();
+
+        std::optional<std::size_t> ceil_opt;
+        for (const auto& checkpoint : candidates[c_next].waypoint.arrival)
+        {
+          if (checkpoint.route_id != r)
+            continue;
+
+          const auto id = checkpoint.checkpoint_id;
+          if (!ceil_opt.has_value())
+            ceil_opt = id;
+          else if (id < *ceil_opt)
+            ceil_opt = id;
+        }
+
+        if (!ceil_opt.has_value())
+          continue;
+        const auto ceil_id = ceil_opt.value();
+
+        // Between the floor and the ceiling, try to find a waypoint in this
+        // trajectory that matches the position of the inserted waypoint.
+        for (std::size_t id = floor_id; id < ceil_id; ++id)
+        {
+          const auto& trajectory_checkpoint = itinerary[r].trajectory()[id];
+          const auto p_trajectory = trajectory_checkpoint.position();
+          const bool same_pos = (p_candidate.block<2,1>(0,0) - p_trajectory.block<2,1>(0,0)).norm() < 1e-2;
+          const bool same_ori = same_orientation(p_candidate[2], p_trajectory[2]);
+          if (same_pos && same_ori)
+          {
+            // We have a matching checkpoint
+            candidate.waypoint.arrival.push_back(Plan::Checkpoint { r, id });
+            candidate.waypoint.time = trajectory_checkpoint.time();
+          }
+        }
+      }
+    }
+  }
+
   std::vector<Plan::Waypoint> waypoints;
   waypoints.reserve(candidates.size());
   for (const auto& c : candidates)
@@ -551,6 +624,28 @@ reconstruct_waypoints(
   {
     const auto& node = node_sequence.at(i);
     const auto yaw = node->yaw;
+
+    // Insert in-place rotation waypoint if the current and previous waypoints
+    // are disconnected
+    const auto& prev_candidate = candidates.back();
+    const auto& prev_wp = prev_candidate.waypoint;
+    const Eigen::Vector2d prev_pos =
+      Eigen::Vector2d{prev_wp.position[0], prev_wp.position[1]};
+    const bool same_pos = (prev_pos - node->position).norm() < 1e-3;
+    const bool same_ori = same_orientation(prev_wp.position[2], node->yaw);
+    if (!same_pos && !same_ori)
+    {
+      candidates.push_back(WaypointCandidate{
+        true,
+        Plan::Waypoint::Implementation{
+          Eigen::Vector3d{prev_pos[0],  prev_pos[1], node->yaw},
+          prev_wp.time, prev_wp.graph_index,
+          {}, {}, {}, prev_wp.event, {}
+        },
+        prev_candidate.velocity
+      });
+    }
+
     if (node->approach_lanes.empty())
     {
       // This means we are doing an in-place rotation or a wait

@@ -215,7 +215,7 @@ public:
     std::optional<double> merge_radius() const;
 
     /// Set the merge radius specific to this waypoint.
-    Waypoint& set_merge_radius(std::optional<double> valeu);
+    Waypoint& set_merge_radius(std::optional<double> value);
 
     class Implementation;
   private:

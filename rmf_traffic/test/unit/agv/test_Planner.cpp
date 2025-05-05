@@ -82,21 +82,52 @@ void print_trajectory_info(
   rmf_traffic::Time time)
 {
   display_path(plan);
+  std::cout << "Plan waypoint count: " << plan->get_waypoints().size() << std::endl;
+  int wp_count = 0;
+  for (const auto& wp : plan->get_waypoints())
+  {
+    std::cout << "  wp" << wp_count++ << ": t=" << rmf_traffic::time::to_seconds(wp.time() - time)
+      << "s {" << wp.position().transpose() << "}";
+    if (wp.graph_index())
+    {
+      std::cout << " [graph index " << *wp.graph_index() << "]";
+    }
+    else
+    {
+      std::cout << " [no graph index]";
+    }
+
+    std::cout << " checkpoints:";
+    if (wp.arrival_checkpoints().empty())
+    {
+      std::cout << " none";
+    }
+    else
+    {
+      for (const auto c : wp.arrival_checkpoints())
+      {
+        std::cout << " [" << c.route_id << ":" << c.checkpoint_id << "]";
+      }
+    }
+
+    std::cout << std::endl;
+  }
+
+
   std::cout << "Itinerary count: " << plan->get_itinerary().size()
             << std::endl;
-  int trajectory_count = 1;
+  int trajectory_count = 0;
   for (const auto& r : plan->get_itinerary())
   {
-    int waypoint_count = 1;
+    int waypoint_count = 0;
     const auto& t = r.trajectory();
     std::cout << "Trajectory [" << trajectory_count << "] in " << r.map()
               << " with " << t.size() << " waypoints\n";
     for (auto it = t.begin(); it != t.end(); it++)
     {
       auto position = it->position();
-      std::cout << "  Waypoint "<< waypoint_count << ": {" << position[0]
-                << ","<<position[1] << "," << position[2] << "} "
-                << rmf_traffic::time::to_seconds(it->time() - time) << "s"
+      std::cout << "  x"<< waypoint_count << ": t=" <<  rmf_traffic::time::to_seconds(it->time() - time)
+                << "s" << " {" << position[0] << ","<<position[1] << "," << position[2] << "} "
                 << std::endl;
       waypoint_count++;
     }
@@ -230,7 +261,8 @@ rmf_traffic::Trajectory test_with_obstacle(
 
 void test_ignore_obstacle(
   const rmf_traffic::agv::Planner::Result& original_result,
-  const rmf_traffic::schedule::Version database_version)
+  const rmf_traffic::schedule::Version database_version,
+  const bool print_info = false)
 {
   REQUIRE(database_version > 0);
   const auto& start = original_result->get_start();
@@ -238,6 +270,12 @@ void test_ignore_obstacle(
   options.validator(nullptr);
 
   const auto new_plan = original_result.replan(start, std::move(options));
+
+  if (print_info)
+  {
+    print_trajectory_info(original_result, original_result->get_start().time());
+    print_trajectory_info(new_plan, original_result->get_start().time());
+  }
 
   // The new plan which ignores the conflicts should be the same as the original
   REQUIRE(new_plan->get_itinerary().size() == 1);
@@ -1505,7 +1543,7 @@ SCENARIO("Test planning")
   }
 }
 
-SCENARIO("DP1 Graph")
+SCENARIO("DP1 Graph", "[dp1_graph]")
 {
   using namespace std::chrono_literals;
 

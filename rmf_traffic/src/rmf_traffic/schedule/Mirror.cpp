@@ -345,6 +345,14 @@ auto Mirror::watch_dependency(
 
   if (state.current_plan_id == dep.on_plan)
   {
+    if (state.storage.empty())
+    {
+      // This plan has already been cleared from the schedule, so any
+      // dependencies on it are deprecated.
+      shared->deprecate();
+      return subscription;
+    }
+
     if (dep.on_route < state.progress.reached_checkpoints.size())
     {
       const auto latest_checkpoint =
@@ -551,6 +559,8 @@ bool Mirror::update(const Patch& patch)
 
       p_it->second.storage.erase(route.storage_id);
     }
+
+    _pimpl->timeline.cull(time);
   }
 
   _pimpl->latest_version = patch.latest_version();
@@ -647,6 +657,30 @@ Database Mirror::fork() const
   }
 
   return output;
+}
+
+//==============================================================================
+std::size_t Mirror::waypoints_in_storage() const
+{
+  std::size_t count = 0;
+  for (const auto& [_, state] : _pimpl->states)
+  {
+    for (const auto& [_, route_storage] : state.storage)
+    {
+      if (route_storage.entry && route_storage.entry->route)
+      {
+        count += route_storage.entry->route->trajectory().size();
+      }
+    }
+  }
+
+  return count;
+}
+
+//==============================================================================
+std::size_t Mirror::entries_in_timeline() const
+{
+  return _pimpl->timeline.entry_count();
 }
 
 } // schedule
