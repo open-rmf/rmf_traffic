@@ -41,8 +41,8 @@ SCENARIO("Testing intersection of spacetime with trajectories")
   const auto region_box_shape = rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Box>(10.0, 1.0);
 
-  std::chrono::_V2::steady_clock::time_point lower_time_bound = time;
-  std::chrono::_V2::steady_clock::time_point upper_time_bound = time+10s;
+  std::chrono::steady_clock::time_point lower_time_bound = time;
+  std::chrono::steady_clock::time_point upper_time_bound = time+10s;
 
   rmf_traffic::internal::Spacetime region = {
     &lower_time_bound,
@@ -117,8 +117,8 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
   using namespace std::chrono_literals;
   auto time = std::chrono::steady_clock::now();
   Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
-  std::chrono::_V2::steady_clock::time_point lower_time_bound;
-  std::chrono::_V2::steady_clock::time_point upper_time_bound;
+  std::chrono::steady_clock::time_point lower_time_bound;
+  std::chrono::steady_clock::time_point upper_time_bound;
 
   const auto region_box_shape = rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Box>(10.0, 1.0);
@@ -1210,8 +1210,8 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
   GIVEN("spacetime that encompasses the trajectory in space and time")
   {
     //creating space to create spacetime
-    std::chrono::_V2::steady_clock::time_point lower_time_bound = time;
-    std::chrono::_V2::steady_clock::time_point upper_time_bound = time+10s;
+    std::chrono::steady_clock::time_point lower_time_bound = time;
+    std::chrono::steady_clock::time_point upper_time_bound = time+10s;
     Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
 
     rmf_traffic::internal::Spacetime region = {
@@ -1227,8 +1227,8 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
   GIVEN("spacetime that encompasses the trajectory in space but not time")
   {
     //creating space to create spacetime
-    std::chrono::_V2::steady_clock::time_point lower_time_bound = time+20s;
-    std::chrono::_V2::steady_clock::time_point upper_time_bound = time+30s;
+    std::chrono::steady_clock::time_point lower_time_bound = time+20s;
+    std::chrono::steady_clock::time_point upper_time_bound = time+30s;
     Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
 
     rmf_traffic::internal::Spacetime region = {
@@ -1244,8 +1244,8 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
   GIVEN("spacetime that partially intersects the trajectory in space and time")
   {
     //creating space to create spacetime
-    std::chrono::_V2::steady_clock::time_point lower_time_bound = time;
-    std::chrono::_V2::steady_clock::time_point upper_time_bound = time+10s;
+    std::chrono::steady_clock::time_point lower_time_bound = time;
+    std::chrono::steady_clock::time_point upper_time_bound = time+10s;
     Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
 
     rmf_traffic::internal::Spacetime region = {
@@ -1263,8 +1263,8 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
 SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
 {
   using namespace std::chrono_literals;
-  std::chrono::_V2::steady_clock::time_point lower_time_bound;
-  std::chrono::_V2::steady_clock::time_point upper_time_bound;
+  std::chrono::steady_clock::time_point lower_time_bound;
+  std::chrono::steady_clock::time_point upper_time_bound;
 
   const auto small_circle_shape = rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Circle>(0.5);

@@ -1332,7 +1332,7 @@ const std::unordered_set<ParticipantId>& Database::participant_ids() const
 
 //==============================================================================
 std::shared_ptr<const ParticipantDescription> Database::get_participant(
-  std::size_t participant_id) const
+  ParticipantId participant_id) const
 {
   const auto state_it = _pimpl->descriptions.find(participant_id);
   if (state_it == _pimpl->descriptions.end())
@@ -1349,7 +1349,7 @@ Version Database::latest_version() const
 
 //==============================================================================
 std::optional<ItineraryView> Database::get_itinerary(
-  const std::size_t participant_id) const
+  const ParticipantId participant_id) const
 {
   const auto state_it = _pimpl->states.find(participant_id);
   if (state_it == _pimpl->states.end())
@@ -1374,7 +1374,7 @@ std::optional<ItineraryView> Database::get_itinerary(
 
 //==============================================================================
 std::optional<PlanId> Database::get_current_plan_id(
-  const std::size_t participant_id) const
+  const ParticipantId participant_id) const
 {
   const auto state_it = _pimpl->states.find(participant_id);
   if (state_it == _pimpl->states.end())
