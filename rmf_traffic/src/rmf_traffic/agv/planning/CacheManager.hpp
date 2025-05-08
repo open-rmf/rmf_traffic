@@ -154,6 +154,8 @@ public:
 
   Value get(const Key& key) const;
 
+  std::size_t size() const;
+
 private:
   std::shared_ptr<Upstream_type> _upstream;
   std::function<Storage()> _storage_initializer;
@@ -213,6 +215,10 @@ public:
     std::function<Storage()> storage_initializer = []() { return Storage(); });
 
   CacheManagerPtr get(std::size_t goal_index) const;
+
+  /// Count up the sizes of all Caches that are being managed by this
+  /// CacheManagerMap
+  std::size_t net_size() const;
 
 private:
   // NOTE(MXG): We take some significant liberties with mutability here because
@@ -279,6 +285,28 @@ auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 }
 
 //==============================================================================
+template<typename GeneratorArg>
+std::size_t Cache<GeneratorArg>::size() const
+{
+  {
+    // Check if the read blocker is up to avoid starving the writers
+    SpinLock wait_for_writers(_upstream->read_blocker);
+  }
+
+  std::shared_lock<std::shared_mutex> read_lock(
+    _upstream->storage_mutex, std::defer_lock);
+  while (!read_lock.try_lock())
+  {
+    // Just spin
+  }
+
+  const std::size_t result = _upstream->storage.size();
+  read_lock.unlock();
+
+  return result;
+}
+
+//==============================================================================
 template<typename CacheArg>
 CacheManager<CacheArg>::CacheManager(
   std::shared_ptr<const Generator> generator,
@@ -332,6 +360,20 @@ auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
   }
 
   return manager;
+}
+
+//==============================================================================
+template<typename CacheArg>
+std::size_t CacheManagerMap<CacheArg>::net_size() const
+{
+  SpinLock lock(_map_mutex);
+  std::size_t count = 0;
+  for (const auto [_, manager] : _managers)
+  {
+    count += manager->inner().size();
+  }
+
+  return count;
 }
 
 } // namespace planning
