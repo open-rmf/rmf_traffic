@@ -258,9 +258,13 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
     rmf_traffic::agv::Graph::Implementation::get(graph),
     traits, {}, rmf_traffic::agv::Interpolate::Options(), 0.1);
 
+  const auto shortest_path =
+    std::make_shared<rmf_traffic::agv::planning::ShortestPathHeuristic>(
+      supergraph);
+
   auto diff_drive_cache =
     rmf_traffic::agv::planning
-    ::DifferentialDriveHeuristic::make_manager(supergraph);
+    ::DifferentialDriveHeuristic::make_manager(supergraph, shortest_path);
 
   using Ori = rmf_traffic::agv::planning::Orientation;
   using Side = rmf_traffic::agv::planning::Side;
@@ -441,6 +445,10 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     rmf_traffic::agv::Graph::Implementation::get(graph),
     traits, {}, rmf_traffic::agv::Interpolate::Options(), 0.1);
 
+  const auto shortest_path =
+    std::make_shared<rmf_traffic::agv::planning::ShortestPathHeuristic>(
+      supergraph);
+
   // TODO(MXG): Make a cleaner way to instantiate these caches
   using DifferentialDriveCache =
     rmf_traffic::agv::planning::CacheManager<
@@ -449,7 +457,8 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
   auto diff_drive_cache = DifferentialDriveCache::make(
     std::make_shared<
       rmf_traffic::agv::planning::DifferentialDriveHeuristic>(
-      supergraph), [N = supergraph->original().lanes.size()]()
+      supergraph,
+      shortest_path), [N = supergraph->original().lanes.size()]()
     {
       return rmf_traffic::agv::planning::DifferentialDriveHeuristic::Storage(
         4093,

@@ -240,6 +240,10 @@ public:
 
   std::optional<double> get_cost(WaypointId start, WaypointId finish) const;
 
+  std::size_t cache_size() const;
+
+  std::size_t heuristic_cache_size() const;
+
   ~BidirectionalForest();
 
 private:

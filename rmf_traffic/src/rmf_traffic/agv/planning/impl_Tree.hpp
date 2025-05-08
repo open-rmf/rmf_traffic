@@ -374,6 +374,27 @@ std::optional<double> BidirectionalForest<T>::get_cost(
 
 //==============================================================================
 template<typename T>
+std::size_t BidirectionalForest<T>::cache_size() const
+{
+    SpinLock lock(_solutions_mutex);
+    std::size_t count = 0;
+    for (const auto& [_, goals] : _solutions)
+    {
+      count += goals.size();
+    }
+
+    return count;
+}
+
+//==============================================================================
+template<typename T>
+std::size_t BidirectionalForest<T>::heuristic_cache_size() const
+{
+  return _heuristic_cache->net_size();
+}
+
+//==============================================================================
+template<typename T>
 BidirectionalForest<T>::~BidirectionalForest()
 {
   if constexpr (T::count_usage)

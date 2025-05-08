@@ -601,6 +601,10 @@ public:
       const StartSet& start,
       std::size_t goal_vertex) const;
 
+
+  class CacheAudit;
+  CacheAudit cache_audit() const;
+
   class Implementation;
   class Debug;
 private:
@@ -762,6 +766,8 @@ public:
   /// do prevent the optimal solution from being available.
   std::vector<schedule::ParticipantId> blockers() const;
 
+
+
   class Implementation;
 private:
   Result();
@@ -880,6 +886,23 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
+//==============================================================================
+/// Number of elements in various caches within the planner.
+class Planner::CacheAudit
+{
+public:
+
+  std::size_t differential_drive_planner_cache_size() const;
+
+  std::size_t shortest_path_cache_size() const;
+
+  std::size_t euclidean_heuristic_cache_size() const;
+
+  class Implementation;
+private:
+  CacheAudit();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
 
 /// Produces a set of possible starting waypoints and lanes in order to start
 /// planning. This method attempts to find the most suitable starting nodes
@@ -924,5 +947,14 @@ std::vector<Plan::Start> compute_plan_starts(
 
 } // namespace agv
 } // namespace rmf_traffic
+
+namespace std {
+
+//==============================================================================
+ostream& operator<<(
+  ostream& os,
+  const rmf_traffic::agv::Planner::CacheAudit& audit);
+
+} // namespace std
 
 #endif // RMF_TRAFFIC__AGV__PLANNER_HPP

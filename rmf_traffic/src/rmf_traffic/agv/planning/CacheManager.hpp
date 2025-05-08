@@ -370,7 +370,7 @@ std::size_t CacheManagerMap<CacheArg>::net_size() const
   std::size_t count = 0;
   for (const auto [_, manager] : _managers)
   {
-    count += manager->inner().size();
+    count += manager->get().size();
   }
 
   return count;
