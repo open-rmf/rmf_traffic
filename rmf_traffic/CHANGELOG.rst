@@ -2,8 +2,8 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.5.0 (2025-05-09)
+------------------
 * Add an API for clearing the planner cache (`#118 <https://github.com/open-rmf/rmf_traffic/issues/118>`_)
 * Add a method to audit the size of planner caches (`#117 <https://github.com/open-rmf/rmf_traffic/issues/117>`_)
 * Fix build with Apple Clang (`#98 <https://github.com/open-rmf/rmf_traffic/issues/98>`_)
