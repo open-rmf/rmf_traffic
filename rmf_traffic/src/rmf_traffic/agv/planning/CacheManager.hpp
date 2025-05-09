@@ -156,6 +156,8 @@ public:
 
   std::size_t size() const;
 
+  void clear() const;
+
 private:
   std::shared_ptr<Upstream_type> _upstream;
   std::function<Storage()> _storage_initializer;
@@ -282,6 +284,21 @@ auto Cache<GeneratorArg>::get(const Key& key) const -> Value
     storage[item.first] = std::move(item.second);
 
   return result;
+}
+
+//==============================================================================
+template<typename GeneratorArg>
+void Cache<GeneratorArg>::clear() const
+{
+  SpinLock lock_out_readers(_upstream->read_blocker);
+  std::unique_lock<std::shared_mutex> write_lock(
+    _upstream->storage_mutex, std::defer_lock);
+  while (!write_lock.try_lock())
+  {
+    // Just spin
+  }
+
+  _upstream->storage.clear();
 }
 
 //==============================================================================

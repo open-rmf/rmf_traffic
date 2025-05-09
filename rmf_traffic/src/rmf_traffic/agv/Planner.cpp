@@ -1058,6 +1058,12 @@ auto Planner::cache_audit() const -> CacheAudit
 }
 
 //==============================================================================
+void Planner::clear_differential_drive_cache() const
+{
+  _pimpl->interface->clear_cache();
+}
+
+//==============================================================================
 const Eigen::Vector3d& Plan::Waypoint::position() const
 {
   return _pimpl->position;
