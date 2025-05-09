@@ -2696,7 +2696,9 @@ DifferentialDrivePlanner::DifferentialDrivePlanner(
     _config.interpolation(),
     _config.traversal_cost_per_meter());
 
-  _cache = DifferentialDriveHeuristic::make_manager(_supergraph);
+  _shortest_path = std::make_shared<ShortestPathHeuristic>(_supergraph);
+
+  _cache = DifferentialDriveHeuristic::make_manager(_supergraph, _shortest_path);
 }
 
 //==============================================================================
@@ -2727,8 +2729,8 @@ State DifferentialDrivePlanner::initiate(
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-    _supergraph,
-    goal.waypoint(),
+      _supergraph,
+      goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     goal,
@@ -2766,8 +2768,8 @@ std::optional<PlanData> DifferentialDrivePlanner::plan(State& state) const
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-    _supergraph,
-    goal.waypoint(),
+      _supergraph,
+      goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     state.conditions.goal,
@@ -2804,8 +2806,8 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-    _supergraph,
-    goal.waypoint(),
+      _supergraph,
+      goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation()),
     },
     goal,
@@ -2890,8 +2892,8 @@ auto DifferentialDrivePlanner::debug_begin(
     _supergraph,
     DifferentialDriveHeuristicAdapter{
       _cache->get(),
-    _supergraph,
-    goal.waypoint(),
+      _supergraph,
+      goal.waypoint(),
       rmf_utils::pointer_to_opt(goal.orientation())
     },
     goal,
@@ -2908,6 +2910,19 @@ std::optional<PlanData> DifferentialDrivePlanner::debug_step(
 {
   return static_cast<ScheduledDifferentialDriveExpander::Debugger&>(
     input_debugger).step(_supergraph, _cache->get());
+}
+
+//==============================================================================
+Planner::CacheAudit DifferentialDrivePlanner::cache_audit() const
+{
+
+  auto audit = Planner::CacheAudit::Implementation{
+    _cache->get().size(),
+    _shortest_path->cache_size(),
+    _shortest_path->heuristic_cache_size()
+  };
+
+  return Planner::CacheAudit::Implementation::make(audit);
 }
 
 } // namespace planning

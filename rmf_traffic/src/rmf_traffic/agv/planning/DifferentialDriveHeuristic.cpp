@@ -509,9 +509,10 @@ private:
 
 //==============================================================================
 DifferentialDriveHeuristic::DifferentialDriveHeuristic(
-  std::shared_ptr<const Supergraph> graph)
+  std::shared_ptr<const Supergraph> graph,
+  ConstChildHeuristicPtr child_heuristic)
 : _graph(std::move(graph)),
-  _heuristic(std::make_shared<const ChildHeuristic>(_graph))
+  _heuristic(std::move(child_heuristic))
 {
   // Do nothing
 }
@@ -709,11 +710,14 @@ ConstForestSolutionPtr DifferentialDriveHeuristic::inner_heuristic(
 //==============================================================================
 CacheManagerPtr<DifferentialDriveHeuristic>
 DifferentialDriveHeuristic::make_manager(
-  std::shared_ptr<const Supergraph> supergraph)
+  std::shared_ptr<const Supergraph> supergraph,
+  ConstChildHeuristicPtr child_heuristic)
 {
   const std::size_t N = supergraph->original().lanes.size();
   return CacheManager<Cache<DifferentialDriveHeuristic>>::make(
-    std::make_shared<DifferentialDriveHeuristic>(std::move(supergraph)),
+    std::make_shared<DifferentialDriveHeuristic>(
+      std::move(supergraph),
+      std::move(child_heuristic)),
     [N]() { return Storage(4093, DifferentialDriveMapTypes::KeyHash{N}); });
 }
 

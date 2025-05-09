@@ -110,6 +110,22 @@ public:
     std::optional<Implementation> value);
 };
 
+//==============================================================================
+class Planner::CacheAudit::Implementation
+{
+public:
+  std::size_t differential_drive_planner_cache_size;
+  std::size_t shortest_path_cache_size;
+  std::size_t euclidean_heuristic_cache_size;
+
+  static Planner::CacheAudit make(Implementation impl)
+  {
+    CacheAudit audit;
+    *audit._pimpl = impl;
+    return audit;
+  }
+};
+
 } // namespace agv
 } // namespace rmf_traffic
 

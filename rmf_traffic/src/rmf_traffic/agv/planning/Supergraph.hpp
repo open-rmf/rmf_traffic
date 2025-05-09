@@ -231,6 +231,11 @@ public:
     std::size_t goal_waypoint_index,
     std::optional<double> goal_orientation) const;
 
+  inline std::size_t lane_yaw_cache_size() const
+  {
+    return _lane_yaw_cache->get().size();
+  }
+
 private:
   Supergraph(
     Graph::Implementation original,

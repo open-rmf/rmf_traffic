@@ -40,7 +40,9 @@ public:
 //  using ChildHeuristic = MinimalTravelHeuristic;
   using ConstChildHeuristicPtr = std::shared_ptr<const ChildHeuristic>;
 
-  DifferentialDriveHeuristic(std::shared_ptr<const Supergraph> graph);
+  DifferentialDriveHeuristic(
+    std::shared_ptr<const Supergraph> graph,
+    ConstChildHeuristicPtr child_heuristic);
 
   using SolutionNode = DifferentialDriveMapTypes::SolutionNode;
   using SolutionNodePtr = DifferentialDriveMapTypes::SolutionNodePtr;
@@ -56,7 +58,8 @@ public:
       std::size_t start, std::size_t finish) const;
 
   static CacheManagerPtr<DifferentialDriveHeuristic> make_manager(
-    std::shared_ptr<const Supergraph> graph);
+    std::shared_ptr<const Supergraph> graph,
+    ConstChildHeuristicPtr child_heuristic);
 
 private:
   std::shared_ptr<const Supergraph> _graph;
