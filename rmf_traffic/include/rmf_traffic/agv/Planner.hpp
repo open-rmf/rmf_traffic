@@ -603,7 +603,20 @@ public:
 
 
   class CacheAudit;
+  /// Get an audit of how much memory the planner's cache is using.
   CacheAudit cache_audit() const;
+
+  /// Clear the cache for the differential drive heuristic. This will clear
+  /// memory that the cache is occupying, but it will force the planner to
+  /// rebuild the cache the next time it needs to generate a plan.
+  ///
+  /// This function can be used to bring down memory utilization in cases where
+  /// the planner cache is ballooning. You can use the cache_audit function to
+  /// identify when the cache is getting excessively large.
+  ///
+  /// Clearing the cache too frequently could harm the planner's performance.
+  /// It is advisable to not clear the cache more than once per minute.
+  void clear_differential_drive_cache() const;
 
   class Implementation;
   class Debug;
