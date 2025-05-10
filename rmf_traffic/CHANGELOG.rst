@@ -2,6 +2,18 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.5.0 (2025-05-09)
+------------------
+* Add an API for clearing the planner cache (`#118 <https://github.com/open-rmf/rmf_traffic/issues/118>`_)
+* Add a method to audit the size of planner caches (`#117 <https://github.com/open-rmf/rmf_traffic/issues/117>`_)
+* Fix build with Apple Clang (`#98 <https://github.com/open-rmf/rmf_traffic/issues/98>`_)
+* Reduce memory footprint of database (`#116 <https://github.com/open-rmf/rmf_traffic/issues/116>`_)
+* Use waypoint merge radius override when computing plan starts (`#114 <https://github.com/open-rmf/rmf_traffic/issues/114>`_)
+* Immediately mark dependencies as deprecated when the target plan was cleared (`#115 <https://github.com/open-rmf/rmf_traffic/issues/115>`_)
+* Fix negotiation route index bug (`#113 <https://github.com/open-rmf/rmf_traffic/issues/113>`_)
+* Insert in-place rotation waypoint if missing (`#111 <https://github.com/open-rmf/rmf_traffic/issues/111>`_)
+* Contributors: Grey, Xiyu, yadunund
+
 3.4.0 (2024-06-12)
 ------------------
 
