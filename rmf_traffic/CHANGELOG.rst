@@ -2,6 +2,9 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.6.0 (2025-06-09)
+------------------
+
 3.5.0 (2025-05-09)
 ------------------
 * Add an API for clearing the planner cache (`#118 <https://github.com/open-rmf/rmf_traffic/issues/118>`_)
