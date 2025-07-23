@@ -636,14 +636,14 @@ reconstruct_waypoints(
     if (!same_pos && !same_ori)
     {
       candidates.push_back(WaypointCandidate{
-          true,
-          Plan::Waypoint::Implementation{
-            Eigen::Vector3d{prev_pos[0], prev_pos[1], node->yaw},
-            prev_wp.time, prev_wp.graph_index,
-            {}, {}, {}, prev_wp.event, {}
-          },
-          prev_candidate.velocity
-        });
+        true,
+        Plan::Waypoint::Implementation{
+          Eigen::Vector3d{prev_pos[0],  prev_pos[1], node->yaw},
+          prev_wp.time, prev_wp.graph_index,
+          {}, {}, {}, prev_wp.event, {}
+        },
+        prev_candidate.velocity
+      });
     }
 
     if (node->approach_lanes.empty())
@@ -1379,7 +1379,7 @@ public:
         top->current_cost + cost,
         std::nullopt,
         top,
-      __LINE__
+          __LINE__
       });
   }
 
@@ -1436,7 +1436,7 @@ public:
         top->current_cost + cost,
         std::nullopt,
         top,
-      __LINE__
+          __LINE__
       });
   }
 
@@ -1708,7 +1708,7 @@ public:
             node->current_cost + cost,
             std::nullopt,
             parent,
-            __LINE__
+          __LINE__
           });
       }
 
@@ -1899,8 +1899,7 @@ public:
         throw std::runtime_error(
           "[rmf_traffic::agv::planning::DifferentialDrivePlanner::expand] "
           "Node has no waypoint and also no start information. It was produced "
-          "on line [" + std::to_string(
-            top->line) + "]. This should not be "
+          "on line [" + std::to_string(top->line) + "]. This should not be "
           "possible. Please report this critical bug to the maintainers of "
           "rmf_traffic.");
       }
@@ -2180,7 +2179,7 @@ public:
         0.0,
         start,
         nullptr,
-      __LINE__
+          __LINE__
       });
   }
 
