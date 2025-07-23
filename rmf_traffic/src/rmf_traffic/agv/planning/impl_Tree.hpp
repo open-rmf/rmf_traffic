@@ -405,8 +405,8 @@ std::size_t BidirectionalForest<T>::heuristic_cache_size() const
 template<typename T>
 void BidirectionalForest<T>::clear_heuristic_cache() const
 {
-  //TODO
-  throw std::runtime_error("clear_heuristic_cache is not implemented");
+  // TODO: This is not implemented yet, but there should not be any negative
+  // impact on behavior by doing nothing here.
 }
 
 //==============================================================================
