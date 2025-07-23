@@ -1455,8 +1455,7 @@ ostream& operator<<(
   const rmf_traffic::agv::Planner::CacheAudit& audit)
 {
   os << "Cache sizes:"
-     << "\n - DifferentialDrive: " <<
-      audit.differential_drive_planner_cache_size()
+     << "\n - DifferentialDrive: " << audit.differential_drive_planner_cache_size()
      << "\n - ShortestPath: " << audit.shortest_path_cache_size()
      << "\n - Euclidean: " << audit.euclidean_heuristic_cache_size();
 
