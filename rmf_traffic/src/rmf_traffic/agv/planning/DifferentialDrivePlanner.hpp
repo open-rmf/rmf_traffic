@@ -64,6 +64,8 @@ public:
 
   void clear_cache() const final;
 
+  void clear_inner_cache() const final;
+
   std::optional<double> compute_heuristic(const Planner::Start& start) const;
 
 private:

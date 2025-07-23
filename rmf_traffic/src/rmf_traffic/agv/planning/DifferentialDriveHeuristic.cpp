@@ -708,6 +708,13 @@ ConstForestSolutionPtr DifferentialDriveHeuristic::inner_heuristic(
 }
 
 //==============================================================================
+void DifferentialDriveHeuristic::clear_inner_heuristic() const
+{
+  std::cout << "clear inner heuristic "  << std::endl;
+  _heuristic->clear_cache();
+}
+
+//==============================================================================
 CacheManagerPtr<DifferentialDriveHeuristic>
 DifferentialDriveHeuristic::make_manager(
   std::shared_ptr<const Supergraph> supergraph,

@@ -131,6 +131,8 @@ public:
 
   virtual void clear_cache() const = 0;
 
+  virtual void clear_inner_cache() const = 0;
+
   virtual ~Interface() = default;
 };
 

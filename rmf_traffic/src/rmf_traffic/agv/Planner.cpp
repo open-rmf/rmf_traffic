@@ -1064,6 +1064,12 @@ void Planner::clear_differential_drive_cache() const
 }
 
 //==============================================================================
+void Planner::clear_inner_cache() const
+{
+  _pimpl->interface->clear_inner_cache();
+}
+
+//==============================================================================
 const Eigen::Vector3d& Plan::Waypoint::position() const
 {
   return _pimpl->position;
@@ -1162,7 +1168,7 @@ Plan::Plan()
 
 //==============================================================================
 Planner::CacheAudit::CacheAudit()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
+: _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
 }
@@ -1449,7 +1455,8 @@ ostream& operator<<(
   const rmf_traffic::agv::Planner::CacheAudit& audit)
 {
   os << "Cache sizes:"
-     << "\n - DifferentialDrive: " << audit.differential_drive_planner_cache_size()
+     << "\n - DifferentialDrive: " <<
+      audit.differential_drive_planner_cache_size()
      << "\n - ShortestPath: " << audit.shortest_path_cache_size()
      << "\n - Euclidean: " << audit.euclidean_heuristic_cache_size();
 

@@ -598,8 +598,8 @@ public:
   /// \return The quickest path from the start to the finish, or a nullopt if
   /// there is no path that connects the start to the finish.
   std::optional<QuickestPath> quickest_path(
-      const StartSet& start,
-      std::size_t goal_vertex) const;
+    const StartSet& start,
+    std::size_t goal_vertex) const;
 
 
   class CacheAudit;
@@ -617,6 +617,8 @@ public:
   /// Clearing the cache too frequently could harm the planner's performance.
   /// It is advisable to not clear the cache more than once per minute.
   void clear_differential_drive_cache() const;
+
+  void clear_inner_cache() const;
 
   class Implementation;
   class Debug;
@@ -778,7 +780,6 @@ public:
   /// Blockers do not necessarily prevent a solution from being found, but they
   /// do prevent the optimal solution from being available.
   std::vector<schedule::ParticipantId> blockers() const;
-
 
 
   class Implementation;
