@@ -38,7 +38,6 @@ public:
   // onto both implementations for now so we can continue experimenting.
   using ChildHeuristic = ShortestPathHeuristic;
 //  using ChildHeuristic = MinimalTravelHeuristic;
-
   using ConstChildHeuristicPtr = std::shared_ptr<const ChildHeuristic>;
 
   DifferentialDriveHeuristic(
@@ -56,7 +55,7 @@ public:
     Storage& new_items) const final;
 
   ConstForestSolutionPtr inner_heuristic(
-    std::size_t start, std::size_t finish) const;
+      std::size_t start, std::size_t finish) const;
 
   void clear_inner_heuristic() const;
 

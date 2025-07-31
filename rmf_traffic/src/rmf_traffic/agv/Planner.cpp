@@ -1168,7 +1168,7 @@ Plan::Plan()
 
 //==============================================================================
 Planner::CacheAudit::CacheAudit()
-: _pimpl(rmf_utils::make_impl<Implementation>())
+  : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
 }

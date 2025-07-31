@@ -533,7 +533,7 @@ std::vector<Plan::Waypoint> find_dependencies(
         {
           const auto& trajectory_checkpoint = itinerary[r].trajectory()[id];
           const auto p_trajectory = trajectory_checkpoint.position();
-          const bool same_pos = (p_candidate.block<2, 1>(0,0) - p_trajectory.block<2, 1>(0,0)).norm() < 1e-2;
+          const bool same_pos = (p_candidate.block<2,1>(0,0) - p_trajectory.block<2,1>(0,0)).norm() < 1e-2;
           const bool same_ori = same_orientation(p_candidate[2], p_trajectory[2]);
           if (same_pos && same_ori)
           {
