@@ -618,6 +618,8 @@ public:
   /// It is advisable to not clear the cache more than once per minute.
   void clear_differential_drive_cache() const;
 
+  void clear_inner_cache() const;
+
   class Implementation;
   class Debug;
 private:

@@ -57,6 +57,8 @@ public:
   ConstForestSolutionPtr inner_heuristic(
       std::size_t start, std::size_t finish) const;
 
+  void clear_inner_heuristic() const;
+
   static CacheManagerPtr<DifferentialDriveHeuristic> make_manager(
     std::shared_ptr<const Supergraph> graph,
     ConstChildHeuristicPtr child_heuristic);

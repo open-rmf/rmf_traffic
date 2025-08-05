@@ -2930,6 +2930,12 @@ void DifferentialDrivePlanner::clear_cache() const
   _cache->get().clear();
 }
 
+//==============================================================================
+void DifferentialDrivePlanner::clear_inner_cache() const
+{
+  _cache->inner()->clear_inner_heuristic();
+}
+
 } // namespace planning
 } // namespace agv
 } // namespace rmf_traffic
