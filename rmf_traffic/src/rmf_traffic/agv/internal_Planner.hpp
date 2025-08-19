@@ -18,6 +18,8 @@
 #ifndef SRC__RMF_TRAFFIC__AGV__INTERNAL_PLANNER_HPP
 #define SRC__RMF_TRAFFIC__AGV__INTERNAL_PLANNER_HPP
 
+#include <atomic>
+
 #include <rmf_traffic/agv/Planner.hpp>
 
 #include "internal_planning.hpp"
@@ -78,6 +80,7 @@ public:
   planning::InterfacePtr interface;
   planning::State state;
   std::optional<Plan> plan;
+  std::shared_ptr<std::atomic_bool> mutex;
 
   static Result generate(
     planning::InterfacePtr interface,
