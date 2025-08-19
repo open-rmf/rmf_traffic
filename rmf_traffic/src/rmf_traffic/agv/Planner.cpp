@@ -597,7 +597,8 @@ Planner::Result Planner::Result::Implementation::generate(
     Implementation{
       std::move(interface),
       std::move(state),
-      std::move(plan)
+      std::move(plan),
+      std::make_shared<std::atomic_bool>(false)
     });
 
   return result;
@@ -618,7 +619,8 @@ Planner::Result Planner::Result::Implementation::setup(
     Implementation{
       std::move(interface),
       std::move(state),
-      rmf_utils::nullopt
+      rmf_utils::nullopt,
+      std::make_shared<std::atomic_bool>(false)
     });
 
   return result;
@@ -751,48 +753,56 @@ Planner::Result Planner::setup(
 //==============================================================================
 bool Planner::Result::success() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->plan.has_value();
 }
 
 //==============================================================================
 bool Planner::Result::disconnected() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.issues.disconnected;
 }
 
 //==============================================================================
 Planner::Result::operator bool() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->plan.has_value();
 }
 
 //==============================================================================
 const Plan* Planner::Result::operator->() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return &(*_pimpl->plan);
 }
 
 //==============================================================================
 const Plan& Planner::Result::operator*() const&
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return *_pimpl->plan;
 }
 
 //==============================================================================
 Plan&& Planner::Result::operator*() &&
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return std::move(*std::move(_pimpl->plan));
 }
 
 //==============================================================================
 const Plan&& Planner::Result::operator*() const&&
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return std::move(*_pimpl->plan);
 }
 
 //==============================================================================
 Planner::Result Planner::Result::replan(const Start& new_start) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::generate(
     _pimpl->interface,
     {new_start},
@@ -805,6 +815,7 @@ Planner::Result Planner::Result::replan(
   const Planner::Start& new_start,
   Planner::Options new_options) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::generate(
     _pimpl->interface,
     {new_start},
@@ -815,6 +826,7 @@ Planner::Result Planner::Result::replan(
 //==============================================================================
 Planner::Result Planner::Result::replan(const StartSet& new_starts) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::generate(
     _pimpl->interface,
     new_starts,
@@ -827,6 +839,7 @@ Planner::Result Planner::Result::replan(
   const StartSet& new_starts,
   Options new_options) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::generate(
     _pimpl->interface,
     new_starts,
@@ -837,6 +850,7 @@ Planner::Result Planner::Result::replan(
 //==============================================================================
 Planner::Result Planner::Result::setup(const Start& new_start) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::setup(
     _pimpl->interface,
     {new_start},
@@ -849,6 +863,7 @@ Planner::Result Planner::Result::setup(
   const Start& new_start,
   Options new_options) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::setup(
     _pimpl->interface,
     {new_start},
@@ -859,6 +874,7 @@ Planner::Result Planner::Result::setup(
 //==============================================================================
 Planner::Result Planner::Result::setup(const StartSet& new_starts) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::setup(
     _pimpl->interface,
     new_starts,
@@ -871,6 +887,7 @@ Planner::Result Planner::Result::setup(
   const StartSet& new_starts,
   Options new_options) const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return Result::Implementation::setup(
     _pimpl->interface,
     new_starts,
@@ -881,6 +898,7 @@ Planner::Result Planner::Result::setup(
 //==============================================================================
 bool Planner::Result::resume()
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   if (_pimpl->plan)
     return true;
 
@@ -894,25 +912,32 @@ bool Planner::Result::resume()
 bool Planner::Result::resume(
   std::shared_ptr<const std::atomic_bool> interrupt_flag)
 {
-  _pimpl->state.conditions.options.interrupt_flag(std::move(interrupt_flag));
+  {
+    planning::SpinLock lock(*_pimpl->mutex);
+    _pimpl->state.conditions.options.interrupt_flag(std::move(interrupt_flag));
+  }
+
   return resume();
 }
 
 //==============================================================================
 Planner::Options& Planner::Result::options()
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.conditions.options;
 }
 
 //==============================================================================
 const Planner::Options& Planner::Result::options() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.conditions.options;
 }
 
 //==============================================================================
 Planner::Result& Planner::Result::options(Options new_options)
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   _pimpl->state.conditions.options = std::move(new_options);
   return *this;
 }
@@ -920,12 +945,14 @@ Planner::Result& Planner::Result::options(Options new_options)
 //==============================================================================
 std::optional<double> Planner::Result::cost_estimate() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.internal->cost_estimate();
 }
 
 //==============================================================================
 double Planner::Result::initial_cost_estimate() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.ideal_cost.value_or(
     std::numeric_limits<double>::infinity());
 }
@@ -933,36 +960,42 @@ double Planner::Result::initial_cost_estimate() const
 //==============================================================================
 std::optional<double> Planner::Result::ideal_cost() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.ideal_cost;
 }
 
 //==============================================================================
 const std::vector<Planner::Start>& Planner::Result::get_starts() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.conditions.starts;
 }
 
 //==============================================================================
 const Planner::Goal& Planner::Result::get_goal() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.conditions.goal;
 }
 
 //==============================================================================
 const Planner::Configuration& Planner::Result::get_configuration() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->interface->get_configuration();
 }
 
 //==============================================================================
 bool Planner::Result::interrupted() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   return _pimpl->state.issues.interrupted;
 }
 
 //==============================================================================
 bool Planner::Result::saturated() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   const auto saturation_limit =
     _pimpl->state.conditions.options.saturation_limit();
 
@@ -978,6 +1011,7 @@ bool Planner::Result::saturated() const
 //==============================================================================
 std::vector<schedule::ParticipantId> Planner::Result::blockers() const
 {
+  planning::SpinLock lock(*_pimpl->mutex);
   std::vector<schedule::ParticipantId> blockers;
   blockers.reserve(_pimpl->state.issues.blocked_nodes.size());
   for (const auto& b : _pimpl->state.issues.blocked_nodes)
@@ -1427,15 +1461,17 @@ auto Planner::Debug::begin(
 //==============================================================================
 std::size_t Planner::Debug::queue_size(const Planner::Result& result)
 {
-  return Planner::Result::Implementation::get(result)
-    .state.internal->queue_size();
+  const auto& pimpl = Planner::Result::Implementation::get(result);
+  planning::SpinLock lock(*pimpl.mutex);
+  return pimpl.state.internal->queue_size();
 }
 
 //==============================================================================
 std::size_t Planner::Debug::expansion_count(const Planner::Result& result)
 {
-  return Planner::Result::Implementation::get(result)
-    .state.internal->expansion_count();
+  const auto& pimpl = Planner::Result::Implementation::get(result);
+  planning::SpinLock lock(*pimpl.mutex);
+  return pimpl.state.internal->expansion_count();
 }
 
 //==============================================================================
