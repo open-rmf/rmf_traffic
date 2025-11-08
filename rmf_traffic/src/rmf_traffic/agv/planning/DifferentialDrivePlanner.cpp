@@ -2062,8 +2062,23 @@ public:
     return {true, std::move(trajectories)};
   }
 
-  SearchNodePtr make_start_node(const Planner::Start& start) const
+  SearchNodePtr make_start_node(const Planner::Start& input_start) const
   {
+    Planner::Start start = input_start;
+
+    // Ensure start's waypoint is consistent with the exit waypoint
+    // of the specified lane, correcting it if necessary.
+    if (input_start.lane().has_value())
+    {
+      const std::size_t lane_index = *input_start.lane();
+      const auto& lane = _supergraph->original().lanes[lane_index];
+      const auto exit_wp = lane.exit().waypoint_index();
+      if (start.waypoint() != exit_wp)
+      {
+        start.waypoint(exit_wp);
+      }
+    }
+
     const std::size_t initial_waypoint_index = start.waypoint();
     const auto& initial_waypoint =
       _supergraph->original().waypoints.at(initial_waypoint_index);
