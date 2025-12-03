@@ -2071,7 +2071,7 @@ public:
     if (input_start.lane().has_value())
     {
       const std::size_t lane_index = *input_start.lane();
-      const auto& lane = _supergraph->original().lanes[lane_index];
+      const auto& lane = _supergraph->original().lanes.at(lane_index);  
       const auto exit_wp = lane.exit().waypoint_index();
       if (start.waypoint() != exit_wp)
       {
