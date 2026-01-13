@@ -2,8 +2,8 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.7.0 (2026-01-13)
+------------------
 * Align start waypoint with lane exit waypoint for consistency (`#127 <https://github.com/open-rmf/rmf_traffic/issues/127>`_)
 * Skip in-place rotation after Dock to prevent duplicate events (`#126 <https://github.com/open-rmf/rmf_traffic/issues/126>`_)
 * Embed mutex inside Planner::Result (`#124 <https://github.com/open-rmf/rmf_traffic/issues/124>`_)
