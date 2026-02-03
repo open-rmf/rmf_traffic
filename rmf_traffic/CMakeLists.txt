@@ -166,3 +166,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/ament_index/resource_index/packa
 
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/share/${PROJECT_NAME}/hook/ament_prefix_path.dsv "prepend-non-duplicate;AMENT_PREFIX_PATH;")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/${PROJECT_NAME}/hook/ament_prefix_path.dsv DESTINATION share/${PROJECT_NAME}/hook)
+
+# Fix for issue #125: Install package.xml so ros2 doctor can find version info
+install(FILES package.xml DESTINATION share/${PROJECT_NAME})
