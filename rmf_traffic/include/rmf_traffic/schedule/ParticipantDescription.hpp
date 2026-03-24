@@ -18,6 +18,7 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__PARTICIPANTDESCRIPTION_HPP
 #define RMF_TRAFFIC__SCHEDULE__PARTICIPANTDESCRIPTION_HPP
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 
