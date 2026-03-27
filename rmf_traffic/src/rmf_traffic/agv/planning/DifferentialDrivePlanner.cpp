@@ -571,7 +571,7 @@ public:
   void execute(const LiftSessionEnd&) override {}
   void execute(const LiftMove&) override {}
   void execute(const Wait&) override {}
-  void execute(const Dock& dock) override
+  void execute(const Dock& /*dock*/) override
   {
     found = true;
   }
@@ -1195,7 +1195,7 @@ public:
     }
 
     Graph::Lane::EventPtr entry_event;
-    double entry_event_cost = 0.0;
+    [[maybe_unused]]double entry_event_cost = 0.0;
     Duration entry_event_duration = Duration(0);
 
     // If this start node did not have a waypoint, then it must have a location

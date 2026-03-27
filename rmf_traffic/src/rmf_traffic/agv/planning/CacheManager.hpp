@@ -385,7 +385,7 @@ std::size_t CacheManagerMap<CacheArg>::net_size() const
 {
   SpinLock lock(_map_mutex);
   std::size_t count = 0;
-  for (const auto [_, manager] : _managers)
+  for (const auto& [_, manager] : _managers)
   {
     count += manager->get().size();
   }
