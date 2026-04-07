@@ -1195,7 +1195,6 @@ public:
     }
 
     Graph::Lane::EventPtr entry_event;
-    [[maybe_unused]]double entry_event_cost = 0.0;
     Duration entry_event_duration = Duration(0);
 
     // If this start node did not have a waypoint, then it must have a location
