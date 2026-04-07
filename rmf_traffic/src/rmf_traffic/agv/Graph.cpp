@@ -176,7 +176,7 @@ bool Graph::DoorProperties::intersects(
 {
   const auto q0 = _pimpl->start;
   const auto q1 = _pimpl->end;
-  for (const auto test : std::vector<std::function<double()>>{
+  for (const auto& test : std::vector<std::function<double()>>{
       [&]{ return distance_from_point_to_segment(p0, q0, q1); },
       [&]{ return distance_from_point_to_segment(p1, q0, q1); },
       [&]{ return distance_from_point_to_segment(q0, p0, p1); },
