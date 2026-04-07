@@ -571,7 +571,7 @@ public:
   void execute(const LiftSessionEnd&) override {}
   void execute(const LiftMove&) override {}
   void execute(const Wait&) override {}
-  void execute(const Dock& /*dock*/) override
+  void execute(const Dock&) override
   {
     found = true;
   }
