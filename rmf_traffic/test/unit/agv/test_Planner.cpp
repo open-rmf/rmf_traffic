@@ -2273,7 +2273,9 @@ public:
     LiftMove,
     LiftDoorOpen,
     Dock,
-    Wait
+    Wait,
+    ZoneEntry,
+    ZoneExit
   };
 
   using Lane = rmf_traffic::agv::Graph::Lane;
@@ -2323,6 +2325,16 @@ public:
   void execute(const Lane::Wait&) final
   {
     _result = _expectation == Wait;
+  }
+
+  void execute(const Lane::ZoneEntry&) final
+  {
+    _result = _expectation == ZoneEntry;
+  }
+
+ void execute(const Lane::ZoneExit&) final
+  {
+    _result = _expectation == ZoneExit;
   }
 
   bool result() const
