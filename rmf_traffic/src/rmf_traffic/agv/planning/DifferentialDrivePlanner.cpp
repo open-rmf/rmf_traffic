@@ -575,6 +575,8 @@ public:
   {
     found = true;
   }
+  void execute(const ZoneEntry&) override {}
+  void execute(const ZoneExit&) override {}
 
   bool found = false;
 };

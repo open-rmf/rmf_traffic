@@ -31,6 +31,7 @@ public:
   std::vector<Waypoint> waypoints;
   std::vector<Lane> lanes;
   std::unordered_map<std::string, std::size_t> keys;
+  std::unordered_map<std::string, ZonePropertiesPtr> zones;
   std::unordered_map<std::string, LiftPropertiesPtr> lifts;
   std::unordered_map<std::string, DoorPropertiesPtr> doors;
 
