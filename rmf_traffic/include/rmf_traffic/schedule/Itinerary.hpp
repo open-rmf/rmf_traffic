@@ -21,6 +21,7 @@
 #include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/schedule/Version.hpp>
 
+#include <cstdint>
 #include <vector>
 
 namespace rmf_traffic {

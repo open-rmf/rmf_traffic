@@ -21,6 +21,8 @@
 #include <rmf_traffic/schedule/Itinerary.hpp>
 #include <rmf_traffic/schedule/ParticipantDescription.hpp>
 
+#include <cstdint>
+
 namespace rmf_traffic {
 namespace schedule {
 
