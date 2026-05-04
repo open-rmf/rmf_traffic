@@ -1258,11 +1258,7 @@ public:
   template<typename... Args>
   static ZoneProperties make(Args&& ... args)
   {
-    ZoneProperties zone;
-    zone._pimpl = rmf_utils::make_impl<Implementation>(
-      Implementation{std::forward<Args>(args)...});
-
-    return zone;
+    return ZoneProperties{std::forward<Args>(args)...};
   }
 };
 
@@ -1271,7 +1267,7 @@ auto Graph::ZoneProperties::add_internal_vertex(std::string vertex_name) -> Grap
 {
   auto [iv_it, inserted] = _pimpl->internal_vertices.insert_or_assign(
     vertex_name, InternalVertex::Implementation::make(
-      vertex_name, Eigen::Vector2d(0, 0), "", 0));
+      vertex_name, Eigen::Vector2d(0, 0), "", std::size_t(0)));
 
   return iv_it->second;
 }
