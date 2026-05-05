@@ -20,6 +20,7 @@
 
 #include <rmf_traffic/Trajectory.hpp>
 
+#include <cstdint>
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <optional>
