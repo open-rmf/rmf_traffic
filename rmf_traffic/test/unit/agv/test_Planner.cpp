@@ -1058,7 +1058,9 @@ SCENARIO("Test planning")
     REQUIRE(plan->get_itinerary().front().trajectory().size() > 0);
     const auto t = plan->get_itinerary().front().trajectory();
     const auto final_p = t.front().position().block<2, 1>(0, 0);
-    const auto err = (final_p - Eigen::Vector2d(10, -5)).norm();
+    const auto expected_p = Eigen::Vector2d(10, -5);
+    const auto err = (final_p - expected_p).norm();
+    CAPTURE(final_p, expected_p, err);
     CHECK(err == Approx(0.0) );
     CHECK(t.back().position()[2] - goal_orientation == Approx(0));
     CHECK(t.back().time() > start_time);
