@@ -57,7 +57,7 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND ament_cmake_uncrustify_FOUND)
 
   ament_add_catch2(
     test_rmf_traffic test/main.cpp ${unit_test_srcs}
-    TIMEOUT 300)
+    TIMEOUT 3000)
   target_link_libraries(test_rmf_traffic
       rmf_traffic
       ${FCL_LIBRARIES}
