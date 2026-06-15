@@ -2,8 +2,8 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.8.0 (2026-06-15)
+------------------
 * Update CI to be consistent with other Open-RMF packages (`#135 <https://github.com/open-rmf/rmf_traffic/issues/135>`_)
 * Add missing <cstdint> headers for GCC 15 compatibility (`#134 <https://github.com/open-rmf/rmf_traffic/issues/134>`_)
   Several headers were using uint64_t and other fixed-width types without explicitly including <cstdint>, which causes compilation failures on newer toolchains (e.g. Ubuntu 26.04 Resolute).
