@@ -109,6 +109,84 @@ public:
   };
   using DoorPropertiesPtr = std::shared_ptr<DoorProperties>;
 
+  class ZoneProperties
+  {
+  public:
+
+    /// Internal vertex within a zone that connects to external vertices 
+    /// outside of the zone through lanes. It can be grouped together
+    /// with other internal vertices in the same zone, and set with 
+    /// different priorities for multiple purposes.
+    class InternalVertex
+    {
+    public:
+
+      /// Get the name of this internal vertex.
+      const std::string& name() const;
+
+      /// Set the group name of this internal vertex.
+      InternalVertex& set_group_name(std::string group_name);
+
+      /// Get the group name of this internal vertex.
+      const std::string& get_group_name() const;
+
+      /// Set the priority of this internal vertex.
+      InternalVertex& set_priority(uint8_t priority);
+
+      /// Get the priority of this internal vertex.
+      uint8_t get_priority() const;
+
+      class Implementation;
+    private:
+      InternalVertex();
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// Add an internal vertex to this zone.
+    InternalVertex& add_internal_vertex(std::string vertex_name);
+
+    /// Get the internal vertex with the given name. If no such vertex exists, 
+    /// then a nullptr will be returned.
+    InternalVertex* find_internal_vertex(const std::string& vertex_name);
+
+    /// Get the name of the zone.
+    const std::string& name() const;
+
+    /// Get the map of the zone.
+    const std::string& map() const;
+
+    /// Get the type of the zone.
+    const std::string& type() const;
+
+    /// Get the (x, y) location of the zone in RMF canonical coordinates.
+    const Eigen::Vector2d& location() const;
+
+    /// Get the orientation (in radians) of the zone in RMF canonical
+    /// coordinates.
+    const double& orientation() const;
+
+    /// Get the dimensions of the zone, aligned with the zone's local (x, y)
+    /// coordinates.
+    const Eigen::Vector2d& dimensions() const;
+    
+    /// Get all the internal vertices in this zone.
+    std::vector<Graph::ZoneProperties::InternalVertex> internal_vertices() const;
+
+    /// Constructor
+    ZoneProperties(
+      std::string name,
+      std::string map,
+      std::string type,
+      Eigen::Vector2d location,
+      double orientation,
+      Eigen::Vector2d dimensions);
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+  using ZonePropertiesPtr = std::shared_ptr<ZoneProperties>;
+
   /// Properties assigned to each waypoint (vertex) in the graph
   class Waypoint
   {
@@ -673,133 +751,6 @@ public:
     Lane();
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
-
-  class ZoneProperties
-  {
-  public:
-
-    /// Internal vertex within a zone that connects to external vertices outside
-    /// of the zone through transition lanes. It can be grouped together
-    /// with other internal vertices in the same zone, and set with different
-    /// priorities for multiple purposes.
-    class InternalVertex
-    {
-    public:
-
-      /// Get the name of this internal vertex.
-      const std::string& name() const;
-
-      /// Set the location (x, y) of this internal vertex.
-      InternalVertex& set_location(Eigen::Vector2d location);
-
-      /// Get the location (x, y) of this internal vertex.
-      const Eigen::Vector2d& get_location() const;
-
-      /// Set the group name of this internal vertex.
-      InternalVertex& set_group_name(std::string group_name);
-
-      /// Get the group name of this internal vertex.
-      const std::string& get_group_name() const;
-
-      /// Set the priority of this internal vertex.
-      InternalVertex& set_priority(std::size_t priority);
-
-      /// Get the priority of this internal vertex.
-      std::size_t get_priority() const;
-
-      class Implementation;
-    private:
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// A lane that connects an internal vertex in zone to an external vertex 
-    /// outside of the zone. A robot will trigger the corresponding transition 
-    /// event when it enters or exits this lane.
-    class TransitionLane
-    {
-    public:
-
-      /// Link to this internal vertex in the zone.
-      TransitionLane& link_internal_vertex(std::string vertex_name);
-
-      /// Returns the internal vertex linked for this lane.
-      const std::string& internal_vertex() const;
-
-      /// Link to this external vertex outside of the zone. 
-      TransitionLane& link_external_vertex(std::string vertex_name);
-
-      /// Returns the external vertex linked for this lane.
-      const std::string& external_vertex() const;
-
-      /// Set this lane as a zone entry lane.
-      TransitionLane& set_entry_lane(bool _is_entry_lane);
-
-      /// Returns true if this lane is a zone entry lane, a robot will 
-      /// trigger a ZoneEntry event when it enters the lane. 
-      bool is_entry_lane() const;
-
-      /// Set this lane as a zone exit lane.
-      TransitionLane& set_exit_lane(bool _is_exit_lane);
-
-      /// Returns true if this lane is a zone exit lane, a robot will 
-      /// trigger a ZoneExit event when it exits the lane. 
-      bool is_exit_lane() const;
-
-      class Implementation;
-    private:
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// Add an internal vertex to this zone.
-    InternalVertex& add_internal_vertex(std::string vertex_name);
-
-    /// Get the internal vertex with the given name. If no such vertex exists, 
-    /// then a nullptr will be returned.
-    InternalVertex* find_internal_vertex(const std::string& vertex_name);
-
-    /// Adds a transition lane to connect this zone to the rest of the graph. 
-    TransitionLane& add_transition_lane();
-
-    /// Get the name of the zone.
-    const std::string& name() const;
-
-    /// Get the map of the zone.
-    const std::string& map() const;
-
-    /// Get the type of the zone.
-    const std::string& type() const;
-
-    /// Get the (x, y) location of the zone in RMF canonical coordinates.
-    const Eigen::Vector2d& location() const;
-
-    /// Get the orientation (in radians) of the zone in RMF canonical
-    /// coordinates.
-    const double& orientation() const;
-
-    /// Get the dimensions of the zone, aligned with the zone's local (x, y)
-    /// coordinates.
-    const Eigen::Vector2d& dimensions() const;
-    
-    /// Get all the internal vertices in this zone.
-    std::vector<Graph::ZoneProperties::InternalVertex> internal_vertices() const;
-
-    /// Get all the transition lanes for this zone.
-    std::vector<Graph::ZoneProperties::TransitionLane> transition_lanes() const;
-
-    /// Constructor
-    ZoneProperties(
-      std::string name,
-      std::string map,
-      std::string type,
-      Eigen::Vector2d location,
-      double orientation,
-      Eigen::Vector2d dimensions);
-
-    class Implementation;
-  private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-  using ZonePropertiesPtr = std::shared_ptr<ZoneProperties>;
 
   /// Default constructor
   Graph();
