@@ -257,6 +257,8 @@ public:
 
   LiftPropertiesPtr in_lift = nullptr;
 
+  ZonePropertiesPtr in_zone = nullptr;
+
   std::string mutex_group = "";
 
   std::optional<double> merge_radius = std::nullopt;
@@ -365,6 +367,19 @@ auto Graph::Waypoint::in_lift() const -> LiftPropertiesPtr
 auto Graph::Waypoint::set_in_lift(LiftPropertiesPtr lift) -> Waypoint&
 {
   _pimpl->in_lift = lift;
+  return *this;
+}
+
+//==============================================================================
+auto Graph::Waypoint::in_zone() const -> ZonePropertiesPtr
+{
+  return _pimpl->in_zone;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_in_zone(ZonePropertiesPtr zone) -> Waypoint&
+{
+  _pimpl->in_zone = zone;
   return *this;
 }
 

@@ -245,6 +245,14 @@ public:
     /// provide a nullptr if it is not inside a lift.
     Waypoint& set_in_lift(LiftPropertiesPtr properties);
 
+    /// If this waypoint is inside the zone then this will return a pointer to
+    /// the properties of the zone. Otherwise this will be a nullptr.
+    ZonePropertiesPtr in_zone() const;
+
+    /// Set the properties of the zone that the waypoint is inside of, or
+    /// provide a nullptr if it is not inside a zone.
+    Waypoint& set_in_zone(ZonePropertiesPtr properties);
+
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;
