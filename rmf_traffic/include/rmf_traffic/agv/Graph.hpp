@@ -546,15 +546,29 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    /// Add a zone-entry event whenever robot enters a zone
-    class ZoneEntry : public ZoneSession
+    /// Fires on the lane into a zone, before the robot has entered it
+    class ZonePreEntry : public ZoneSession
     {
     public:
       using ZoneSession::ZoneSession;
     };
 
-    /// Add a zone-exit event whenever robot exits a zone
-    class ZoneExit : public ZoneSession
+    /// Fires on the lane into a zone, once the robot is inside it
+    class ZonePostEntry : public ZoneSession
+    {
+    public:
+      using ZoneSession::ZoneSession;
+    };
+
+    /// Fires on the lane out of a zone, while the robot is still inside it
+    class ZonePreExit : public ZoneSession
+    {
+    public:
+      using ZoneSession::ZoneSession;
+    };
+
+    /// Fires on the lane out of a zone, once the robot has left it
+    class ZonePostExit : public ZoneSession
     {
     public:
       using ZoneSession::ZoneSession;
@@ -574,8 +588,10 @@ public:
       using LiftMove = Lane::LiftMove;
       using Dock = Lane::Dock;
       using Wait = Lane::Wait;
-      using ZoneEntry = Lane::ZoneEntry;
-      using ZoneExit = Lane::ZoneExit;
+      using ZonePreEntry = Lane::ZonePreEntry;
+      using ZonePostEntry = Lane::ZonePostEntry;
+      using ZonePreExit = Lane::ZonePreExit;
+      using ZonePostExit = Lane::ZonePostExit;
 
       virtual void execute(const DoorOpen& open) = 0;
       virtual void execute(const DoorClose& close) = 0;
@@ -585,8 +601,10 @@ public:
       virtual void execute(const LiftMove& move) = 0;
       virtual void execute(const Dock& dock) = 0;
       virtual void execute(const Wait& wait) = 0;
-      virtual void execute(const ZoneEntry& zone) = 0;
-      virtual void execute(const ZoneExit& zone) = 0;
+      virtual void execute(const ZonePreEntry& zone) = 0;
+      virtual void execute(const ZonePostEntry& zone) = 0;
+      virtual void execute(const ZonePreExit& zone) = 0;
+      virtual void execute(const ZonePostExit& zone) = 0;
 
       virtual ~Executor() = default;
     };
@@ -625,8 +643,10 @@ public:
       static EventPtr make(LiftDoorOpen open);
       static EventPtr make(Dock dock);
       static EventPtr make(Wait wait);
-      static EventPtr make(ZoneEntry zone);
-      static EventPtr make(ZoneExit zone);
+      static EventPtr make(ZonePreEntry zone);
+      static EventPtr make(ZonePostEntry zone);
+      static EventPtr make(ZonePreExit zone);
+      static EventPtr make(ZonePostExit zone);
     };
 
 

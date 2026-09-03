@@ -920,16 +920,29 @@ auto Graph::Lane::Event::make(Wait wait) -> EventPtr
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(ZoneEntry zone) -> EventPtr
+auto Graph::Lane::Event::make(ZonePreEntry zone) -> EventPtr
 {
-  return TemplateEvent<ZoneEntry>::make(std::move(zone));
+  return TemplateEvent<ZonePreEntry>::make(std::move(zone));
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(ZoneExit zone) -> EventPtr
+auto Graph::Lane::Event::make(ZonePostEntry zone) -> EventPtr
 {
-  return TemplateEvent<ZoneExit>::make(std::move(zone));
+  return TemplateEvent<ZonePostEntry>::make(std::move(zone));
 }
+
+//==============================================================================
+auto Graph::Lane::Event::make(ZonePreExit zone) -> EventPtr
+{
+  return TemplateEvent<ZonePreExit>::make(std::move(zone));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(ZonePostExit zone) -> EventPtr
+{
+  return TemplateEvent<ZonePostExit>::make(std::move(zone));
+}
+
 
 //==============================================================================
 class Graph::Lane::Node::Implementation
