@@ -2,6 +2,23 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.8.0 (2026-06-15)
+------------------
+* Update CI to be consistent with other Open-RMF packages (`#135 <https://github.com/open-rmf/rmf_traffic/issues/135>`_)
+* Add missing <cstdint> headers for GCC 15 compatibility (`#134 <https://github.com/open-rmf/rmf_traffic/issues/134>`_)
+  Several headers were using uint64_t and other fixed-width types without explicitly including <cstdint>, which causes compilation failures on newer toolchains (e.g. Ubuntu 26.04 Resolute).
+  Assisted-by: Gemini CLI:2.0-Flash [run_shell_command, replace, write_file, read_file]
+* chore: resolve C++ compiler warnings in agv planning and graph (`#132 <https://github.com/open-rmf/rmf_traffic/issues/132>`_)
+  * chore: resolve C++ compiler warnings in agv planning and graph
+  * Update rmf_traffic/src/rmf_traffic/agv/planning/DifferentialDrivePlanner.cpp
+  Co-authored-by: Aaron Chong <aaronchongth@gmail.com>
+  * chore: remove unused entry_event_cost variable
+  ---------
+  Co-authored-by: Aaron Chong <aaronchongth@gmail.com>
+* Fix build with GCC 15 (`#131 <https://github.com/open-rmf/rmf_traffic/issues/131>`_)
+* fix: install package.xml to support ros2 doctor (`#125 <https://github.com/open-rmf/rmf_traffic/issues/125>`_) (`#130 <https://github.com/open-rmf/rmf_traffic/issues/130>`_)
+* Contributors: Aryan Gupta, Grey, Michael Carroll, Michal Sojka
+
 3.7.0 (2026-01-13)
 ------------------
 * Align start waypoint with lane exit waypoint for consistency (`#127 <https://github.com/open-rmf/rmf_traffic/issues/127>`_)

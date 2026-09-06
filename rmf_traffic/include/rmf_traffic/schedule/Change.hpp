@@ -22,6 +22,7 @@
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/schedule/Version.hpp>
 
+#include <cstdint>
 #include <rmf_utils/macros.hpp>
 
 namespace rmf_traffic {
