@@ -109,6 +109,84 @@ public:
   };
   using DoorPropertiesPtr = std::shared_ptr<DoorProperties>;
 
+  class ZoneProperties
+  {
+  public:
+
+    /// Internal vertex within a zone that connects to external vertices 
+    /// outside of the zone through lanes. It can be grouped together
+    /// with other internal vertices in the same zone, and set with 
+    /// different priorities for multiple purposes.
+    class InternalVertex
+    {
+    public:
+
+      /// Get the name of this internal vertex.
+      const std::string& name() const;
+
+      /// Set the group name of this internal vertex.
+      InternalVertex& set_group_name(std::string group_name);
+
+      /// Get the group name of this internal vertex.
+      const std::string& get_group_name() const;
+
+      /// Set the priority of this internal vertex.
+      InternalVertex& set_priority(uint8_t priority);
+
+      /// Get the priority of this internal vertex.
+      uint8_t get_priority() const;
+
+      class Implementation;
+    private:
+      InternalVertex();
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// Add an internal vertex to this zone.
+    InternalVertex& add_internal_vertex(std::string vertex_name);
+
+    /// Get the internal vertex with the given name. If no such vertex exists, 
+    /// then a nullptr will be returned.
+    InternalVertex* find_internal_vertex(const std::string& vertex_name);
+
+    /// Get the name of the zone.
+    const std::string& name() const;
+
+    /// Get the map of the zone.
+    const std::string& map() const;
+
+    /// Get the type of the zone.
+    const std::string& type() const;
+
+    /// Get the (x, y) location of the zone in RMF canonical coordinates.
+    const Eigen::Vector2d& location() const;
+
+    /// Get the orientation (in radians) of the zone in RMF canonical
+    /// coordinates.
+    const double& orientation() const;
+
+    /// Get the dimensions of the zone, aligned with the zone's local (x, y)
+    /// coordinates.
+    const Eigen::Vector2d& dimensions() const;
+    
+    /// Get all the internal vertices in this zone.
+    std::vector<Graph::ZoneProperties::InternalVertex> internal_vertices() const;
+
+    /// Constructor
+    ZoneProperties(
+      std::string name,
+      std::string map,
+      std::string type,
+      Eigen::Vector2d location,
+      double orientation,
+      Eigen::Vector2d dimensions);
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+  using ZonePropertiesPtr = std::shared_ptr<ZoneProperties>;
+
   /// Properties assigned to each waypoint (vertex) in the graph
   class Waypoint
   {
@@ -166,6 +244,14 @@ public:
     /// Set the properties of the lift that the waypoint is inside of, or
     /// provide a nullptr if it is not inside a lift.
     Waypoint& set_in_lift(LiftPropertiesPtr properties);
+
+    /// If this waypoint is inside the zone then this will return a pointer to
+    /// the properties of the zone. Otherwise this will be a nullptr.
+    ZonePropertiesPtr in_zone() const;
+
+    /// Set the properties of the zone that the waypoint is inside of, or
+    /// provide a nullptr if it is not inside a zone.
+    Waypoint& set_in_zone(ZonePropertiesPtr properties);
 
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
@@ -428,6 +514,66 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
+    class ZoneSession
+    {
+    public:
+
+      /// Constructor
+      ///
+      /// \param[in] zone_name
+      ///   Name of the zone.
+      ///
+      /// \param[in] duration
+      ///   How long the zone session will be.
+      ZoneSession(
+        std::string zone_name,
+        Duration duration);
+
+      /// Get the name of the zone
+      const std::string& zone_name() const;
+
+      /// Set the name of the zone
+      ZoneSession& zone_name(std::string name);
+
+      /// Get an estimate for how long the zone session will be
+      Duration duration() const;
+
+      /// Set an estimate for how long the zone session will be
+      ZoneSession& duration(Duration d);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// Fires on the lane into a zone, before the robot has entered it
+    class ZonePreEntry : public ZoneSession
+    {
+    public:
+      using ZoneSession::ZoneSession;
+    };
+
+    /// Fires on the lane into a zone, once the robot is inside it
+    class ZonePostEntry : public ZoneSession
+    {
+    public:
+      using ZoneSession::ZoneSession;
+    };
+
+    /// Fires on the lane out of a zone, while the robot is still inside it
+    class ZonePreExit : public ZoneSession
+    {
+    public:
+      using ZoneSession::ZoneSession;
+    };
+
+    /// Fires on the lane out of a zone, once the robot has left it
+    class ZonePostExit : public ZoneSession
+    {
+    public:
+      using ZoneSession::ZoneSession;
+    };
+
     /// A customizable Executor that can carry out actions based on which Event
     /// type is present.
     class Executor
@@ -442,6 +588,10 @@ public:
       using LiftMove = Lane::LiftMove;
       using Dock = Lane::Dock;
       using Wait = Lane::Wait;
+      using ZonePreEntry = Lane::ZonePreEntry;
+      using ZonePostEntry = Lane::ZonePostEntry;
+      using ZonePreExit = Lane::ZonePreExit;
+      using ZonePostExit = Lane::ZonePostExit;
 
       virtual void execute(const DoorOpen& open) = 0;
       virtual void execute(const DoorClose& close) = 0;
@@ -451,6 +601,10 @@ public:
       virtual void execute(const LiftMove& move) = 0;
       virtual void execute(const Dock& dock) = 0;
       virtual void execute(const Wait& wait) = 0;
+      virtual void execute(const ZonePreEntry& zone) = 0;
+      virtual void execute(const ZonePostEntry& zone) = 0;
+      virtual void execute(const ZonePreExit& zone) = 0;
+      virtual void execute(const ZonePostExit& zone) = 0;
 
       virtual ~Executor() = default;
     };
@@ -489,6 +643,10 @@ public:
       static EventPtr make(LiftDoorOpen open);
       static EventPtr make(Dock dock);
       static EventPtr make(Wait wait);
+      static EventPtr make(ZonePreEntry zone);
+      static EventPtr make(ZonePostEntry zone);
+      static EventPtr make(ZonePreExit zone);
+      static EventPtr make(ZonePostExit zone);
     };
 
 
@@ -698,6 +856,17 @@ public:
 
   /// const-qualified lane_from()
   const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
+
+  /// Add a known zone to the graph. If this zone has the same name as one
+  /// previously added, we will continue to use the same pointer as the original
+  /// and override the properties because zone names are expected to be unique.
+  ZonePropertiesPtr set_known_zone(ZoneProperties zone);
+
+  /// Get all the known zones.
+  std::vector<ZonePropertiesPtr> all_known_zones() const;
+
+  /// Find a known zone based on its name.
+  ZonePropertiesPtr find_known_zone(const std::string& name) const;
 
   /// Add a known lift to the graph. If this lift has the same name as one
   /// previously added, we will continue to use the same pointer as the original
