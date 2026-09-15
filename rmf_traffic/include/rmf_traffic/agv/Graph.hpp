@@ -112,7 +112,6 @@ public:
   class ZoneProperties
   {
   public:
-
     /// Internal vertex within a zone that connects to external vertices 
     /// outside of the zone through lanes. It can be grouped together
     /// with other internal vertices in the same zone, and set with 
@@ -120,7 +119,6 @@ public:
     class InternalVertex
     {
     public:
-
       /// Get the name of this internal vertex.
       const std::string& name() const;
 
@@ -141,9 +139,6 @@ public:
       InternalVertex();
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
-
-    /// Add an internal vertex to this zone.
-    InternalVertex& add_internal_vertex(std::string vertex_name);
 
     /// Get the internal vertex with the given name. If no such vertex exists, 
     /// then a nullptr will be returned.
@@ -249,8 +244,7 @@ public:
     /// the properties of the zone. Otherwise this will be a nullptr.
     ZonePropertiesPtr in_zone() const;
 
-    /// Set the properties of the zone that the waypoint is inside of, or
-    /// provide a nullptr if it is not inside a zone.
+    /// Set the properties of the zone that the waypoint is inside of.
     Waypoint& set_in_zone(ZonePropertiesPtr properties);
 
     /// The index of this waypoint within the Graph. This cannot be changed

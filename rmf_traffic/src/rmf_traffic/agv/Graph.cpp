@@ -113,6 +113,169 @@ Graph::LiftProperties::LiftProperties(
 }
 
 //==============================================================================
+class Graph::ZoneProperties::InternalVertex::Implementation
+{
+public:
+
+  std::string name;
+  std::string group_name;
+  uint8_t priority;
+
+  template<typename... Args>
+  static InternalVertex make(Args&& ... args)
+  {
+    InternalVertex internal_vertex;
+    internal_vertex._pimpl = rmf_utils::make_impl<Implementation>(
+      Implementation{std::forward<Args>(args)...});
+
+    return internal_vertex;
+  }
+};
+
+//==============================================================================
+Graph::ZoneProperties::InternalVertex::InternalVertex()
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::string& Graph::ZoneProperties::InternalVertex::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+auto Graph::ZoneProperties::InternalVertex::set_group_name(std::string group_name) -> InternalVertex&
+{
+  _pimpl->group_name = std::move(group_name);
+  return *this;
+}
+
+//==============================================================================
+const std::string& Graph::ZoneProperties::InternalVertex::get_group_name() const
+{
+  return _pimpl->group_name;
+}
+
+//==============================================================================
+auto Graph::ZoneProperties::InternalVertex::set_priority(uint8_t priority) -> InternalVertex&
+{
+  _pimpl->priority = priority;
+  return *this;
+}
+
+//==============================================================================
+uint8_t Graph::ZoneProperties::InternalVertex::get_priority() const
+{
+  return _pimpl->priority;
+}
+
+//==============================================================================
+class Graph::ZoneProperties::Implementation
+{
+public:
+  std::string name;
+  std::string map;
+  std::string type;
+  Eigen::Vector2d location;
+  double orientation;
+  Eigen::Vector2d dimensions;
+  
+  std::unordered_map<std::string, InternalVertex> internal_vertices;
+
+  template<typename... Args>
+  static ZoneProperties make(Args&& ... args)
+  {
+    return ZoneProperties{std::forward<Args>(args)...};
+  }
+
+  static ZoneProperties::Implementation& get(ZoneProperties& zone)
+  {
+    return *zone._pimpl;
+  }
+};
+
+//==============================================================================
+auto Graph::ZoneProperties::find_internal_vertex(const std::string& vertex_name) -> Graph::ZoneProperties::InternalVertex*
+{
+  const auto it = _pimpl->internal_vertices.find(vertex_name);
+  if (it == _pimpl->internal_vertices.end())
+    return nullptr;
+
+  return &it->second;
+}
+
+//==============================================================================
+const std::string& Graph::ZoneProperties::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+const std::string& Graph::ZoneProperties::map() const
+{
+  return _pimpl->map;
+}
+
+//==============================================================================
+const std::string& Graph::ZoneProperties::type() const
+{
+  return _pimpl->type;
+}
+
+//==============================================================================
+const Eigen::Vector2d& Graph::ZoneProperties::location() const
+{
+  return _pimpl->location;
+}
+
+//==============================================================================
+const double& Graph::ZoneProperties::orientation() const
+{
+  return _pimpl->orientation;
+}
+
+//==============================================================================
+const Eigen::Vector2d& Graph::ZoneProperties::dimensions() const
+{
+  return _pimpl->dimensions;
+}
+
+//==============================================================================
+auto Graph::ZoneProperties::internal_vertices() const -> std::vector<Graph::ZoneProperties::InternalVertex>
+{
+  std::vector<Graph::ZoneProperties::InternalVertex> ivs;
+  ivs.reserve(_pimpl->internal_vertices.size());
+  for (const auto& [_, iv] : _pimpl->internal_vertices)
+  {
+    ivs.push_back(iv);
+  }
+
+  return ivs;
+}
+
+//==============================================================================
+Graph::ZoneProperties::ZoneProperties(
+  std::string name,
+  std::string map,
+  std::string type,
+  Eigen::Vector2d location,
+  double orientation,
+  Eigen::Vector2d dimensions)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation {
+        std::move(name),
+        std::move(map),
+        std::move(type),
+        location,
+        orientation,
+        dimensions
+      }))
+{
+  // Do nothing
+}
+
+//==============================================================================
 class Graph::DoorProperties::Implementation
 {
 public:
@@ -379,7 +542,18 @@ auto Graph::Waypoint::in_zone() const -> ZonePropertiesPtr
 //==============================================================================
 auto Graph::Waypoint::set_in_zone(ZonePropertiesPtr zone) -> Waypoint&
 {
-  _pimpl->in_zone = zone;
+  if (!_pimpl->name)
+    throw std::runtime_error(
+      "Waypoint cannot be set in zone [" + zone->name() + "] "
+      "because it has no name. Assign a key first.");
+
+  auto& zone_impl = ZoneProperties::Implementation::get(*zone);
+  zone_impl.internal_vertices.insert_or_assign(
+    _pimpl->name.value(),
+    ZoneProperties::InternalVertex::Implementation::make(
+      _pimpl->name.value(), "", uint8_t(0)));
+
+  _pimpl->in_zone = std::move(zone);
   return *this;
 }
 
@@ -1126,174 +1300,6 @@ std::size_t Graph::Lane::index() const
 
 //==============================================================================
 Graph::Lane::Lane()
-{
-  // Do nothing
-}
-
-//==============================================================================
-class Graph::ZoneProperties::InternalVertex::Implementation
-{
-public:
-
-  std::string name;
-  std::string group_name;
-  uint8_t priority;
-
-  template<typename... Args>
-  static InternalVertex make(Args&& ... args)
-  {
-    InternalVertex internal_vertex;
-    internal_vertex._pimpl = rmf_utils::make_impl<Implementation>(
-      Implementation{std::forward<Args>(args)...});
-
-    return internal_vertex;
-  }
-};
-
-//==============================================================================
-Graph::ZoneProperties::InternalVertex::InternalVertex()
-{
-  // Do nothing
-}
-
-//==============================================================================
-const std::string& Graph::ZoneProperties::InternalVertex::name() const
-{
-  return _pimpl->name;
-}
-
-//==============================================================================
-auto Graph::ZoneProperties::InternalVertex::set_group_name(std::string group_name) -> InternalVertex&
-{
-  _pimpl->group_name = std::move(group_name);
-  return *this;
-}
-
-//==============================================================================
-const std::string& Graph::ZoneProperties::InternalVertex::get_group_name() const
-{
-  return _pimpl->group_name;
-}
-
-//==============================================================================
-auto Graph::ZoneProperties::InternalVertex::set_priority(uint8_t priority) -> InternalVertex&
-{
-  _pimpl->priority = priority;
-  return *this;
-}
-
-//==============================================================================
-uint8_t Graph::ZoneProperties::InternalVertex::get_priority() const
-{
-  return _pimpl->priority;
-}
-
-//==============================================================================
-class Graph::ZoneProperties::Implementation
-{
-public:
-  std::string name;
-  std::string map;
-  std::string type;
-  Eigen::Vector2d location;
-  double orientation;
-  Eigen::Vector2d dimensions;
-  
-  std::unordered_map<std::string, InternalVertex> internal_vertices;
-
-  template<typename... Args>
-  static ZoneProperties make(Args&& ... args)
-  {
-    return ZoneProperties{std::forward<Args>(args)...};
-  }
-};
-
-//==============================================================================
-auto Graph::ZoneProperties::add_internal_vertex(std::string vertex_name) -> Graph::ZoneProperties::InternalVertex&
-{
-  auto [iv_it, inserted] = _pimpl->internal_vertices.insert_or_assign(
-    vertex_name, InternalVertex::Implementation::make(
-      vertex_name, "", uint8_t(0)));
-
-  return iv_it->second;
-}
-
-//==============================================================================
-auto Graph::ZoneProperties::find_internal_vertex(const std::string& vertex_name) -> Graph::ZoneProperties::InternalVertex*
-{
-  const auto it = _pimpl->internal_vertices.find(vertex_name);
-  if (it == _pimpl->internal_vertices.end())
-    return nullptr;
-
-  return &it->second;
-}
-
-//==============================================================================
-const std::string& Graph::ZoneProperties::name() const
-{
-  return _pimpl->name;
-}
-
-//==============================================================================
-const std::string& Graph::ZoneProperties::map() const
-{
-  return _pimpl->map;
-}
-
-//==============================================================================
-const std::string& Graph::ZoneProperties::type() const
-{
-  return _pimpl->type;
-}
-
-//==============================================================================
-const Eigen::Vector2d& Graph::ZoneProperties::location() const
-{
-  return _pimpl->location;
-}
-
-//==============================================================================
-const double& Graph::ZoneProperties::orientation() const
-{
-  return _pimpl->orientation;
-}
-
-//==============================================================================
-const Eigen::Vector2d& Graph::ZoneProperties::dimensions() const
-{
-  return _pimpl->dimensions;
-}
-
-//==============================================================================
-auto Graph::ZoneProperties::internal_vertices() const -> std::vector<Graph::ZoneProperties::InternalVertex>
-{
-  std::vector<Graph::ZoneProperties::InternalVertex> ivs;
-  ivs.reserve(_pimpl->internal_vertices.size());
-  for (const auto& [_, iv] : _pimpl->internal_vertices)
-  {
-    ivs.push_back(iv);
-  }
-
-  return ivs;
-}
-
-//==============================================================================
-Graph::ZoneProperties::ZoneProperties(
-  std::string name,
-  std::string map,
-  std::string type,
-  Eigen::Vector2d location,
-  double orientation,
-  Eigen::Vector2d dimensions)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation {
-        std::move(name),
-        std::move(map),
-        std::move(type),
-        location,
-        orientation,
-        dimensions
-      }))
 {
   // Do nothing
 }
