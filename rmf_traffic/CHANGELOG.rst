@@ -2,8 +2,8 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.8.1 (2026-09-22)
+------------------
 * Update version in CMakeLists.txt
 * Contributors: Michael X. Grey
 
