@@ -2,6 +2,11 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Update version in CMakeLists.txt
+* Contributors: Michael X. Grey
+
 3.8.0 (2026-06-15)
 ------------------
 * Update CI to be consistent with other Open-RMF packages (`#135 <https://github.com/open-rmf/rmf_traffic/issues/135>`_)
