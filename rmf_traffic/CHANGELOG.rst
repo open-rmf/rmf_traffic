@@ -2,6 +2,9 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.9.0 (2026-09-24)
+------------------
+
 3.8.0 (2026-06-15)
 ------------------
 * Update CI to be consistent with other Open-RMF packages (`#135 <https://github.com/open-rmf/rmf_traffic/issues/135>`_)
