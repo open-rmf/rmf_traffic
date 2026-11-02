@@ -46,6 +46,7 @@
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 #include "fcl/export.h"
+#include <cassert>
 
 namespace fcl
 {
