@@ -17,6 +17,7 @@
 
 #include "geometry.hpp"
 
+#include <cassert>
 #include <cmath>
 
 namespace rmf_traffic {
