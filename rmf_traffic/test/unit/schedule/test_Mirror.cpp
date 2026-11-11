@@ -783,3 +783,74 @@ SCENARIO("Test forking off of mirrors")
   // the mirror is out of sync? How would their changesets be impacted?
 }
 
+
+SCENARIO("Mirror erases a route that was delayed repeatedly and then cleared")
+{
+  rmf_traffic::schedule::Database db;
+  const auto query_all = rmf_traffic::schedule::query_all();
+
+  const auto shape = rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Box>(1.0, 1.0);
+  const rmf_traffic::Profile profile{shape};
+
+  const auto p1 = db.register_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "test_participant_1",
+      "test_Mirror",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    });
+  rmf_traffic::schedule::ItineraryVersion iv = 0;
+  rmf_traffic::PlanId plan = 0;
+
+  const rmf_traffic::Time time = std::chrono::steady_clock::now();
+  rmf_traffic::Trajectory t1;
+  t1.insert(time, Eigen::Vector3d{-5, 0, 0}, Eigen::Vector3d{0, 0, 0});
+  t1.insert(time + 10s, Eigen::Vector3d{5, 0, 0}, Eigen::Vector3d{0, 0, 0});
+
+  db.set(p1.id(), plan++, create_test_input(t1), 0, iv++);
+
+  rmf_traffic::schedule::Mirror mirror;
+  CHECK(mirror.update(db.changes(query_all, rmf_utils::nullopt)));
+  rmf_traffic::schedule::ParticipantDescriptionsMap descriptions;
+  descriptions.insert_or_assign(p1.id(), *db.get_participant(p1.id()));
+  mirror.update_participants_info(descriptions);
+  CHECK_TRAJECTORY_COUNT(mirror, 1, 1);
+
+  WHEN("The route is delayed twice and then replaced by a new plan before the "
+    "mirror updates")
+  {
+    rmf_traffic::Trajectory t2;
+    t2.insert(time + 20s, Eigen::Vector3d{0, -5, 0}, Eigen::Vector3d{0, 0, 0});
+    t2.insert(time + 30s, Eigen::Vector3d{0, 5, 0}, Eigen::Vector3d{0, 0, 0});
+
+    db.delay(p1.id(), 1s, iv++);
+    db.delay(p1.id(), 2s, iv++);
+    db.set(
+      p1.id(), plan++, create_test_input(t2),
+      db.next_storage_base(p1.id()), iv++);
+    CHECK_TRAJECTORY_COUNT(db, 1, 1);
+
+    THEN("Updating the mirror leaves only the new route")
+    {
+      CHECK(mirror.update(db.changes(query_all, mirror.latest_version())));
+      CHECK(mirror.latest_version() == db.latest_version());
+      CHECK_TRAJECTORY_COUNT(mirror, 1, 1);
+    }
+  }
+
+  WHEN("The route is delayed twice and then cleared before the mirror updates")
+  {
+    db.delay(p1.id(), 1s, iv++);
+    db.delay(p1.id(), 2s, iv++);
+    db.clear(p1.id(), iv++);
+    CHECK_TRAJECTORY_COUNT(db, 1, 0);
+
+    THEN("Updating the mirror removes the route")
+    {
+      CHECK(mirror.update(db.changes(query_all, mirror.latest_version())));
+      CHECK(mirror.latest_version() == db.latest_version());
+      CHECK_TRAJECTORY_COUNT(mirror, 1, 0);
+    }
+  }
+}
