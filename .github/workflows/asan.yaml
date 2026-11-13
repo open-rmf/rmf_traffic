@@ -3,13 +3,22 @@ on:
   pull_request:
   schedule:
     - cron: '42 0 * * *'
+  workflow_dispatch:
+    inputs:
+      ros_distribution:
+        description: 'ROS distribution to build (empty = default matrix; options: https://github.com/open-rmf/rmf_ci_templates/blob/main/.github/workflows/reusable_build.yaml)'
+        type: string
+      repos_branch_override:
+        description: 'Branch of open-rmf/rmf for rmf.repos (auto = match ros_distribution)'
+        type: string
+        default: 'main'
 
 jobs:
   asan:
     name: Address Santization
-    uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_asan.yaml@main
+    uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_build.yaml@main
     with:
       packages: rmf_traffic
-      dist-matrix: |
-        [{"ros_distribution": "lyrical",
-          "ubuntu_distribution": "resolute"}]
+      ros-distribution: ${{ inputs.ros_distribution || '' }}
+      mixin: asan
+      repos-branch-override: ${{ inputs.repos_branch_override || 'main' }}
