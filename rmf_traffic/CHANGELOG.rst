@@ -2,8 +2,8 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.10.0 (2026-11-13)
+-------------------
 * Fix missing <cassert> includes in geometry and vendored FCL (`#140 <https://github.com/open-rmf/rmf_traffic/issues/140>`_)
 * Add zone properties and zone lane events for GoToZone feature (`#133 <https://github.com/open-rmf/rmf_traffic/issues/133>`_)
   Co-authored-by: Loke Ji Xian <loke_ji_xian@cgh.com.sg>

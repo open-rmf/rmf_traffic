@@ -2,8 +2,8 @@
 Changelog for package rmf_traffic_examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.10.0 (2026-11-13)
+-------------------
 * bump cmake versions (`#139 <https://github.com/open-rmf/rmf_traffic/issues/139>`_)
 * Contributors: Aaron Chong
 
