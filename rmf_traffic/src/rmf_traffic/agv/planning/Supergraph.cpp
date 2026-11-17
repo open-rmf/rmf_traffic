@@ -82,9 +82,7 @@ struct TraversalNode
 
   std::string mutex_group;
 
-  // TODO(MXG): Replace this with a more intelligent way of handling speed limit
-  // changes that may occur when traversing multiple consecutive lanes
-  std::optional<double> lowest_speed_limit;
+  std::vector<internal::TranslationSegment> segments;
 
   // TODO(MXG): Can std::string_view be used to make this more memory efficient?
   std::vector<std::string> map_names;
@@ -192,17 +190,10 @@ void node_to_traversals(
         (finish.block<2, 1>(0, 0) - start.block<2, 1>(0, 0)).norm();
     }
 
-    auto kin_limits = kin.limits;
-    if (node.lowest_speed_limit.has_value())
-    {
-      kin_limits.linear.velocity =
-        std::min(kin_limits.linear.velocity, *node.lowest_speed_limit);
-    }
-
     Traversal::Alternative alternative;
     alternative.yaw = *yaw;
     auto factory_info = make_differential_drive_translate_factory(
-      start, finish, kin_limits,
+      start, finish, node.segments, kin.limits,
       kin.interpolate.translation_thresh,
       kin.interpolate.rotation_thresh,
       kin.traversal_cost_per_meter,
@@ -300,7 +291,6 @@ void perform_traversal(
   node.finish_lane_index = lane_index;
   node.initial_waypoint_index = wp_index_0;
   node.finish_waypoint_index = wp_index_1;
-  node.lowest_speed_limit = lane.properties().speed_limit();
   node.mutex_group = lane.properties().in_mutex_group();
 
   if (parent)
@@ -342,19 +332,7 @@ void perform_traversal(
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
     node.traversed_lanes = parent->traversed_lanes;
-
-    if (parent->lowest_speed_limit.has_value())
-    {
-      if (node.lowest_speed_limit.has_value())
-      {
-        node.lowest_speed_limit =
-          std::min(*node.lowest_speed_limit, *parent->lowest_speed_limit);
-      }
-      else
-      {
-        node.lowest_speed_limit = parent->lowest_speed_limit;
-      }
-    }
+    node.segments = parent->segments;
 
     if (parent->entry_event)
       node.entry_event = parent->entry_event->clone();
@@ -375,6 +353,12 @@ void perform_traversal(
   add_if_missing(node.map_names, wp1.get_map_name());
 
   const double dist = (p1 - p0).norm();
+  if (dist >= kin.interpolate.translation_thresh)
+  {
+    const double v_nom = kin.limits.linear.velocity;
+    const auto limit = lane.properties().speed_limit();
+    node.segments.push_back({dist, limit ? std::min(v_nom, *limit) : v_nom});
+  }
   if (!kin.constraint.has_value() || dist < kin.interpolate.translation_thresh)
   {
     if (!parent)

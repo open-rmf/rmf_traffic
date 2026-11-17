@@ -69,6 +69,13 @@ bool can_skip_interpolation(
   const Interpolate::Options::Implementation& options);
 
 //==============================================================================
+struct TranslationSegment
+{
+  double length;
+  double v_max;
+};
+
+//==============================================================================
 void interpolate_translation(
   Trajectory& trajectory,
   const double v_nom,
@@ -76,6 +83,16 @@ void interpolate_translation(
   const Time start_time,
   const Eigen::Vector3d& start,
   const Eigen::Vector3d& finish,
+  const double threshold);
+
+//==============================================================================
+void interpolate_translation(
+  Trajectory& trajectory,
+  const double a_nom,
+  const Time start_time,
+  const Eigen::Vector3d& start,
+  const Eigen::Vector3d& finish,
+  const std::vector<TranslationSegment>& segments,
   const double threshold);
 
 //==============================================================================
