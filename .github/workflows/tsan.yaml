@@ -11,7 +11,7 @@ on:
       repos_branch_override:
         description: 'Branch of open-rmf/rmf for rmf.repos (auto = match ros_distribution)'
         type: string
-        default: 'main'
+        default: 'auto'
 
 jobs:
   tsan:
@@ -19,6 +19,7 @@ jobs:
     uses: open-rmf/rmf_ci_templates/.github/workflows/reusable_build.yaml@main
     with:
       packages: rmf_traffic
+      dist-matrix: '[{"ros_distribution": "lyrical"}]'
       ros-distribution: ${{ inputs.ros_distribution || '' }}
       mixin: tsan
-      repos-branch-override: ${{ inputs.repos_branch_override || 'main' }}
+      repos-branch-override: ${{ inputs.repos_branch_override || 'auto' }}
