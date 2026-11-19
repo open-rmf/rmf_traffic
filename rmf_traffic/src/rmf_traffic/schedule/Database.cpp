@@ -89,6 +89,10 @@ public:
     TransitionPtr transition;
     std::weak_ptr<RouteEntry> successor;
 
+    // Version where this route was first inserted;
+    // kept after the chain is truncated.
+    Version first_version;
+
     RouteEntry(
       ConstRoutePtr route_,
       ParticipantId participant_,
@@ -111,7 +115,9 @@ public:
       transition(std::move(transition_)),
       successor(std::move(successor_))
     {
-      // Do nothing
+      first_version = schedule_version;
+      if (transition && transition->predecessor.entry)
+        first_version = transition->predecessor.entry->first_version;
     }
   };
 
@@ -1034,9 +1040,18 @@ public:
     while (from && rmf_utils::modular(_after).less_than(from->schedule_version))
     {
       if (from->transition)
+      {
         from = from->transition->predecessor.entry.get();
+      }
       else
+      {
+        // The chain may have been truncated by clear(); if the mirror saw the
+        // route's first version, it still holds the route and must erase it.
+        if (!rmf_utils::modular(_after).less_than(from->first_version))
+          return from;
+
         return nullptr;
+      }
     }
 
     while (const auto successor = from->successor.lock())
