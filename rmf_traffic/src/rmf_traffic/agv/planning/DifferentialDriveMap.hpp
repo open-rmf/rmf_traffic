@@ -21,6 +21,7 @@
 #include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/agv/Graph.hpp>
 
+#include "../internal_Interpolate.hpp"
 #include "../internal_VehicleTraits.hpp"
 
 #include <memory>
@@ -318,6 +319,7 @@ struct FactoryInfo
 //==============================================================================
 FactoryInfo make_differential_drive_translate_factory(Eigen::Vector3d start,
   Eigen::Vector3d finish,
+  std::vector<internal::TranslationSegment> segments,
   KinematicLimits limits,
   double translation_thresh,
   double rotation_thresh, double traversal_cost_per_meter,

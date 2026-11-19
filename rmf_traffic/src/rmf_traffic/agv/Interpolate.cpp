@@ -21,6 +21,8 @@
 
 #include <rmf_utils/math.hpp>
 
+#include <algorithm>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -118,6 +120,117 @@ void interpolate_translation(
     const Eigen::Vector3d p{p_s[0], p_s[1], heading};
     const Eigen::Vector3d v{v_s[0], v_s[1], 0.0};
     trajectory.insert(state.t, p, v);
+  }
+}
+
+//==============================================================================
+void interpolate_translation(
+  Trajectory& trajectory,
+  const double a_nom,
+  const Time start_time,
+  const Eigen::Vector3d& start,
+  const Eigen::Vector3d& finish,
+  const std::vector<TranslationSegment>& segments,
+  const double threshold)
+{
+  const double eps = 1e-6;
+
+  std::vector<TranslationSegment> merged;
+  merged.reserve(segments.size());
+  double seg_sum = 0.0;
+  for (const auto& seg : segments)
+  {
+    if (seg.length < threshold)
+      continue;
+
+    seg_sum += seg.length;
+    if (!merged.empty() && std::abs(merged.back().v_max - seg.v_max) <= eps)
+      merged.back().length += seg.length;
+    else
+      merged.push_back(seg);
+  }
+
+  if (merged.empty())
+    return;
+
+  if (merged.size() == 1)
+  {
+    interpolate_translation(
+      trajectory, merged.front().v_max, a_nom,
+      start_time, start, finish, threshold);
+    return;
+  }
+
+  const double heading = start[2];
+  const Eigen::Vector2d start_p = start.block<2, 1>(0, 0);
+  const Eigen::Vector2d finish_p = finish.block<2, 1>(0, 0);
+  const Eigen::Vector2d diff_p = finish_p - start_p;
+  const double dist = diff_p.norm();
+  if (dist < threshold)
+    return;
+
+  const Eigen::Vector2d dir = diff_p/dist;
+  const double scale = dist/seg_sum;
+  const std::size_t n_segs = merged.size();
+  std::vector<double> s_knots(n_segs + 1, 0.0);
+  for (std::size_t i = 0; i < n_segs; ++i)
+    s_knots[i + 1] = s_knots[i] + merged[i].length*scale;
+  s_knots[n_segs] = dist;
+
+  std::vector<double> v_knot(n_segs + 1, 0.0);
+  for (std::size_t k = 1; k < n_segs; ++k)
+    v_knot[k] = std::min(merged[k - 1].v_max, merged[k].v_max);
+
+  // Forward (accel) and backward (decel) passes for feasible knot speeds
+  for (std::size_t k = 0; k < n_segs; ++k)
+  {
+    const double L = s_knots[k + 1] - s_knots[k];
+    v_knot[k + 1] = std::min(
+      v_knot[k + 1], std::sqrt(v_knot[k]*v_knot[k] + 2.0*a_nom*L));
+  }
+  for (std::size_t k = n_segs; k > 0; --k)
+  {
+    const double L = s_knots[k] - s_knots[k - 1];
+    v_knot[k - 1] = std::min(
+      v_knot[k - 1], std::sqrt(v_knot[k]*v_knot[k] + 2.0*a_nom*L));
+  }
+
+  double elapsed = 0.0;
+  auto emit_phase = [&](double dt, double s_end, double v_end)
+  {
+    if (dt <= eps)
+      return;
+
+    elapsed += dt;
+    const State state(s_end, v_end, elapsed, start_time);
+    const Eigen::Vector2d p_s = dir * state.s + start_p;
+    const Eigen::Vector2d v_s = dir * state.v;
+    const Eigen::Vector3d p{p_s[0], p_s[1], heading};
+    const Eigen::Vector3d v{v_s[0], v_s[1], 0.0};
+    trajectory.insert(state.t, p, v);
+  };
+
+  for (std::size_t i = 0; i < n_segs; ++i)
+  {
+    const double s0 = s_knots[i];
+    const double sf = s_knots[i + 1];
+    const double L = sf - s0;
+    const double v0 = v_knot[i];
+    const double vf = v_knot[i + 1];
+    const double v_peak = std::clamp(
+      std::sqrt(a_nom*L + 0.5*(v0*v0 + vf*vf)),
+      std::max(v0, vf), merged[i].v_max);
+
+    const double dt_a = (v_peak - v0)/a_nom;
+    const double ds_a = 0.5*(v0 + v_peak)*dt_a;
+    const double dt_d = (v_peak - vf)/a_nom;
+    const double ds_d = 0.5*(v_peak + vf)*dt_d;
+    const double ds_c = std::max(0.0, L - ds_a - ds_d);
+    const double dt_c = v_peak > eps ? ds_c/v_peak : 0.0;
+
+    emit_phase(dt_a, s0 + ds_a, v_peak);
+    emit_phase(dt_c, s0 + ds_a + ds_c, v_peak);
+    emit_phase(dt_d, sf, vf);
   }
 }
 
@@ -475,6 +588,19 @@ TimeVelocity interpolate_time_along_quadratic_straight_line(
     const double s0 = n.dot(wp0.position().block<2, 1>(0, 0) - p0);
     const double v0 = n.dot(wp0.velocity().block<2, 1>(0, 0));
     const double sf = n.dot(wp1.position().block<2, 1>(0, 0) - p0);
+    if (sf > s0)
+    {
+      if (std::abs(s - s0) <= 1e-6)
+      {
+        return {wp0.time(), wp0.velocity().block<2, 1>(0, 0)};
+      }
+
+      if (std::abs(s - sf) <= 1e-6)
+      {
+        return {wp1.time(), wp1.velocity().block<2, 1>(0, 0)};
+      }
+    }
+
     const double t0 = time::to_seconds(wp0.time().time_since_epoch());
     const double tau_f = time::to_seconds(wp1.time().time_since_epoch()) - t0;
 

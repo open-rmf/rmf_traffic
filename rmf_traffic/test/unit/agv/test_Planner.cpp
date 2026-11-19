@@ -19,6 +19,7 @@
 #include <rmf_traffic/schedule/Database.hpp>
 
 #include <rmf_traffic/DetectConflict.hpp>
+#include <rmf_traffic/Motion.hpp>
 
 #include <rmf_utils/catch.hpp>
 #include <rmf_utils/math.hpp>
@@ -3827,6 +3828,106 @@ SCENARIO("Test speed limits")
     CHECK(used_lanes.count(1));
     CHECK(used_lanes.count(2));
     CHECK_FALSE(used_lanes.count(0));
+  }
+}
+
+SCENARIO("Test per-lane speed limits")
+{
+  const rmf_traffic::Time t0 = rmf_traffic::Time(rmf_traffic::Duration(0));
+
+  auto plan_corridor = [t0](
+    const std::vector<double>& xs,
+    const std::vector<std::optional<double>>& caps,
+    const double a_nom = 0.5)
+  {
+    const rmf_traffic::agv::VehicleTraits traits{
+      {1.0, a_nom}, {1.0, 0.5}, create_test_profile(UnitCircle)};
+    rmf_traffic::agv::Graph graph;
+    for (const double x : xs)
+      graph.add_waypoint("test_map", {x, 0.0});
+    for (std::size_t i = 0; i + 1 < xs.size(); ++i)
+    {
+      auto& lane = graph.add_lane(i, i + 1);
+      if (caps[i].has_value())
+        lane.properties().speed_limit(*caps[i]);
+    }
+    rmf_traffic::agv::Planner planner{
+      {graph, traits}, rmf_traffic::agv::Planner::Options{nullptr}};
+    return planner.plan({t0, 0, 0.0}, xs.size() - 1);
+  };
+
+  auto check_profile = [t0](
+    const rmf_traffic::Trajectory& traj,
+    const std::vector<std::pair<double, double>>& bounds_and_caps,
+    const double a_max)
+  {
+    const auto motion = rmf_traffic::Motion::compute_cubic_splines(traj);
+    const double dur = rmf_traffic::time::to_seconds(traj.duration());
+    for (std::size_t k = 0; k <= 400; ++k)
+    {
+      const auto t = t0 + rmf_traffic::time::from_seconds(dur * k / 400.0);
+      const double x = motion->compute_position(t).x();
+      const auto vel = motion->compute_velocity(t);
+      CHECK(vel.x() >= -1e-6);
+      CHECK(motion->compute_acceleration(t).block<2, 1>(0, 0).norm() <=
+        a_max + 1e-4);
+      for (const auto& [x_end, v_cap] : bounds_and_caps)
+      {
+        if (x <= x_end - 1e-5)
+        {
+          CHECK(vel.block<2, 1>(0, 0).norm() <= v_cap + 1e-5);
+          break;
+        }
+      }
+    }
+  };
+
+  WHEN("Short fast-slow-fast corridor")
+  {
+    const auto res = plan_corridor(
+      {0.0, 1.0, 2.0, 3.0}, {std::nullopt, 0.3, std::nullopt}, 0.3);
+    REQUIRE(res.success());
+    CHECK(res->get_waypoints().size() == 2);
+    const auto& traj = res->get_itinerary().front().trajectory();
+    CHECK(rmf_traffic::time::to_seconds(traj.duration()) ==
+      Approx(9.164893).margin(1e-3));
+    CHECK(traj[1].velocity().x() > 0.5);
+    check_profile(traj, {{1.0, 1.0}, {2.0, 0.3}, {3.0, 1.0}}, 0.3);
+  }
+
+  WHEN("Long fast-slow-fast corridor")
+  {
+    const auto res = plan_corridor({0.0, 5.0, 10.0, 15.0}, {1.0, 0.3, 1.0});
+    REQUIRE(res.success());
+    CHECK(res->get_waypoints().size() == 2);
+    CHECK(res->get_waypoints().back().approach_lanes() ==
+      std::vector<std::size_t>{0, 1, 2});
+    const auto& traj = res->get_itinerary().front().trajectory();
+    for (std::size_t i = 1; i + 1 < traj.size(); ++i)
+      CHECK(traj[i].velocity().x() >= 0.3 - 1e-6);
+    CHECK(rmf_traffic::time::to_seconds(traj.duration()) ==
+      Approx(29.646667).margin(1e-3));
+    check_profile(traj, {{5.0, 1.0}, {10.0, 0.3}, {15.0, 1.0}}, 0.5);
+  }
+
+  WHEN("Braking spans across a short intermediate lane")
+  {
+    const auto res = plan_corridor({0.0, 10.0, 10.2, 15.2}, {1.0, 0.8, 0.1});
+    REQUIRE(res.success());
+    CHECK(res->get_waypoints().size() == 2);
+    const auto& traj = res->get_itinerary().front().trajectory();
+    check_profile(traj, {{10.0, 1.0}, {10.2, 0.8}, {15.2, 0.1}}, 0.5);
+  }
+
+  WHEN("All lanes share a single speed limit")
+  {
+    const auto multi = plan_corridor({0.0, 5.0, 10.0, 15.0}, {0.3, 0.3, 0.3});
+    const auto single = plan_corridor({0.0, 15.0}, {0.3});
+    REQUIRE(multi.success());
+    REQUIRE(single.success());
+    CHECK(multi->get_cost() == Approx(single->get_cost()).margin(1e-9));
+    CHECK(multi->get_itinerary().front().trajectory().duration() ==
+      single->get_itinerary().front().trajectory().duration());
   }
 }
 

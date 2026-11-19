@@ -44,6 +44,7 @@ DifferentialDriveMapTypes::RouteInfo::RouteInfo(
 FactoryInfo make_differential_drive_translate_factory(
   Eigen::Vector3d start,
   Eigen::Vector3d finish,
+  std::vector<internal::TranslationSegment> segments,
   KinematicLimits limits,
   double translation_thresh,
   double rotation_thresh,
@@ -54,8 +55,8 @@ FactoryInfo make_differential_drive_translate_factory(
   Trajectory trajectory;
   trajectory.insert(dummy_start_time, start, Eigen::Vector3d::Zero());
   internal::interpolate_translation(
-    trajectory, limits.linear.velocity, limits.linear.acceleration,
-    dummy_start_time, start, finish, translation_thresh);
+    trajectory, limits.linear.acceleration,
+    dummy_start_time, start, finish, segments, translation_thresh);
 
   const double minimal_cost =
     calculate_cost(trajectory, traversal_cost_per_meter);
@@ -63,6 +64,7 @@ FactoryInfo make_differential_drive_translate_factory(
   auto factory =
     [start,
       finish,
+      segments = std::move(segments),
       limits,
       translation_thresh,
       rotation_thresh,
@@ -81,8 +83,8 @@ FactoryInfo make_differential_drive_translate_factory(
         start_time, pre_start, start, rotation_thresh);
 
       internal::interpolate_translation(
-        trajectory, limits.linear.velocity, limits.linear.acceleration,
-        trajectory.back().time(), start, finish, translation_thresh);
+        trajectory, limits.linear.acceleration,
+        trajectory.back().time(), start, finish, segments, translation_thresh);
 
       std::vector<Route> routes;
       routes.reserve(maps.size());
